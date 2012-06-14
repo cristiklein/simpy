@@ -47,3 +47,24 @@ def test_process_result():
         assert result == 'oh noes, i am dead x_x'
 
     Simulation(root).simulate(until=20)
+
+def test_wait_for_all():
+    def root(ctx):
+        def pem(ctx, i):
+            yield ctx.wait(i)
+            ctx.exit(i)
+
+        # Fork many child processes and let them wait for a while. The first
+        # child waits the longest time.
+        processes = [ctx.fork(pem, i) for i in reversed(range(10))]
+
+        # Wait until all children have been terminated.
+        results = []
+        for process in processes:
+            results.append((yield ctx.wait(process)))
+        assert results == list(reversed(range(10)))
+
+        # The first child should have terminated at timestep 9. Confirm!
+        assert ctx.now == 9
+
+    Simulation(root).simulate(until=20)

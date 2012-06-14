@@ -26,7 +26,13 @@ class Context(object):
 
     def wait(self, until, value=None):
         if type(until) is Context:
-            until.waiters.append(self)
+            if until.process is None:
+                # Process has already terminated. Resume as soon as possible.
+                # TODO See comment in the else block.
+                heappush(self.sim.events, (self.sim.now, self.id, self,
+                    lambda ctx: ctx.send(until.result)))
+            else:
+                until.waiters.append(self)
         elif value is None:
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
                 next))
@@ -79,6 +85,8 @@ class Simulation(object):
             func(ctx.process)
         except StopIteration:
             # Process has terminated.
+            ctx.process = None
+
             # Resume processes waiting on the current one.
             for waiter in ctx.waiters:
                 waiter.wait(0, ctx.result)
