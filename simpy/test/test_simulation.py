@@ -1,5 +1,3 @@
-from pytest import raises
-
 from simpy import Simulation, InterruptedException, Failure
 
 def test_simple_process():
@@ -99,10 +97,11 @@ def test_crashing_process():
         yield ctx.wait(1)
         raise RuntimeError("That's it, I'm done")
 
-    with raises(RuntimeError) as exc:
+    try:
         Simulation(root).simulate(until=20)
-
-        assert exc.value == "That's it, I'm done"
+        assert False, 'Fishy!! This is not supposed to happen!'
+    except RuntimeError as exc:
+        assert exc.args[0] == "That's it, I'm done"
 
 def test_crashing_child_process():
     def root(ctx):
@@ -110,12 +109,12 @@ def test_crashing_child_process():
             yield ctx.wait(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
-        with raises(Failure) as exc:
+        try:
             yield ctx.wait(ctx.fork(panic))
-
-            import traceback
-            traceback.print_exc()
-
-            assert exc.value == "That's it, I'm done"
+            assert False, "Hey, where's the roflcopter?"
+        except Failure as exc:
+            cause = exc.args[0]
+            assert type(cause) == RuntimeError
+            assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
     Simulation(root).simulate(until=20)
