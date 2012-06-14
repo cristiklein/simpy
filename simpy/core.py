@@ -1,5 +1,16 @@
 from heapq import heappush, heappop
 
+
+class InterruptedException(Exception):
+    pass
+
+
+def interrupt(cause):
+    def interrupt(process):
+        process.throw(InterruptedException(cause))
+    return interrupt
+
+
 class Context(object):
     def __init__(self, sim, pem, args, kwargs):
         self.sim = sim
@@ -12,10 +23,21 @@ class Context(object):
         return self.sim.now
 
     def wait(self, delta):
-        heappush(self.sim.events, (self.sim.now + delta, self.id, self))
+        heappush(self.sim.events, (self.sim.now + delta, self.id, self, next))
 
     def fork(self, pem, *args, **kwargs):
         return Context(self.sim, pem, args, kwargs)
+
+    def interrupt(self, cause=None):
+        # Cancel the currently scheduled event.
+        for idx in range(len(self.sim.events)):
+            if self.sim.events[idx][1] == self.id:
+                self.sim.events[idx] = (-1, self.id, self, None)
+                break
+
+        # Schedule interrupt.
+        heappush(self.sim.events, (self.sim.now, self.id, self,
+                interrupt(cause)))
 
 
 class Simulation(object):
@@ -31,9 +53,12 @@ class Simulation(object):
         return pid
 
     def step(self):
-        self.now, id, ctx = heappop(self.events)
+        while True:
+            self.now, id, ctx, func = heappop(self.events)
+            if self.now >= 0: break
+
         try:
-            next(ctx.process)
+            func(ctx.process)
         except StopIteration:
             pass
 
