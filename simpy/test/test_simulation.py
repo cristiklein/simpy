@@ -35,3 +35,14 @@ def test_wait_for_process():
         assert ctx.now == 10
 
     Simulation(root).simulate(until=20)
+
+def test_process_result():
+    def pem(ctx):
+        yield ctx.wait(10)
+        ctx.exit('oh noes, i am dead x_x')
+
+    def root(ctx):
+        result = yield ctx.wait(ctx.fork(pem))
+        assert result == 'oh noes, i am dead x_x'
+
+    Simulation(root).simulate(until=20)

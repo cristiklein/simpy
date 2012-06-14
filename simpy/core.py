@@ -17,18 +17,25 @@ class Context(object):
         self.id = self.sim._get_id()
         self.process = pem(self, *args, **kwargs)
         self.waiters = []
+        self.result = None
         next(self.process)
 
     @property
     def now(self):
         return self.sim.now
 
-    def wait(self, until):
+    def wait(self, until, value=None):
         if type(until) is Context:
             until.waiters.append(self)
-        else:
+        elif value is None:
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
                 next))
+        else:
+            # TODO I don't know if there are faster methods to call send on the
+            # generator. Maybe the overhead of this closure is too much. A
+            # functor or a function like interrupt should be examined.
+            heappush(self.sim.events, (self.sim.now + until, self.id, self,
+                lambda ctx: ctx.send(value)))
 
     def fork(self, pem, *args, **kwargs):
         return Context(self.sim, pem, args, kwargs)
@@ -43,6 +50,12 @@ class Context(object):
         # Schedule interrupt.
         heappush(self.sim.events, (self.sim.now, self.id, self,
                 interrupt(cause)))
+
+    def exit(self, result=None):
+        # TODO Check if this is the active context. This method must only be
+        # called from within the process pem.
+        self.result = result
+        raise StopIteration()
 
 
 class Simulation(object):
@@ -68,7 +81,7 @@ class Simulation(object):
             # Process has terminated.
             # Resume processes waiting on the current one.
             for waiter in ctx.waiters:
-                waiter.wait(0)
+                waiter.wait(0, ctx.result)
 
     def peek(self):
         return self.events[0][0]
