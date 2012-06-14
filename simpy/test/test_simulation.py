@@ -68,3 +68,26 @@ def test_wait_for_all():
         assert ctx.now == 9
 
     Simulation(root).simulate(until=20)
+
+def test_wait_for_any():
+    def root(ctx):
+        def pem(ctx, i):
+            yield ctx.wait(i)
+            ctx.exit(i)
+
+        # Fork many child processes and let them wait for a while. The first
+        # child waits the longest time.
+        processes = [ctx.fork(pem, i) for i in reversed(range(10))]
+
+        def wait_for_any(ctx, processes):
+            for process in processes:
+                ctx.wake(process)
+            result = yield ctx.wait()
+            ctx.exit(result)
+
+        # Wait until the a child has terminated.
+        result = yield ctx.wait(ctx.fork(wait_for_any, processes))
+        # Confirm that the child created at last has terminated as first.
+        assert result == 0
+
+    Simulation(root).simulate(until=20)

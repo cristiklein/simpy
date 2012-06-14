@@ -24,15 +24,26 @@ class Context(object):
     def now(self):
         return self.sim.now
 
-    def wait(self, until, value=None):
+    def wait(self, until=None, value=None):
+        # TODO This method is getting ugly. Maybe introduce separate functions
+        # for each case?
+        if self.process is None:
+            # TODO Should we raise an exception in this case. This happens for
+            # example if this process has registered to wake on the termination
+            # of another process, but has already terminated in the meanwhile.
+            return
+
         if type(until) is Context:
             if until.process is None:
                 # Process has already terminated. Resume as soon as possible.
                 # TODO See comment in the else block.
                 heappush(self.sim.events, (self.sim.now, self.id, self,
-                    lambda ctx: ctx.send(until.result)))
+                    lambda process: process.send(until.result)))
             else:
                 until.waiters.append(self)
+        elif until is None:
+            # Wait indefinitely. Don't do anything.
+            pass
         elif value is None:
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
                 next))
@@ -41,7 +52,11 @@ class Context(object):
             # generator. Maybe the overhead of this closure is too much. A
             # functor or a function like interrupt should be examined.
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
-                lambda ctx: ctx.send(value)))
+                lambda process: process.send(value)))
+
+    def wake(self, target):
+        """Interrupt this process, if the target terminates."""
+        target.waiters.append(self)
 
     def fork(self, pem, *args, **kwargs):
         return Context(self.sim, pem, args, kwargs)
