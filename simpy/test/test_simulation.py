@@ -41,6 +41,7 @@ def test_process_result():
         def pem(ctx):
             yield ctx.wait(10)
             ctx.exit('oh noes, i am dead x_x')
+            assert False, 'Hey, i am alive? How is that possible?'
 
         result = yield ctx.wait(ctx.fork(pem))
         assert result == 'oh noes, i am dead x_x'
