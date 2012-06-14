@@ -12,14 +12,14 @@ def test_simple_process():
     assert result == [0, 1, 2, 3]
 
 def test_interrupt():
-    def pem(ctx):
-        try:
-            yield ctx.wait(10)
-            raise RuntimeError('Expected an interrupt')
-        except InterruptedException:
-            pass
-
     def root(ctx):
+        def pem(ctx):
+            try:
+                yield ctx.wait(10)
+                raise RuntimeError('Expected an interrupt')
+            except InterruptedException:
+                pass
+
         process = ctx.fork(pem)
         yield ctx.wait(5)
         process.interrupt()
@@ -27,21 +27,21 @@ def test_interrupt():
     Simulation(root).simulate(until=20)
 
 def test_wait_for_process():
-    def pem(ctx):
-        yield ctx.wait(10)
-
     def root(ctx):
+        def pem(ctx):
+            yield ctx.wait(10)
+
         yield ctx.wait(ctx.fork(pem))
         assert ctx.now == 10
 
     Simulation(root).simulate(until=20)
 
 def test_process_result():
-    def pem(ctx):
-        yield ctx.wait(10)
-        ctx.exit('oh noes, i am dead x_x')
-
     def root(ctx):
+        def pem(ctx):
+            yield ctx.wait(10)
+            ctx.exit('oh noes, i am dead x_x')
+
         result = yield ctx.wait(ctx.fork(pem))
         assert result == 'oh noes, i am dead x_x'
 
