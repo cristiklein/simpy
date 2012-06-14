@@ -16,14 +16,19 @@ class Context(object):
         self.sim = sim
         self.id = self.sim._get_id()
         self.process = pem(self, *args, **kwargs)
+        self.waiters = []
         next(self.process)
 
     @property
     def now(self):
         return self.sim.now
 
-    def wait(self, delta):
-        heappush(self.sim.events, (self.sim.now + delta, self.id, self, next))
+    def wait(self, until):
+        if type(until) is Context:
+            until.waiters.append(self)
+        else:
+            heappush(self.sim.events, (self.sim.now + until, self.id, self,
+                next))
 
     def fork(self, pem, *args, **kwargs):
         return Context(self.sim, pem, args, kwargs)
@@ -60,7 +65,10 @@ class Simulation(object):
         try:
             func(ctx.process)
         except StopIteration:
-            pass
+            # Process has terminated.
+            # Resume processes waiting on the current one.
+            for waiter in ctx.waiters:
+                waiter.wait(0)
 
     def peek(self):
         return self.events[0][0]

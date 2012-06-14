@@ -25,3 +25,13 @@ def test_interrupt():
         process.interrupt()
 
     Simulation(root).simulate(until=20)
+
+def test_wait_for_process():
+    def pem(ctx):
+        yield ctx.wait(10)
+
+    def root(ctx):
+        yield ctx.wait(ctx.fork(pem))
+        assert ctx.now == 10
+
+    Simulation(root).simulate(until=20)
