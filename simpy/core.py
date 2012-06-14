@@ -5,10 +5,23 @@ class InterruptedException(Exception):
     pass
 
 
+class Failure(Exception):
+    pass
+
+
 def interrupt(cause):
     def interrupt(process):
         process.throw(InterruptedException(cause))
     return interrupt
+
+
+def resume(value=None):
+    def resume(process):
+        if type(value) is Failure:
+            process.throw(value)
+        else:
+            process.send(value)
+    return resume
 
 
 class Context(object):
@@ -36,9 +49,8 @@ class Context(object):
         if type(until) is Context:
             if until.process is None:
                 # Process has already terminated. Resume as soon as possible.
-                # TODO See comment in the else block.
                 heappush(self.sim.events, (self.sim.now, self.id, self,
-                    lambda process: process.send(until.result)))
+                    resume(until.result)))
             else:
                 until.waiters.append(self)
         elif until is None:
@@ -48,11 +60,8 @@ class Context(object):
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
                 next))
         else:
-            # TODO I don't know if there are faster methods to call send on the
-            # generator. Maybe the overhead of this closure is too much. A
-            # functor or a function like interrupt should be examined.
             heappush(self.sim.events, (self.sim.now + until, self.id, self,
-                lambda process: process.send(value)))
+                resume(value)))
 
     def wake(self, target):
         """Interrupt this process, if the target terminates."""
@@ -105,6 +114,20 @@ class Simulation(object):
             # Resume processes waiting on the current one.
             for waiter in ctx.waiters:
                 waiter.wait(0, ctx.result)
+        except BaseException as e:
+            ctx.result = Failure(e)
+
+            # TODO Don't know about this one. This check causes the whole
+            # simulation to crash if there is a crashed process and no other
+            # process to handle this crash. Something like this must certainely
+            # be done, because exception should never ever be silently ignored.
+            # Still, a check like this looks fishy to me.
+            if not ctx.waiters:
+                raise
+
+            for waiter in ctx.waiters:
+                waiter.wait(0, ctx.result)
+
 
     def peek(self):
         return self.events[0][0]

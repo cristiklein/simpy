@@ -1,4 +1,6 @@
-from simpy import Simulation, InterruptedException
+from pytest import raises
+
+from simpy import Simulation, InterruptedException, Failure
 
 def test_simple_process():
     def pem(ctx, result):
@@ -89,5 +91,31 @@ def test_wait_for_any():
         result = yield ctx.wait(ctx.fork(wait_for_any, processes))
         # Confirm that the child created at last has terminated as first.
         assert result == 0
+
+    Simulation(root).simulate(until=20)
+
+def test_crashing_process():
+    def root(ctx):
+        yield ctx.wait(1)
+        raise RuntimeError("That's it, I'm done")
+
+    with raises(RuntimeError) as exc:
+        Simulation(root).simulate(until=20)
+
+        assert exc.value == "That's it, I'm done"
+
+def test_crashing_child_process():
+    def root(ctx):
+        def panic(ctx):
+            yield ctx.wait(1)
+            raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
+
+        with raises(Failure) as exc:
+            yield ctx.wait(ctx.fork(panic))
+
+            import traceback
+            traceback.print_exc()
+
+            assert exc.value == "That's it, I'm done"
 
     Simulation(root).simulate(until=20)
