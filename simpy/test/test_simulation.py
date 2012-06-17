@@ -31,7 +31,7 @@ def test_wait_for_process():
         def pem(ctx):
             yield ctx.wait(10)
 
-        yield ctx.wait(ctx.fork(pem))
+        yield ctx.join(ctx.fork(pem))
         assert ctx.now == 10
 
     Simulation(root).simulate(until=20)
@@ -43,7 +43,7 @@ def test_process_result():
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
-        result = yield ctx.wait(ctx.fork(pem))
+        result = yield ctx.join(ctx.fork(pem))
         assert result == 'oh noes, i am dead x_x'
 
     Simulation(root).simulate(until=20)
@@ -61,7 +61,7 @@ def test_wait_for_all():
         # Wait until all children have been terminated.
         results = []
         for process in processes:
-            results.append((yield ctx.wait(process)))
+            results.append((yield ctx.join(process)))
         assert results == list(reversed(range(10)))
 
         # The first child should have terminated at timestep 9. Confirm!
@@ -81,14 +81,20 @@ def test_wait_for_any():
 
         def wait_for_any(ctx, processes):
             for process in processes:
-                ctx.wake(process)
-            result = yield ctx.wait()
+                ctx.signal(process)
+            try:
+                yield ctx.wait()
+                assert False, 'There should have been an interrupt'
+            except InterruptedException as e:
+                result = e.cause
             ctx.exit(result)
 
         # Wait until the a child has terminated.
-        result = yield ctx.wait(ctx.fork(wait_for_any, processes))
+        first_dead = yield ctx.join(ctx.fork(wait_for_any, processes))
         # Confirm that the child created at last has terminated as first.
-        assert result == 0
+        print(first_dead, first_dead.result)
+        assert first_dead == processes[-1]
+        assert first_dead.result == 0
 
     Simulation(root).simulate(until=20)
 
@@ -110,7 +116,7 @@ def test_crashing_child_process():
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.wait(ctx.fork(panic))
+            yield ctx.join(ctx.fork(panic))
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             cause = exc.args[0]

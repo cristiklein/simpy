@@ -2,84 +2,74 @@ from heapq import heappush, heappop
 
 
 class InterruptedException(Exception):
-    pass
+    def __init__(self, cause):
+        Exception.__init__(self)
+        self.cause = cause
 
 
 class Failure(Exception):
     pass
 
 
-def interrupt(cause):
-    def interrupt(process):
-        process.throw(InterruptedException(cause))
-    return interrupt
-
-
-def resume(value=None):
-    def resume(process):
-        if type(value) is Failure:
-            process.throw(value)
-        else:
-            process.send(value)
-    return resume
-
-
 class Context(object):
-    def __init__(self, sim, pem, args, kwargs):
+    def __init__(self, sim, id, pem, args, kwargs):
         self.sim = sim
-        self.id = self.sim._get_id()
+        self.id = id
+        self.pem = pem
         self.process = pem(self, *args, **kwargs)
-        self.waiters = []
+        self.signallers = []
+        self.joiners = []
         self.result = None
-        next(self.process)
+        heappush(self.sim.events, (self.sim.now, self.id, self, Timeout, None))
 
     @property
     def now(self):
         return self.sim.now
 
-    def wait(self, until=None, value=None):
-        # TODO This method is getting ugly. Maybe introduce separate functions
-        # for each case?
+    def wait(self, delay=None):
         if self.process is None:
             # TODO Should we raise an exception in this case. This happens for
             # example if this process has registered to wake on the termination
             # of another process, but has already terminated in the meanwhile.
             return
 
-        if type(until) is Context:
-            if until.process is None:
-                # Process has already terminated. Resume as soon as possible.
-                heappush(self.sim.events, (self.sim.now, self.id, self,
-                    resume(until.result)))
-            else:
-                until.waiters.append(self)
-        elif until is None:
+        if delay is None:
             # Wait indefinitely. Don't do anything.
+            # TODO Was ist mit dem value?
             pass
-        elif value is None:
-            heappush(self.sim.events, (self.sim.now + until, self.id, self,
-                next))
         else:
-            heappush(self.sim.events, (self.sim.now + until, self.id, self,
-                resume(value)))
+            self.sim.schedule(self, delay, Timeout, None)
 
-    def wake(self, target):
+    def join(self, target):
+        if target.process is None:
+            # FIXME This context switching is ugly.
+            prev, self.sim.active_ctx = self.sim.active_ctx, target
+            # Process has already terminated. Resume as soon as possible.
+            self.sim.schedule(self, 0,
+                    Crash if type(target.result) is Failure else Join,
+                    target.result)
+            self.sim.active_ctx = prev
+        else:
+            target.joiners.append(self)
+
+    def signal(self, target):
         """Interrupt this process, if the target terminates."""
-        target.waiters.append(self)
+        if target.process is None:
+            # FIXME This context switching is ugly.
+            prev, self.sim.active_ctx = self.sim.active_ctx, target
+            self.sim.schedule(self, 0, Interrupt, InterruptedException(target))
+            self.sim.active_ctx = prev
+        else:
+            target.signallers.append(self)
 
     def fork(self, pem, *args, **kwargs):
-        return Context(self.sim, pem, args, kwargs)
+        return self.sim.create_context(pem, args, kwargs)
 
     def interrupt(self, cause=None):
-        # Cancel the currently scheduled event.
-        for idx in range(len(self.sim.events)):
-            if self.sim.events[idx][1] == self.id:
-                self.sim.events[idx] = (-1, self.id, self, None)
-                break
+        if self.process is None:
+            raise RuntimeError('Process is dead')
 
-        # Schedule interrupt.
-        heappush(self.sim.events, (self.sim.now, self.id, self,
-                interrupt(cause)))
+        self.sim.schedule(self, 0, Interrupt, InterruptedException(cause))
 
     def exit(self, result=None):
         # TODO Check if this is the active context. This method must only be
@@ -87,13 +77,59 @@ class Context(object):
         self.result = result
         raise StopIteration()
 
+    def __str__(self):
+        return self.pem.__name__
+
+Timeout = 0
+Join = 1
+Interrupt = -1
+Crash = -2
 
 class Simulation(object):
     def __init__(self, root, *args, **kwargs):
         self.events = []
         self.pid = 0
         self.now = 0
-        self.ctx = Context(self, root, args, kwargs)
+        self.active_ctx = None
+        self.ctx = self.create_context(root, args, kwargs)
+
+    def create_context(self, pem, args, kwargs):
+        return Context(self, self._get_id(), pem, args, kwargs)
+
+    def destroy_context(self, ctx):
+        ctx.process = None
+
+        if type(ctx.result) is Failure:
+            # TODO Don't know about this one. This check causes the whole
+            # simulation to crash if there is a crashed process and no other
+            # process to handle this crash. Something like this must certainely
+            # be done, because exception should never ever be silently ignored.
+            # Still, a check like this looks fishy to me.
+            if not ctx.joiners and not ctx.signallers:
+                raise
+            evt_type = Crash
+        else:
+            evt_type = Join
+
+        for joiner in ctx.joiners:
+            if joiner.process is None: continue
+            self.schedule(joiner, 0, evt_type, ctx.result)
+
+        for signaller in ctx.signallers:
+            if signaller.process is None: continue
+            self.schedule(signaller, 0, Interrupt, InterruptedException(ctx))
+
+    def schedule(self, ctx, delay, evt_type, value):
+        # Cancel the currently scheduled event.
+        # TODO This has only to be done for interrupts and signals.
+        for idx in range(len(self.events)):
+            if self.events[idx][1] == ctx.id:
+                # TODO Check if we just can set False here.
+                self.events[idx] = (-1, -1)
+                break
+
+        # Schedule the event.
+        heappush(self.events, (self.now + delay, ctx.id, ctx, evt_type, value))
 
     def _get_id(self):
         pid = self.pid
@@ -101,37 +137,31 @@ class Simulation(object):
         return pid
 
     def step(self):
-        while True:
-            self.now, id, ctx, func = heappop(self.events)
-            if self.now >= 0: break
+        self.now, id, ctx, evt_type, value = heappop(self.events)
 
+        self.active_ctx = ctx
         try:
-            func(ctx.process)
+            if evt_type >= 0:
+                ctx.process.send(value)
+            else:
+                ctx.process.throw(value)
         except StopIteration:
             # Process has terminated.
-            ctx.process = None
-
-            # Resume processes waiting on the current one.
-            for waiter in ctx.waiters:
-                waiter.wait(0, ctx.result)
+            self.destroy_context(ctx)
         except BaseException as e:
+            # Process has failed.
             ctx.result = Failure(e)
+            self.destroy_context(ctx)
 
-            # TODO Don't know about this one. This check causes the whole
-            # simulation to crash if there is a crashed process and no other
-            # process to handle this crash. Something like this must certainely
-            # be done, because exception should never ever be silently ignored.
-            # Still, a check like this looks fishy to me.
-            if not ctx.waiters:
-                raise
-
-            for waiter in ctx.waiters:
-                waiter.wait(0, ctx.result)
-
+        self.active_ctx = None
 
     def peek(self):
         return self.events[0][0]
 
     def simulate(self, until):
         while self.events and until > self.events[0][0]:
+            if self.events[0][0] < 0:
+                # This event has been cancelled.
+                heappop(self.events)
+
             self.step()

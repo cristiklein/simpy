@@ -2,3 +2,4 @@ syntax: glob
 *.pyc
 *.swp
 *.egg-info
+*.html
