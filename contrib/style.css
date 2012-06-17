@@ -1,0 +1,59 @@
+path.live {
+    stroke: gray;
+}
+
+path.flow {
+    stroke: black;
+}
+
+rect.state {
+    stroke: black;
+    fill: white;
+}
+
+circle.join {
+    stroke: black;
+    fill: yellow;
+}
+
+circle.wait {
+    stroke: black;
+    fill: blue;
+}
+
+div.popup {
+    background: white;
+    border: 1px solid gray;
+    padding: 2px;
+    margin: 2px;
+}
+
+div.popup h2 {
+    font-size: 12pt;
+    margin: 2px;
+    text-align: center;
+}
+
+div.popup p {
+    padding: 2px;
+    margin: 2px;
+}
+
+div.popup span.code {
+    font-family: monospace;
+}
+
+div.popup div.code {
+    white-space: pre;
+    font-family: monospace;
+    background: #FBE54E;
+}
+
+div.popup div.code p {
+    padding: 1px;
+    margin: 1px;
+}
+
+div.popup div.code p.active {
+    font-weight: bold;
+}
