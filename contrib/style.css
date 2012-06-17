@@ -11,6 +11,10 @@ rect.state {
     fill: white;
 }
 
+rect.timestep {
+    fill: gray;
+}
+
 circle.join {
     stroke: black;
     fill: yellow;

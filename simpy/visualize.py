@@ -224,16 +224,24 @@ class SvgRenderer(object):
             timestep_start = self.y
             last_pid = None
 
-            for action in actions:
+            for idx, action in enumerate(actions):
                 pid, action_type = action[0], action[1]
                 if not hasattr(self, action_type): continue
 
                 func = getattr(self, action_type)
-                if not func(pid, *action[2:]):
+                if not func(pid, *action[2:]) and idx + 1 < len(actions) :
                     self.y += self.y_ofs
 
-
             timestep_end = self.y
+
+            descr = '<p>Timestep %.2f</p>' % timestep
+            popupinfo = self.create_popupinfo(descr)
+            self.groups['timestep'].write(
+                    '<rect x="%f" y="%f" width="%f" height="%f" '
+                    'class="timestep" %s/>\n' % (
+                        -self.scale - self.scale / 8, timestep_start,
+                        self.scale / 4, timestep_end - timestep_start,
+                        popupinfo))
         self.y += self.y_ofs * 2
 
         return ('<html>\n' +
