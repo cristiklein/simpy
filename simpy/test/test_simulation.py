@@ -180,3 +180,12 @@ def test_illegal_join_after_join():
         Simulation(root).simulate(until=20)
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
+
+def test_no_schedule():
+    def root(ctx):
+        yield
+
+    try:
+        Simulation(root).simulate(until=20)
+    except AssertionError as exc:
+        assert exc.args[0].startswith('No event has been scheduled!')
