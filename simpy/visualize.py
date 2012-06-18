@@ -41,10 +41,7 @@ class VisualizationSim(Simulation):
 
         self.history[-1][1].append(item)
 
-    def get_code(self, depth):
-        stack = traceback.extract_stack(limit=depth+1)
-        filename, lineno = stack[0][:2]
-        surround = 5
+    def extract_lines(self, filename, lineno, surround=5):
         with open(filename) as f:
             lines = f.readlines()
             code = []
@@ -54,15 +51,25 @@ class VisualizationSim(Simulation):
                 code.append((i == lineno - 1, lines[i][:-1]))
         return code
 
+    def get_code(self, depth):
+        stack = traceback.extract_stack(limit=depth+1)
+        filename, lineno = stack[0][:2]
+        return self.extract_lines(filename, lineno)
+
     def create_context(self, pem, args, kwargs):
         pid = self.active_ctx.id if self.active_ctx is not None else -1
 
-        ctx = VisualizationContext(self, self._get_id(), pem, args, kwargs)
-        self.record((pid, Fork, ctx.id, pem.__name__,
+        ctx_id = self._get_id()
+        self.record((pid, Fork, ctx_id, self.get_code(3)))
+
+        code = self.extract_lines(pem.__code__.co_filename,
+                pem.__code__.co_firstlineno)
+        self.record((ctx_id, Init, pem.__name__,
             tuple(str(arg) for arg in args),
             dict((name, str(kwargs[arg])) for name in kwargs),
-            self.get_code(3)))
-        return ctx
+            code))
+
+        return VisualizationContext(self, ctx_id, pem, args, kwargs)
 
     def destroy_context(self, ctx):
         self.record((ctx.id, Terminate, ctx.result))
@@ -134,18 +141,14 @@ class SvgRenderer(object):
         for active, line in code:
             cls = ''
             if active:
-                cls += ' active'
+                cls = 'class="active"'
             line = line.replace('\'', '\\\'')
-            s += '<p class="%s">%s</p>' % (cls, line)
+            s += '<p %s>%s</p>' % (cls, line)
         s += '</div>'
         return s
 
-    def fork(self, parent, child, pem, args, kwargs, code):
+    def fork(self, parent, child, code):
         descr = '<h2>Fork</h2>'
-        descr += '<p>Call: <span class="code">%s(%s)</span></p>' % (
-                pem,
-                ', '.join(args +
-                    tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
         descr += self.format_code(code)
         popupinfo = self.create_popupinfo(descr)
         self.groups['event'].write(
@@ -155,15 +158,23 @@ class SvgRenderer(object):
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
                     child * self.scale, self.y, parent * self.scale, self.y))
+        return True
+
+    def init(self, pid, pem, args, kwargs, code):
+        descr = '<h2>Init</h2>'
+        descr += '<p><span class="code">%s(%s)</span></p>' % (
+                pem, ', '.join(
+                    args + tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
+        descr += self.format_code(code)
 
         self.groups['block'].write(
                 '<rect x="%f" y="%f" width="%f" height="%f" '
-                'class="init"/>\n' % (
-                    child * self.scale - self.scale / 8, self.y - self.y_ofs/2,
-                    self.scale / 4, self.y_ofs))
+                'class="init" %s/>\n' % (
+                    pid * self.scale - self.scale / 8, self.y - self.y_ofs/2,
+                    self.scale / 4, self.y_ofs, self.create_popupinfo(descr)))
 
-        self.start[child] = self.y + self.y_ofs/2
-        self.active[child] = self.y + self.y_ofs/2
+        self.start[pid] = self.y + self.y_ofs/2
+        self.active[pid] = self.y + self.y_ofs/2
 
     def terminate(self, pid, result):
         start = self.start[pid]
