@@ -92,7 +92,6 @@ def test_wait_for_any():
         # Wait until the a child has terminated.
         first_dead = yield ctx.join(ctx.fork(wait_for_any, processes))
         # Confirm that the child created at last has terminated as first.
-        print(first_dead, first_dead.result)
         assert first_dead == processes[-1]
         assert first_dead.result == 0
 
