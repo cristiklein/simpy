@@ -21,7 +21,9 @@ class Context(object):
         self.signallers = []
         self.joiners = []
         self.result = None
-        heappush(self.sim.events, [self.sim.now, self.id, self, Timeout, None])
+
+        # Schedule start of the process.
+        self.sim.schedule(self, 0, Timeout, None)
 
     @property
     def now(self):
