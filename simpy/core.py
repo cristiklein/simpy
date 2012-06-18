@@ -17,10 +17,11 @@ class Context(object):
         self.id = id
         self.pem = pem
         self.process = pem(self, *args, **kwargs)
+        self._next_event = None
         self.signallers = []
         self.joiners = []
         self.result = None
-        heappush(self.sim.events, (self.sim.now, self.id, self, Timeout, None))
+        heappush(self.sim.events, [self.sim.now, self.id, self, Timeout, None])
 
     @property
     def now(self):
@@ -80,8 +81,9 @@ class Context(object):
     def __str__(self):
         return self.pem.__name__
 
-Timeout = 0
-Join = 1
+Timeout = 1
+Join = 2
+Cancel = 0
 Interrupt = -1
 Crash = -2
 
@@ -120,16 +122,14 @@ class Simulation(object):
             self.schedule(signaller, 0, Interrupt, InterruptedException(ctx))
 
     def schedule(self, ctx, delay, evt_type, value):
-        # Cancel the currently scheduled event.
-        # TODO This has only to be done for interrupts and signals.
-        for idx in range(len(self.events)):
-            if self.events[idx][1] == ctx.id:
-                # TODO Check if we just can set False here.
-                self.events[idx] = (-1, -1)
-                break
+        # Cancel the currently scheduled event if there is any.
+        if ctx._next_event is not None:
+            ctx._next_event[3] = Cancel
 
         # Schedule the event.
-        heappush(self.events, (self.now + delay, ctx.id, ctx, evt_type, value))
+        evt = [self.now + delay, ctx.id, ctx, evt_type, value]
+        heappush(self.events, evt)
+        ctx._next_event = evt
 
     def _get_id(self):
         pid = self.pid
@@ -138,12 +138,17 @@ class Simulation(object):
 
     def step(self):
         self.now, id, ctx, evt_type, value = heappop(self.events)
+        if evt_type == Cancel:
+            return
 
+        ctx._next_event = None
         self.active_ctx = ctx
         try:
-            if evt_type >= 0:
+            if evt_type > 0:
+                # A "successful" event, either Timeout or Join.
                 ctx.process.send(value)
             else:
+                # An "unsuccessful" event, either Interrupt or Crash.
                 ctx.process.throw(value)
         except StopIteration:
             # Process has terminated.
@@ -156,12 +161,10 @@ class Simulation(object):
         self.active_ctx = None
 
     def peek(self):
+        while self.events and self.events[0][3] == Cancel:
+            heappop(self.events)
         return self.events[0][0]
 
     def simulate(self, until):
         while self.events and until > self.events[0][0]:
-            if self.events[0][0] < 0:
-                # This event has been cancelled.
-                heappop(self.events)
-
             self.step()
