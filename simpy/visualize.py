@@ -110,17 +110,21 @@ class SvgRenderer(object):
         self.start = {}
         self.wait_start = {}
         self.active = {}
+        self.step = {}
         self.y = self.scale
         self.y_ofs = self.scale / 2
 
     def enter(self, pid, evt_type):
-        self.groups['controlflow'].write(
-                '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                    -self.scale, self.y, pid * self.scale, self.y))
-
         self.active[pid] = self.y
+        self.step[pid] = 'M %f %f Q %f %f %f %f %f %f %f %f L %f %f ' % (
+                pid * self.scale - self.scale / 8, self.y - self.scale / 8,
+                pid * self.scale, self.y - self.scale / 8,
+                pid * self.scale, self.y - self.scale / 16,
+                pid * self.scale, self.y,
+                pid * self.scale + self.scale / 8, self.y,
+                pid * self.scale + self.scale / 8, self.y)
 
-    def leave(self, pid, evt_type):
+    def leave2(self, pid, evt_type):
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
                     pid * self.scale, self.y, -self.scale, self.y))
@@ -131,6 +135,18 @@ class SvgRenderer(object):
                     pid * self.scale - self.scale / 8, self.active[pid],
                     self.scale / 4, self.y - self.active[pid]))
         self.active[pid] = self.y
+
+    def close(self, pid):
+        self.step[pid] += '%f %f Q %f %f %f %f %f %f %f %f Z' % (
+                pid * self.scale + self.scale / 8, self.y + self.scale / 8,
+                pid * self.scale, self.y + self.scale / 8,
+                pid * self.scale, self.y + self.scale / 16,
+                pid * self.scale, self.y,
+                pid * self.scale - self.scale / 8, self.y)
+
+        self.groups['block'].write('<path d="%s" class="state"/>\n' % (
+                self.step[pid]))
+        del self.step[pid]
 
     def create_popupinfo(self, text):
         text = text.replace('"', '&quot;')
@@ -184,6 +200,13 @@ class SvgRenderer(object):
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="live"/>\n' % (
                     pid * self.scale, start, pid * self.scale, end))
+
+        self.step[pid] += '%f %f %f %f Z' % (
+                pid * self.scale + self.scale / 8, self.y,
+                pid * self.scale - self.scale / 8, self.y)
+        self.groups['block'].write('<path d="%s" class="state"/>\n' % (
+                self.step[pid]))
+        del self.step[pid]
         return True
 
     def wait(self, pid, delay, code):
@@ -196,6 +219,7 @@ class SvgRenderer(object):
                     pid * self.scale, self.y, self.scale / 8, popupinfo))
 
         self.wait_start[pid] = self.y
+        self.close(pid)
 
     def join(self, parent, child, code):
         self.groups['controlflow'].write(
@@ -209,6 +233,7 @@ class SvgRenderer(object):
                 '<circle cx="%f" cy="%f" r="%f" '
                 'class="join" %s/>\n' % (
                     parent * self.scale, self.y, self.scale / 8, popupinfo))
+        self.close(parent)
 
     def schedule(self, pid, src_id, delay, evt_type, value, code):
         if pid == src_id:
@@ -277,6 +302,14 @@ class SvgRenderer(object):
                 '<body onload="init_popup()">\n' +
                 '<svg height="%d" xmlns="http://www.w3.org/2000/svg">\n' % self.y +
                 '<g transform="translate(%f, %f)">\n' % (self.scale * 2, self.scale) +
+                '<filter id="dropshadow" width="150%" height="150%">\n' +
+                '<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>\n' +
+                '<feOffset dx="2" dy="2" result="offsetblur"/>\n' +
+                '<feMerge>\n' +
+                '<feMergeNode/>\n' +
+                '<feMergeNode in="SourceGraphic"/>\n' +
+                '</feMerge>\n' +
+                '</filter>\n' +
                 self.groups['timestep'].getvalue() +
                 self.groups['controlflow'].getvalue() +
                 self.groups['block'].getvalue() +
