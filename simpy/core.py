@@ -163,8 +163,7 @@ class Simulation(object):
                 # An "unsuccessful" event, either Interrupt or Crash.
                 ctx.process.throw(value)
 
-            if not ctx._scheduled:
-                raise AssertionError('No event has been scheduled!')
+            assert ctx._scheduled, 'No event has been scheduled!'
         except StopIteration:
             # Process has terminated.
             self.destroy_context(ctx)
