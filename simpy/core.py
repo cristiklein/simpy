@@ -28,7 +28,10 @@ class Context(object):
         self.process = pem(self, *args, **kwargs)
 
         # Schedule start of the process.
+        # FIXME This context switching is ugly.
+        prev, self.sim.active_ctx = self.sim.active_ctx, self
         self.sim.schedule(self, 0, Timeout, None)
+        self.sim.active_ctx = prev
 
     @property
     def now(self):
