@@ -26,7 +26,7 @@ def test_interrupt():
 
     Simulation(root).simulate(until=20)
 
-def test_wait_for_process():
+def test_join():
     def root(ctx):
         def pem(ctx):
             yield ctx.wait(10)
@@ -36,7 +36,7 @@ def test_wait_for_process():
 
     Simulation(root).simulate(until=20)
 
-def test_process_result():
+def test_join_result():
     def root(ctx):
         def pem(ctx):
             yield ctx.wait(10)
@@ -48,7 +48,21 @@ def test_process_result():
 
     Simulation(root).simulate(until=20)
 
-def test_wait_for_all():
+def test_join_after_terminate():
+    def root(ctx):
+        def pem(ctx):
+            yield ctx.wait(10)
+            ctx.exit('oh noes, i am dead x_x')
+            assert False, 'Hey, i am alive? How is that possible?'
+
+        child = ctx.fork(pem)
+        yield ctx.wait(15)
+        result = yield ctx.join(child)
+        assert result == 'oh noes, i am dead x_x'
+
+    Simulation(root).simulate(until=20)
+
+def test_join_all():
     def root(ctx):
         def pem(ctx, i):
             yield ctx.wait(i)
@@ -69,7 +83,7 @@ def test_wait_for_all():
 
     Simulation(root).simulate(until=20)
 
-def test_wait_for_any():
+def test_join_any():
     def root(ctx):
         def pem(ctx, i):
             yield ctx.wait(i)
@@ -79,18 +93,17 @@ def test_wait_for_any():
         # child waits the longest time.
         processes = [ctx.fork(pem, i) for i in reversed(range(10))]
 
-        def wait_for_any(ctx, processes):
+        def join_any(ctx, processes):
             for process in processes:
                 ctx.signal(process)
             try:
                 yield ctx.wait()
                 assert False, 'There should have been an interrupt'
             except InterruptedException as e:
-                result = e.cause
-            ctx.exit(result)
+                ctx.exit(e.cause)
 
         # Wait until the a child has terminated.
-        first_dead = yield ctx.join(ctx.fork(wait_for_any, processes))
+        first_dead = yield ctx.join(ctx.fork(join_any, processes))
         # Confirm that the child created at last has terminated as first.
         assert first_dead == processes[-1]
         assert first_dead.result == 0
