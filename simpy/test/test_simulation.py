@@ -123,3 +123,47 @@ def test_crashing_child_process():
             assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
     Simulation(root).simulate(until=20)
+
+def test_illegal_wait_after_wait():
+    def root(ctx):
+        ctx.wait()
+        ctx.wait()
+
+    try:
+        Simulation(root).simulate(until=20)
+    except AssertionError as exc:
+        assert exc.args[0].startswith('Next event already scheduled!')
+
+def test_illegal_join_after_wait():
+    def root(ctx):
+        ctx.wait()
+        ctx.join()
+
+    try:
+        Simulation(root).simulate(until=20)
+    except AssertionError as exc:
+        assert exc.args[0].startswith('Next event already scheduled!')
+
+def test_illegal_wait_after_join():
+    def root(ctx):
+        def child(ctx):
+            yield ctx.wait()
+        ctx.join(ctx.fork(child))
+        ctx.wait()
+
+    try:
+        Simulation(root).simulate(until=20)
+    except AssertionError as exc:
+        assert exc.args[0].startswith('Next event already scheduled!')
+
+def test_illegal_join_after_join():
+    def root(ctx):
+        def child(ctx):
+            yield ctx.wait()
+        ctx.join(ctx.fork(child))
+        ctx.join(ctx.fork(child))
+
+    try:
+        Simulation(root).simulate(until=20)
+    except AssertionError as exc:
+        assert exc.args[0].startswith('Next event already scheduled!')

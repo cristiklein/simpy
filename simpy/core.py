@@ -12,15 +12,20 @@ class Failure(Exception):
 
 
 class Context(object):
+    # TODO Overwrite wait, join, signal, fork, interrupt and exit with a
+    # failing function once the process has terminated?
+
     def __init__(self, sim, id, pem, args, kwargs):
         self.sim = sim
         self.id = id
         self.pem = pem
-        self.process = pem(self, *args, **kwargs)
         self._next_event = None
+        self._scheduled = True
         self.signallers = []
         self.joiners = []
         self.result = None
+
+        self.process = pem(self, *args, **kwargs)
 
         # Schedule start of the process.
         self.sim.schedule(self, 0, Timeout, None)
@@ -30,20 +35,21 @@ class Context(object):
         return self.sim.now
 
     def wait(self, delay=None):
-        if self.process is None:
-            # TODO Should we raise an exception in this case. This happens for
-            # example if this process has registered to wake on the termination
-            # of another process, but has already terminated in the meanwhile.
-            return
+        assert not self._scheduled, ('Next event already scheduled! Did you'
+            'forget to yield a call to Context.wait or Context.join?')
+        self._scheduled = True
 
         if delay is None:
             # Wait indefinitely. Don't do anything.
-            # TODO Was ist mit dem value?
             pass
         else:
             self.sim.schedule(self, delay, Timeout, None)
 
     def join(self, target):
+        assert not self._scheduled, ('Next event already scheduled! Did you'
+            'forget to yield a call to Context.wait or Context.join?')
+        self._scheduled = True
+
         if target.process is None:
             # FIXME This context switching is ugly.
             prev, self.sim.active_ctx = self.sim.active_ctx, target
@@ -110,7 +116,7 @@ class Simulation(object):
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
             if not ctx.joiners and not ctx.signallers:
-                raise
+                raise ctx.result.args[0]
             evt_type = Crash
         else:
             evt_type = Join
@@ -144,6 +150,7 @@ class Simulation(object):
             return
 
         ctx._next_event = None
+        ctx._scheduled = False
         self.active_ctx = ctx
         try:
             if evt_type > 0:
