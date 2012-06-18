@@ -96,7 +96,7 @@ class VisualizationSim(Simulation):
 
 
 class SvgRenderer(object):
-    def __init__(self, history, scale=20, expand=True):
+    def __init__(self, history, scale=40, expand=True):
         self.history = history
         self.scale = scale
         self.expand = expand
@@ -108,6 +108,7 @@ class SvgRenderer(object):
         self.groups['event'] = StringIO()
 
         self.start = {}
+        self.wait_start = {}
         self.active = {}
         self.y = self.scale
         self.y_ofs = self.scale / 2
@@ -175,6 +176,7 @@ class SvgRenderer(object):
 
         self.start[pid] = self.y + self.y_ofs/2
         self.active[pid] = self.y + self.y_ofs/2
+        self.wait_start[pid] = self.y
 
     def terminate(self, pid, result):
         start = self.start[pid]
@@ -185,7 +187,15 @@ class SvgRenderer(object):
         return True
 
     def wait(self, pid, delay, code):
-        return True
+        descr = '<h2>Wait</h2>'
+        descr += self.format_code(code)
+        popupinfo = self.create_popupinfo(descr)
+        self.groups['event'].write(
+                '<circle cx="%f" cy="%f" r="%f" '
+                'class="wait" %s/>\n' % (
+                    pid * self.scale, self.y, self.scale / 8, popupinfo))
+
+        self.wait_start[pid] = self.y
 
     def join(self, parent, child, code):
         self.groups['controlflow'].write(
@@ -201,11 +211,15 @@ class SvgRenderer(object):
                     parent * self.scale, self.y, self.scale / 8, popupinfo))
 
     def schedule(self, pid, src_id, delay, evt_type, value, code):
-        if pid != src_id:
+        if pid == src_id:
             # This should only happen for timeouts.
+            start = self.wait_start.pop(pid)
             self.groups['controlflow'].write(
-                    '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                        src_id * self.scale, self.y, pid * self.scale, self.y))
+                    '<path d="M %f %f %f %f %f %f %f %f" class="flow"/>\n' % (
+                        pid * self.scale, start,
+                        pid * self.scale + self.scale * 0.5, start,
+                        pid * self.scale + self.scale * 0.5, self.y,
+                        pid * self.scale, self.y))
 
         if evt_type == core.Timeout:
             evt_class = 'timeout'
@@ -285,4 +299,6 @@ sim.simulate(until=20)
 
 with open('test.html', 'w') as f:
     data = SvgRenderer(sim.history)()
+    from pprint import pprint
+    pprint(sim.history)
     f.write(data)

@@ -4,6 +4,7 @@ path.live {
 
 path.flow {
     stroke: black;
+    fill: none;
 }
 
 rect.state {
