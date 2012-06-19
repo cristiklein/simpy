@@ -1,5 +1,6 @@
 from functools import wraps
 from io import StringIO
+import os
 import traceback
 
 from simpy.core import Simulation, Context, InterruptedException
@@ -36,7 +37,7 @@ terminate="""
 
 class VisualizationContext(Context):
     def wait(self, delay=None):
-        self.sim.record((self.id, Wait, delay, self.sim.get_code(3)))
+        self.sim.record((self.id, Wait, delay, self.sim.get_code(2)))
         return Context.wait(self, delay)
 
     def join(self, target):
@@ -69,20 +70,11 @@ class VisualizationSim(Simulation):
 
         self.history[-1][1].append(item)
 
-    def extract_lines(self, filename, lineno, surround=5):
-        with open(filename) as f:
-            lines = f.readlines()
-            code = []
-            for i in range(lineno - (surround + 1), lineno + surround):
-                if i < 0: continue
-                if i >= len(lines): break
-                code.append((i == lineno - 1, lines[i][:-1]))
-        return code
-
     def get_code(self, depth):
         stack = traceback.extract_stack(limit=depth+1)
-        filename, lineno = stack[0][:2]
-        return self.extract_lines(filename, lineno)
+        filename = os.path.relpath(stack[0][0])
+        lineno = stack[0][1]
+        return filename, lineno
 
     def create_context(self, pem, args, kwargs):
         pid = self.active_ctx.id if self.active_ctx is not None else -1
@@ -90,7 +82,7 @@ class VisualizationSim(Simulation):
         ctx_id = self._get_id()
         self.record((pid, Fork, ctx_id, self.get_code(3)))
 
-        code = self.extract_lines(pem.__code__.co_filename,
+        code = (os.path.relpath(pem.__code__.co_filename),
                 pem.__code__.co_firstlineno)
         self.record((ctx_id, Init, pem.__name__,
             tuple(str(arg) for arg in args),
@@ -131,6 +123,8 @@ class SvgRenderer(object):
 
         self.expand = expand
 
+        self.files = set()
+
         self.groups = {}
         self.groups['timestep'] = StringIO()
         self.groups['controlflow'] = StringIO()
@@ -142,7 +136,6 @@ class SvgRenderer(object):
         self.active = {}
         self.step = {}
         self.y = self.scale
-        self.y_ofs = self.scale / 2
 
     def enter(self, pid, evt_type):
         scale, node_size, y = self.scale, self.node_size, self.y
@@ -169,21 +162,14 @@ class SvgRenderer(object):
                 self.step[pid]))
         del self.step[pid]
 
-    def create_popupinfo(self, text):
-        text = text.replace('"', '&quot;')
-        return ('onmouseover="show_popup(arguments, \'%s\')" '
-                'onmouseout="hide_popup(arguments[0])"' % text)
-
-    def format_code(self, code):
-        s = '<p>Code:</p><div class="code">'
-        for active, line in code:
-            cls = ''
-            if active:
-                cls = 'class="active"'
-            line = line.replace('\'', '\\\'')
-            s += '<p %s>%s</p>' % (cls, line)
-        s += '</div>'
-        return s
+    def create_popupinfo(self, text, code=None):
+        args = '\'%s\'' % text.replace('"', '&quot;')
+        if code is not None:
+            filename, lineno = code
+            self.files.add(filename)
+            args += ', \'%s\', %d' % (filename, lineno)
+        return ('onmouseover="show_popup(arguments, %s)" '
+                'onmouseout="hide_popup(arguments[0])"' % args)
 
     def render_icon(self, name, pid, popupinfo=''):
         x, y = pid * self.scale, self.y
@@ -195,9 +181,7 @@ class SvgRenderer(object):
     def fork(self, parent, child, code):
         scale, node_size, y = self.scale, self.node_size, self.y
         descr = '<h2>Fork</h2>'
-        descr += self.format_code(code)
-        popupinfo = self.create_popupinfo(descr)
-        self.render_icon('fork', parent, popupinfo)
+        self.render_icon('fork', parent, self.create_popupinfo(descr, code))
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
                     child * scale, y, parent * scale, y))
@@ -208,7 +192,6 @@ class SvgRenderer(object):
         descr += '<p><span class="code">%s(%s)</span></p>' % (
                 pem, ', '.join(
                     args + tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
-        descr += self.format_code(code)
 
         scale, node_size, y = self.scale, self.node_size, self.y
         path = 'M %f %f %f %f %f %f Q %f %f %f %f %f %f %f %f Z' % (
@@ -220,7 +203,7 @@ class SvgRenderer(object):
                 pid * scale, y + node_size / 2,
                 pid * scale - node_size / 2, y + node_size / 2)
 
-        self.render_icon('init', pid, self.create_popupinfo(descr))
+        self.render_icon('init', pid, self.create_popupinfo(descr, code))
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
 
@@ -246,8 +229,7 @@ class SvgRenderer(object):
 
     def wait(self, pid, delay, code):
         descr = '<h2>Wait</h2>'
-        descr += self.format_code(code)
-        self.render_icon('timeout', pid, self.create_popupinfo(descr))
+        self.render_icon('timeout', pid, self.create_popupinfo(descr, code))
 
         self.wait_start[pid] = self.y
         self.close(pid)
@@ -258,8 +240,7 @@ class SvgRenderer(object):
                     child.id * self.scale, self.y, parent * self.scale, self.y))
 
         descr = '<h2>Join</h2>'
-        descr += self.format_code(code)
-        self.render_icon('join', parent, self.create_popupinfo(descr))
+        self.render_icon('join', parent, self.create_popupinfo(descr, code))
         self.close(parent)
 
     def schedule(self, pid, src_id, delay, evt_type, value, code):
@@ -285,14 +266,12 @@ class SvgRenderer(object):
             raise RuntimeError('Unknown event type %d' % evt_type)
 
         descr = '<h2>%s</h2>' % evt_class.title()
-        descr += self.format_code(code)
         self.render_icon(evt_class, pid, self.create_popupinfo(descr))
 
     def __call__(self):
         scale, node_size = self.scale, self.node_size
         prev_timestep = 0
         for timestep, actions in self.history:
-            self.y += scale
             prev_timestep = timestep
             timestep_start = self.y
             last_pid = None
@@ -323,15 +302,62 @@ class SvgRenderer(object):
             icon_defs += '<g id="%s-icon" class="%s icon">%s</g>' % (
                     name, name, icons[name])
 
+        # Render sourcecode.
+        sourcecode_style = StringIO()
+        sourcecode = StringIO()
+
+        try:
+            from pygments import highlight
+            from pygments.lexers import PythonLexer
+            from pygments.formatters import HtmlFormatter
+
+            sourcecode_files = []
+            lexer = PythonLexer()
+            for filename in sorted(self.files):
+                with open(filename) as f:
+                    data = f.read()
+                    hl_lines = list(range(len(data.split('\n'))))
+                    formatter = HtmlFormatter(linenos=True, lineanchors='l',
+                            hl_lines=hl_lines)
+                    code = highlight(data, lexer, formatter)
+
+                sourcecode_files.append((
+                        filename,
+                        '<div id="%s">%s</div>\n' % (filename, code)))
+
+            sourcecode_style.write(
+                    HtmlFormatter().get_style_defs('.highlight'))
+
+            sourcecode.write('<div class="navbar"><ul>%s</ul></div>\n' % (
+                    ''.join(['<li onclick="show_source(\'%s\')">%s</li>' % (
+                            filename, filename)
+                        for filename, code in sourcecode_files])))
+
+            sourcecode.write('<div name="page">\n')
+            for idx, (filename, code) in enumerate(sourcecode_files):
+                cls = 'hidden' if idx != 0 else ''
+                sourcecode.write('<div name="%s" class="%s">' % (
+                    filename, cls))
+                sourcecode.write(code)
+                sourcecode.write('</div>\n')
+            sourcecode.write('</div>\n')
+
+        except ImportError:
+            # TODO Render raw.
+            pass
+
         return ('<html>\n' +
                 '<head>\n'
                 '<link rel="stylesheet" type="text/css" href="contrib/style.css"></link>\n' +
                 '<script type="text/javascript" src="contrib/interactive.js"></script>\n' +
+                '<style>\n' + sourcecode_style.getvalue() + '</style>\n' +
                 '</head>\n' +
                 '<body onload="init_popup()">\n' +
+                '<div class="visualization">\n' +
+                '<div class="simulation-flow">\n' +
                 '<svg height="%d" xmlns="http://www.w3.org/2000/svg">\n' % self.y +
                 '<defs>\n' + icon_defs + '</defs>\n' +
-                '<g transform="translate(%f, %f)">\n' % (self.scale * 2, self.scale) +
+                '<g transform="translate(%f, %f)">\n' % (self.scale * 1.5, 0) +
                 '<filter id="dropshadow" width="150%" height="150%">\n' +
                 '<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>\n' +
                 '<feOffset dx="2" dy="2" result="offsetblur"/>\n' +
@@ -348,7 +374,11 @@ class SvgRenderer(object):
                 self.groups['block'].getvalue() +
                 self.groups['event'].getvalue() +
                 '</g>\n' +
-                '</svg>\n' +
+                '</svg></div>\n' +
+                '<div name="sourcecode" class="sourcecode">\n' +
+                sourcecode.getvalue() +
+                '</div>\n' +
+                '</div>\n' +
                 '</body>\n' +
                 '</html>\n')
 
