@@ -1,3 +1,7 @@
+rect.hitbox {
+    fill: none;
+}
+
 path.live {
     stroke: gray;
 }
@@ -15,6 +19,20 @@ path.flow {
 
 rect.timestep {
     fill: gray;
+}
+
+g.icon {
+    stroke-width: 0.15;
+}
+
+g.icon circle {
+    stroke: gray;
+    fill: white;
+}
+
+g.icon path {
+    stroke: black;
+    fill: none;
 }
 
 circle.join {

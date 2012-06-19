@@ -6,6 +6,34 @@ from simpy.core import Simulation, Context, InterruptedException
 from simpy import core
 
 
+icons = dict(
+init="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.8 0.0 0.8 0.0"/>
+<path d="M 0.0 -0.8 0.0 0.8"/>
+""",
+fork="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.2 0.5 -0.2 -0.5"/>
+<path d="M -0.2 -0.1 0.5 0.2"/>
+<path d="M 0.4 -0.06 0.5 0.2 0.24 0.3"/>
+""",
+join="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.2 0.5 -0.2 -0.5"/>
+<path d="M 0.5 -0.1 -0.2 0.2"/>
+<path d="M -0.1 -0.06 -0.2 0.2 0.06 0.3"/>
+""",
+timeout="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M 0.0 -0.8 0.0 0.0"/>
+<path d="M 0.0 0.0 0.5 0.5"/>
+""",
+terminate="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.8 0.0 0.8 0.0"/>
+""")
+
 class VisualizationContext(Context):
     def wait(self, delay=None):
         self.sim.record((self.id, Wait, delay, self.sim.get_code(3)))
@@ -99,6 +127,8 @@ class SvgRenderer(object):
     def __init__(self, history, scale=40, expand=True):
         self.history = history
         self.scale = scale
+        self.node_size = scale / 2
+
         self.expand = expand
 
         self.groups = {}
@@ -115,14 +145,16 @@ class SvgRenderer(object):
         self.y_ofs = self.scale / 2
 
     def enter(self, pid, evt_type):
+        scale, node_size, y = self.scale, self.node_size, self.y
         self.active[pid] = self.y
         self.step[pid] = 'M %f %f Q %f %f %f %f %f %f %f %f L %f %f ' % (
-                pid * self.scale - self.scale / 8, self.y - self.scale / 8,
-                pid * self.scale, self.y - self.scale / 8,
-                pid * self.scale, self.y - self.scale / 16,
-                pid * self.scale, self.y,
-                pid * self.scale + self.scale / 8, self.y,
-                pid * self.scale + self.scale / 8, self.y)
+                pid * scale - node_size / 2, y - node_size,
+                pid * scale, y - node_size,
+                pid * scale, y - node_size * 0.75,
+                pid * scale, y - node_size / 2,
+                pid * scale + node_size / 2, y - node_size / 2,
+                pid * scale + node_size / 2, y - node_size / 2)
+        return True
 
     def leave2(self, pid, evt_type):
         self.groups['controlflow'].write(
@@ -137,12 +169,13 @@ class SvgRenderer(object):
         self.active[pid] = self.y
 
     def close(self, pid):
+        scale, node_size, y = self.scale, self.node_size, self.y
         self.step[pid] += '%f %f Q %f %f %f %f %f %f %f %f Z' % (
-                pid * self.scale + self.scale / 8, self.y + self.scale / 8,
-                pid * self.scale, self.y + self.scale / 8,
-                pid * self.scale, self.y + self.scale / 16,
-                pid * self.scale, self.y,
-                pid * self.scale - self.scale / 8, self.y)
+                pid * scale + node_size / 2, y + node_size,
+                pid * scale, y + node_size,
+                pid * scale, y + node_size * 0.75,
+                pid * scale, y + node_size / 2,
+                pid * scale - node_size / 2, y + node_size / 2)
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % (
                 self.step[pid]))
@@ -164,17 +197,22 @@ class SvgRenderer(object):
         s += '</div>'
         return s
 
+    def render_icon(self, name, pid, popupinfo=''):
+        x, y = pid * self.scale, self.y
+        self.groups['event'].write(
+                '<use xlink:href="#%s-icon" '
+                'transform="translate(%f %f) scale(%f)" %s/>\n' % (
+                    name, x, y, self.node_size * 0.4, popupinfo))
+
     def fork(self, parent, child, code):
+        scale, node_size, y = self.scale, self.node_size, self.y
         descr = '<h2>Fork</h2>'
         descr += self.format_code(code)
         popupinfo = self.create_popupinfo(descr)
-        self.groups['event'].write(
-                '<circle cx="%f" cy="%f" r="%f" '
-                'class="fork" %s/>\n' % (
-                    parent * self.scale, self.y, self.scale / 8, popupinfo))
+        self.render_icon('fork', parent, popupinfo)
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                    child * self.scale, self.y, parent * self.scale, self.y))
+                    child * scale, y, parent * scale, y))
         return True
 
     def init(self, pid, pem, args, kwargs, code):
@@ -184,15 +222,23 @@ class SvgRenderer(object):
                     args + tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
         descr += self.format_code(code)
 
-        self.groups['block'].write(
-                '<rect x="%f" y="%f" width="%f" height="%f" '
-                'class="init" %s/>\n' % (
-                    pid * self.scale - self.scale / 8, self.y - self.y_ofs/2,
-                    self.scale / 4, self.y_ofs, self.create_popupinfo(descr)))
+        scale, node_size, y = self.scale, self.node_size, self.y
+        path = 'M %f %f %f %f %f %f Q %f %f %f %f %f %f %f %f Z' % (
+                pid * scale - node_size / 2, y - node_size / 2,
+                pid * scale + node_size / 2, y - node_size / 2,
+                pid * scale + node_size / 2, y + node_size,
+                pid * scale, y + node_size,
+                pid * scale, y + node_size * 0.75,
+                pid * scale, y + node_size / 2,
+                pid * scale - node_size / 2, y + node_size / 2)
 
-        self.start[pid] = self.y + self.y_ofs/2
-        self.active[pid] = self.y + self.y_ofs/2
-        self.wait_start[pid] = self.y
+        self.render_icon('init', pid, self.create_popupinfo(descr))
+
+        self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
+
+        self.start[pid] = y
+        self.active[pid] = y
+        self.wait_start[pid] = y
 
     def terminate(self, pid, result):
         start = self.start[pid]
@@ -201,22 +247,19 @@ class SvgRenderer(object):
                 '<path d="M %f %f %f %f" class="live"/>\n' % (
                     pid * self.scale, start, pid * self.scale, end))
 
+        scale, node_size, y = self.scale, self.node_size, self.y
         self.step[pid] += '%f %f %f %f Z' % (
-                pid * self.scale + self.scale / 8, self.y,
-                pid * self.scale - self.scale / 8, self.y)
+                pid * scale + node_size / 2, y + node_size / 2,
+                pid * scale - node_size / 2, y + node_size / 2)
         self.groups['block'].write('<path d="%s" class="state"/>\n' % (
                 self.step[pid]))
+        self.render_icon('terminate', pid)
         del self.step[pid]
-        return True
 
     def wait(self, pid, delay, code):
         descr = '<h2>Wait</h2>'
         descr += self.format_code(code)
-        popupinfo = self.create_popupinfo(descr)
-        self.groups['event'].write(
-                '<circle cx="%f" cy="%f" r="%f" '
-                'class="wait" %s/>\n' % (
-                    pid * self.scale, self.y, self.scale / 8, popupinfo))
+        self.render_icon('timeout', pid, self.create_popupinfo(descr))
 
         self.wait_start[pid] = self.y
         self.close(pid)
@@ -228,11 +271,7 @@ class SvgRenderer(object):
 
         descr = '<h2>Join</h2>'
         descr += self.format_code(code)
-        popupinfo = self.create_popupinfo(descr)
-        self.groups['event'].write(
-                '<circle cx="%f" cy="%f" r="%f" '
-                'class="join" %s/>\n' % (
-                    parent * self.scale, self.y, self.scale / 8, popupinfo))
+        self.render_icon('join', parent, self.create_popupinfo(descr))
         self.close(parent)
 
     def schedule(self, pid, src_id, delay, evt_type, value, code):
@@ -259,17 +298,13 @@ class SvgRenderer(object):
 
         descr = '<h2>%s</h2>' % evt_class.title()
         descr += self.format_code(code)
-        popupinfo = self.create_popupinfo(descr)
-        self.groups['event'].write(
-                '<circle cx="%f" cy="%f" r="%f" '
-                'class="%s" %s/>\n' % (
-                    pid * self.scale, self.y, self.scale / 8, evt_class,
-                    popupinfo))
+        self.render_icon(evt_class, pid, self.create_popupinfo(descr))
 
     def __call__(self):
+        scale, node_size = self.scale, self.node_size
         prev_timestep = 0
         for timestep, actions in self.history:
-            self.y += (timestep - prev_timestep) * self.scale
+            self.y += scale
             prev_timestep = timestep
             timestep_start = self.y
             last_pid = None
@@ -280,19 +315,25 @@ class SvgRenderer(object):
 
                 func = getattr(self, action_type)
                 if not func(pid, *action[2:]) and idx + 1 < len(actions) :
-                    self.y += self.y_ofs
+                    self.y += self.node_size * 2
 
             timestep_end = self.y
 
             descr = '<p>Timestep %.2f</p>' % timestep
             popupinfo = self.create_popupinfo(descr)
+
             self.groups['timestep'].write(
                     '<rect x="%f" y="%f" width="%f" height="%f" '
                     'class="timestep" %s/>\n' % (
-                        -self.scale - self.scale / 8, timestep_start,
-                        self.scale / 4, timestep_end - timestep_start,
+                        -scale - node_size / 2, timestep_start - node_size / 2,
+                        node_size, timestep_end - timestep_start - node_size,
                         popupinfo))
-        self.y += self.y_ofs * 2
+        self.y += node_size
+
+        icon_defs = ''
+        for name in sorted(icons):
+            icon_defs += '<g id="%s-icon" class="%s icon">%s</g>' % (
+                    name, name, icons[name])
 
         return ('<html>\n' +
                 '<head>\n'
@@ -301,10 +342,14 @@ class SvgRenderer(object):
                 '</head>\n' +
                 '<body onload="init_popup()">\n' +
                 '<svg height="%d" xmlns="http://www.w3.org/2000/svg">\n' % self.y +
+                '<defs>\n' + icon_defs + '</defs>\n' +
                 '<g transform="translate(%f, %f)">\n' % (self.scale * 2, self.scale) +
                 '<filter id="dropshadow" width="150%" height="150%">\n' +
                 '<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>\n' +
                 '<feOffset dx="2" dy="2" result="offsetblur"/>\n' +
+                '<feComponentTransfer>\n' +
+                '<feFuncA type="linear" slope="0.6"/>\n' +
+                '</feComponentTransfer>\n' +
                 '<feMerge>\n' +
                 '<feMergeNode/>\n' +
                 '<feMergeNode in="SourceGraphic"/>\n' +
