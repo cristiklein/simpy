@@ -156,18 +156,6 @@ class SvgRenderer(object):
                 pid * scale + node_size / 2, y - node_size / 2)
         return True
 
-    def leave2(self, pid, evt_type):
-        self.groups['controlflow'].write(
-                '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                    pid * self.scale, self.y, -self.scale, self.y))
-        # TODO Check if process is alive.
-        self.groups['block'].write(
-                '<rect x="%f" y="%f" width="%f" height="%f" '
-                'class="state"/>\n' % (
-                    pid * self.scale - self.scale / 8, self.active[pid],
-                    self.scale / 4, self.y - self.active[pid]))
-        self.active[pid] = self.y
-
     def close(self, pid):
         scale, node_size, y = self.scale, self.node_size, self.y
         self.step[pid] += '%f %f Q %f %f %f %f %f %f %f %f Z' % (
