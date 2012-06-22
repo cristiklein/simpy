@@ -37,6 +37,9 @@ class Context(object):
     def __str__(self):
         return self.pem.__name__
 
+    def __repr__(self):
+        return self.pem.__name__
+
 
 def context(func):
     func.context = True
@@ -61,6 +64,7 @@ class Dispatcher(object):
 
     @context
     def fork(self, pem, *args, **kwargs):
+        # TODO Handle immediately terminating processes (e.g. no generators).
         ctx = Context(self, next(self.pid), pem, args, kwargs)
 
         prev, self.active_ctx = self.active_ctx, ctx
@@ -100,6 +104,12 @@ class Dispatcher(object):
         ctx = self.active_ctx
         assert ctx.next_event is None, 'Next event already scheduled!'
         ctx.next_event = True
+
+    @context
+    def resume(self, other, value=None):
+        # TODO Isn't this dangerous? If other has already been resumed, this
+        # call will silently drop the previous result.
+        self.schedule(other, True, value)
 
     @context
     def interrupt(self, other, cause=None):
