@@ -19,100 +19,57 @@ fork="""
 <path d="M -0.2 -0.1 0.5 0.2"/>
 <path d="M 0.4 -0.06 0.5 0.2 0.24 0.3"/>
 """,
-join="""
-<circle cx="0" cy="0" r="1"/>
-<path d="M -0.2 0.5 -0.2 -0.5"/>
-<path d="M 0.5 -0.1 -0.2 0.2"/>
-<path d="M -0.1 -0.06 -0.2 0.2 0.06 0.3"/>
-""",
 timeout="""
 <circle cx="0" cy="0" r="1"/>
 <path d="M 0.0 -0.8 0.0 0.0"/>
 <path d="M 0.0 0.0 0.5 0.5"/>
+""",
+resume_success="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.3 0.3 0.0 0.5 0.5 -0.5"/>
+""",
+resume_failure="""
+<circle cx="0" cy="0" r="1"/>
+<path d="M -0.6 -0.6 0.6 0.6"/>
+<path d="M 0.0 -0.6 -0.6 0.6"/>
 """,
 terminate="""
 <circle cx="0" cy="0" r="1"/>
 <path d="M -0.8 0.0 0.8 0.0"/>
 """)
 
-class VisualizationContext(Context):
-    def wait(self, delay=None):
-        self.sim.record((self.id, Wait, delay, self.sim.get_code(2)))
-        return Context.wait(self, delay)
 
-    def join(self, target):
-        self.sim.record((self.id, Join, target, self.sim.get_code(2)))
-        return Context.join(self, target)
-
-    def __repr__(self):
-        return Context.__str__(self)
-
-
-Init = 'init'
-Terminate = 'terminate'
-Fork = 'fork'
-Wait = 'wait'
-Join = 'join'
-Schedule = 'schedule'
-Enter = 'enter'
-Leave = 'leave'
-
-class VisualizationSim(Simulation):
-    def __init__(self, *args, **kwargs):
-        self.history = []
-        Simulation.__init__(self, *args, **kwargs)
-        # Mark initial timestep.
-        self.history[0] = (-1, self.history[0][1])
-
-    def record(self, item):
-        if not self.history or self.history[-1][0] < self.now:
-            self.history.append((self.now, []))
-
-        self.history[-1][1].append(item)
-
-    def get_code(self, depth):
-        stack = traceback.extract_stack(limit=depth+1)
+def trace_func(simulation, trace, func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        stack = traceback.extract_stack(limit=2)
         filename = os.path.relpath(stack[0][0])
         lineno = stack[0][1]
-        return filename, lineno
 
-    def create_context(self, pem, args, kwargs):
-        pid = self.active_ctx.id if self.active_ctx is not None else -1
-
-        ctx_id = self._get_id()
-        self.record((pid, Fork, ctx_id, self.get_code(3)))
-
-        code = (os.path.relpath(pem.__code__.co_filename),
-                pem.__code__.co_firstlineno)
-        self.record((ctx_id, Init, pem.__name__,
-            tuple(str(arg) for arg in args),
-            dict((name, str(kwargs[arg])) for name in kwargs),
-            code))
-
-        return VisualizationContext(self, ctx_id, pem, args, kwargs)
-
-    def destroy_context(self, ctx):
-        self.record((ctx.id, Terminate, ctx.result))
-        return Simulation.destroy_context(self, ctx)
-
-    def schedule(self, ctx, delay, evt_type, value):
-        pid = self.active_ctx.id if self.active_ctx is not None else -1
-
-        self.record((ctx.id, Schedule, pid, delay, evt_type, value,
-            self.get_code(4)))
-        return Simulation.schedule(self, ctx, delay, evt_type, value)
-
-    def step(self):
-        # We need to set self.now right here because it will be used by
-        # self.record().
-        self.now = self.events[0][0]
-        pid = self.events[0][1]
-        evt_type = self.events[0][3]
-
-        self.record((pid, Enter, evt_type))
-        result = Simulation.step(self)
-        self.record((pid, Leave, evt_type))
+        caller = (filename, lineno)
+        trace.append((True, caller, simulation.now, simulation.active_ctx,
+            func.__name__, args, kwargs))
+        result = func(*args, **kwargs)
+        trace.append((False, result))
         return result
+    return wrapper
+
+
+def trace(simulation):
+    history = []
+
+    traced_context_funcs = []
+    for func in simulation.context_funcs:
+        tracer = trace_func(simulation, history, func)
+        traced_context_funcs.append(tracer)
+        setattr(simulation, func.__name__, tracer)
+    simulation.context_funcs = traced_context_funcs
+
+    simulation.process = trace_func(simulation, history, simulation.process)
+    simulation.schedule = trace_func(simulation, history, simulation.schedule)
+    simulation.join = trace_func(simulation, history, simulation.join)
+
+    return history
 
 
 class SvgRenderer(object):
@@ -131,36 +88,7 @@ class SvgRenderer(object):
         self.groups['block'] = StringIO()
         self.groups['event'] = StringIO()
 
-        self.start = {}
-        self.wait_start = {}
-        self.active = {}
-        self.step = {}
         self.y = self.scale
-
-    def enter(self, pid, evt_type):
-        scale, node_size, y = self.scale, self.node_size, self.y
-        self.active[pid] = self.y
-        self.step[pid] = 'M %f %f Q %f %f %f %f %f %f %f %f L %f %f ' % (
-                pid * scale - node_size / 2, y - node_size,
-                pid * scale, y - node_size,
-                pid * scale, y - node_size * 0.75,
-                pid * scale, y - node_size / 2,
-                pid * scale + node_size / 2, y - node_size / 2,
-                pid * scale + node_size / 2, y - node_size / 2)
-        return True
-
-    def close(self, pid):
-        scale, node_size, y = self.scale, self.node_size, self.y
-        self.step[pid] += '%f %f Q %f %f %f %f %f %f %f %f Z' % (
-                pid * scale + node_size / 2, y + node_size,
-                pid * scale, y + node_size,
-                pid * scale, y + node_size * 0.75,
-                pid * scale, y + node_size / 2,
-                pid * scale - node_size / 2, y + node_size / 2)
-
-        self.groups['block'].write('<path d="%s" class="state"/>\n' % (
-                self.step[pid]))
-        del self.step[pid]
 
     def create_popupinfo(self, text, code=None):
         args = '\'%s\'' % text.replace('"', '&quot;')
@@ -171,130 +99,156 @@ class SvgRenderer(object):
         return ('onmouseover="show_popup(arguments, %s)" '
                 'onmouseout="hide_popup(arguments[0])"' % args)
 
-    def render_icon(self, name, pid, popupinfo=''):
-        x, y = pid * self.scale, self.y
+    def render_icon(self, name, y, pid, description, code=None):
+        x = pid * self.scale
+        popupinfo = self.create_popupinfo(description, code)
         self.groups['event'].write(
                 '<use xlink:href="#%s-icon" '
                 'transform="translate(%f %f) scale(%f)" %s/>\n' % (
                     name, x, y, self.node_size * 0.4, popupinfo))
 
-    def fork(self, parent, child, code):
+    def fork(self, caller, timestep, active_ctx, pem, *args, **kwargs):
         scale, node_size, y = self.scale, self.node_size, self.y
         descr = '<h2>Fork</h2>'
-        self.render_icon('fork', parent, self.create_popupinfo(descr, code))
+        pid = active_ctx.id if active_ctx is not None else -1
+        self.render_icon('fork', y, pid, descr, caller)
+        self.y += self.scale
+        child = yield
+
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                    child * scale, y, parent * scale, y))
-        return True
+                    pid * scale, y, child.id * scale, y))
 
-    def init(self, pid, pem, args, kwargs, code):
+        code = (os.path.relpath(pem.__code__.co_filename),
+                pem.__code__.co_firstlineno)
+
         descr = '<h2>Init</h2>'
         descr += '<p><span class="code">%s(%s)</span></p>' % (
                 pem, ', '.join(
                     args + tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
 
-        scale, node_size, y = self.scale, self.node_size, self.y
-        path = 'M %f %f %f %f %f %f Q %f %f %f %f %f %f %f %f Z' % (
-                pid * scale - node_size / 2, y - node_size / 2,
-                pid * scale + node_size / 2, y - node_size / 2,
-                pid * scale + node_size / 2, y + node_size,
-                pid * scale, y + node_size,
-                pid * scale, y + node_size * 0.75,
-                pid * scale, y + node_size / 2,
-                pid * scale - node_size / 2, y + node_size / 2)
+        path = 'M %f %f %f %f %f %f %f %f %f %f Z' % (
+                child.id * scale - node_size / 2, y - node_size / 2,
+                child.id * scale + node_size / 2, y - node_size / 2,
+                child.id * scale + node_size / 2, y + node_size / 2,
+                child.id * scale, y + node_size,
+                child.id * scale - node_size / 2, y + node_size / 2)
 
-        self.render_icon('init', pid, self.create_popupinfo(descr, code))
+        self.render_icon('init', y, child.id, descr, code)
+
+        self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
+        self.y += scale
+        self.fixup = self.scale
+
+    def process(self, caller, timestep, active_ctx, ctx):
+        scale, node_size, y = self.scale, self.node_size, self.y
+        pid = ctx.id
+        self.fixup = 0
+        self.terminated = False
+        path = 'M %f %f %f %f %f %f ' % (
+                pid * scale - node_size / 2, y - node_size,
+                pid * scale, y - node_size / 2,
+                pid * scale + node_size / 2, y - node_size)
+        yield
+        y = self.y - self.fixup
+        if not self.terminated:
+            path += '%f %f %f %f %f %f Z' % (
+                    pid * scale + node_size / 2, y + node_size / 2,
+                    pid * scale, y + node_size,
+                    pid * scale - node_size / 2, y + node_size / 2)
+        else:
+            path += '%f %f %f %f Z' % (
+                    pid * scale + node_size / 2, y + node_size / 2,
+                    pid * scale - node_size / 2, y + node_size / 2)
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
 
-        self.start[pid] = y
-        self.active[pid] = y
-        self.wait_start[pid] = y
-
-    def terminate(self, pid, result):
-        start = self.start[pid]
-        end = self.y
-        self.groups['controlflow'].write(
-                '<path d="M %f %f %f %f" class="live"/>\n' % (
-                    pid * self.scale, start, pid * self.scale, end))
-
-        scale, node_size, y = self.scale, self.node_size, self.y
-        self.step[pid] += '%f %f %f %f Z' % (
-                pid * scale + node_size / 2, y + node_size / 2,
-                pid * scale - node_size / 2, y + node_size / 2)
-        self.groups['block'].write('<path d="%s" class="state"/>\n' % (
-                self.step[pid]))
-        self.render_icon('terminate', pid)
-        del self.step[pid]
-
-    def wait(self, pid, delay, code):
+    def wait(self, caller, timestep, active_ctx, delay=None):
         descr = '<h2>Wait</h2>'
-        self.render_icon('timeout', pid, self.create_popupinfo(descr, code))
+        self.render_icon('timeout', self.y, active_ctx.id, descr, caller)
+        self.y += self.scale
+        yield
+        self.fixup = self.scale
 
-        self.wait_start[pid] = self.y
-        self.close(pid)
+    def join(self, caller, timestep, active_ctx, ctx):
+        descr = '<h2>Terminate</h2>'
+        self.render_icon('terminate', self.y, active_ctx.id, descr, caller)
+        self.terminated = True
+        yield
 
-    def join(self, parent, child, code):
-        self.groups['controlflow'].write(
-                '<path d="M %f %f %f %f" class="flow"/>\n' % (
-                    child.id * self.scale, self.y, parent * self.scale, self.y))
+    def schedule(self, caller, timestep, active_ctx, ctx, evt_type,
+            value, at=None):
+        # Draw a controlflow line from the caller to callee.
+        src_pid = active_ctx.id if active_ctx is not None else -1
+        tgt_pid = ctx.id
 
-        descr = '<h2>Join</h2>'
-        self.render_icon('join', parent, self.create_popupinfo(descr, code))
-        self.close(parent)
-
-    def schedule(self, pid, src_id, delay, evt_type, value, code):
-        if pid == src_id:
-            # This should only happen for timeouts.
-            start = self.wait_start.pop(pid)
+        if tgt_pid == src_pid:
+            # This only happens for the initial fork schedule and waits.
+            # Draw a vertical line and increase y position.
             self.groups['controlflow'].write(
-                    '<path d="M %f %f %f %f %f %f %f %f" class="flow"/>\n' % (
-                        pid * self.scale, start,
-                        pid * self.scale + self.scale * 0.5, start,
-                        pid * self.scale + self.scale * 0.5, self.y,
-                        pid * self.scale, self.y))
-
-        if evt_type == core.Timeout:
-            evt_class = 'timeout'
-        elif evt_type == core.Join:
-            evt_class = 'join'
-        elif evt_type == core.Crash:
-            evt_class = 'crash'
-        elif evt_type == core.Interrupt:
-            evt_class = 'interrupt'
+                    '<path d="M %f %f %f %f" class="flow"/>\n' % (
+                        src_pid * self.scale, self.y - self.scale,
+                        src_pid * self.scale, self.y))
         else:
-            raise RuntimeError('Unknown event type %d' % evt_type)
+            self.groups['controlflow'].write(
+                    '<path d="M %f %f %f %f" class="flow"/>\n' % (
+                        src_pid * self.scale, self.y,
+                        tgt_pid * self.scale, self.y))
 
-        descr = '<h2>%s</h2>' % evt_class.title()
-        self.render_icon(evt_class, pid, self.create_popupinfo(descr))
+        if evt_type:
+            descr = '<h2>Success</h2>'
+            self.render_icon('resume_success', self.y, tgt_pid, descr)
+        else:
+            descr = '<h2>Failure</h2>'
+            self.render_icon('resume_failure', self.y, tgt_pid, descr)
+        yield
 
     def __call__(self):
         scale, node_size = self.scale, self.node_size
-        prev_timestep = 0
-        for timestep, actions in self.history:
-            prev_timestep = timestep
-            timestep_start = self.y
-            last_pid = None
+        timestep_start = 0
+        renderer_stack = []
+        for trace in self.history:
+            if trace[0]:
+                # A function was about to be called.
+                caller, timestep, active_ctx, fname, args, kwargs = trace[1:]
 
-            for idx, action in enumerate(actions):
-                pid, action_type = action[0], action[1]
-                if not hasattr(self, action_type): continue
+                if not hasattr(self, fname):
+                    renderer_stack.append(None)
+                    continue
+                func = getattr(self, fname)
 
-                func = getattr(self, action_type)
-                if not func(pid, *action[2:]) and idx + 1 < len(actions) :
-                    self.y += self.node_size * 2
+                renderer = func(caller, timestep, active_ctx,
+                        *args, **kwargs)
+                next(renderer)
 
-            timestep_end = self.y
+                # Push call onto the stack.
+                renderer_stack.append(renderer)
+            else:
+                # A function call has succeeded.
+                result = trace[1:]
 
-            descr = '<p>Timestep %.2f</p>' % timestep
-            popupinfo = self.create_popupinfo(descr)
+                renderer = renderer_stack.pop()
+                if renderer is not None:
+                    try:
+                        renderer.send(result[0])
+                    except StopIteration:
+                        pass
 
-            self.groups['timestep'].write(
-                    '<rect x="%f" y="%f" width="%f" height="%f" '
-                    'class="timestep" %s/>\n' % (
-                        -scale - node_size / 2, timestep_start - node_size / 2,
-                        node_size, timestep_end - timestep_start - node_size,
-                        popupinfo))
+            if not renderer_stack:
+                timestep_end = self.y
+
+                descr = '<p>Timestep %.2f</p>' % timestep
+                popupinfo = self.create_popupinfo(descr)
+
+                self.groups['timestep'].write(
+                        '<rect x="%f" y="%f" width="%f" height="%f" '
+                        'class="timestep" %s/>\n' % (
+                            -scale - node_size / 2, timestep_start - node_size / 2,
+                            node_size, timestep_end - timestep_start - node_size,
+                            popupinfo))
+
+                self.y += scale
+                timestep_start = self.y
         self.y += node_size
 
         icon_defs = ''
@@ -387,14 +341,15 @@ def root(ctx):
     def p1(ctx):
         yield ctx.wait(2)
 
-    yield ctx.join(ctx.fork(p1))
+    ctx.fork(p1)
+    yield ctx.fork(p1)
     yield ctx.wait(1)
 
-sim = VisualizationSim(root)
+sim = Simulation()
+history = trace(sim)
+sim.fork(root)
 sim.simulate(until=20)
 
 with open('test.html', 'w') as f:
-    data = SvgRenderer(sim.history)()
-    from pprint import pprint
-    pprint(sim.history)
+    data = SvgRenderer(history)()
     f.write(data)

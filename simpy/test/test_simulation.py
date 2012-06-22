@@ -1,4 +1,6 @@
-from simpy import Simulation, InterruptedException, Failure
+import pytest
+
+from simpy import simulate, InterruptedException, Failure
 
 def test_simple_process():
     def pem(ctx, result):
@@ -7,7 +9,7 @@ def test_simple_process():
             yield ctx.wait(1)
 
     result = []
-    Simulation(pem, result).simulate(until=4)
+    simulate(4, pem, result)
 
     assert result == [0, 1, 2, 3]
 
@@ -22,19 +24,19 @@ def test_interrupt():
 
         process = ctx.fork(pem)
         yield ctx.wait(5)
-        process.interrupt()
+        ctx.interrupt(process)
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_join():
     def root(ctx):
         def pem(ctx):
             yield ctx.wait(10)
 
-        yield ctx.join(ctx.fork(pem))
+        yield ctx.fork(pem)
         assert ctx.now == 10
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_join_result():
     def root(ctx):
@@ -43,10 +45,10 @@ def test_join_result():
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
-        result = yield ctx.join(ctx.fork(pem))
+        result = yield ctx.fork(pem)
         assert result == 'oh noes, i am dead x_x'
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_join_after_terminate():
     def root(ctx):
@@ -57,10 +59,10 @@ def test_join_after_terminate():
 
         child = ctx.fork(pem)
         yield ctx.wait(15)
-        result = yield ctx.join(child)
+        result = yield child
         assert result == 'oh noes, i am dead x_x'
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_join_all():
     def root(ctx):
@@ -75,13 +77,13 @@ def test_join_all():
         # Wait until all children have been terminated.
         results = []
         for process in processes:
-            results.append((yield ctx.join(process)))
+            results.append((yield process))
         assert results == list(reversed(range(10)))
 
         # The first child should have terminated at timestep 9. Confirm!
         assert ctx.now == 9
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_join_any():
     def root(ctx):
@@ -103,12 +105,13 @@ def test_join_any():
                 ctx.exit(e.cause)
 
         # Wait until the a child has terminated.
-        first_dead = yield ctx.join(ctx.fork(join_any, processes))
+        first_dead = yield ctx.fork(join_any, processes)
         # Confirm that the child created at last has terminated as first.
+        assert ctx.now == 0
         assert first_dead == processes[-1]
         assert first_dead.result == 0
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
 def test_crashing_process():
     def root(ctx):
@@ -116,7 +119,7 @@ def test_crashing_process():
         raise RuntimeError("That's it, I'm done")
 
     try:
-        Simulation(root).simulate(until=20)
+        simulate(20, root)
         assert False, 'Fishy!! This is not supposed to happen!'
     except RuntimeError as exc:
         assert exc.args[0] == "That's it, I'm done"
@@ -128,56 +131,37 @@ def test_crashing_child_process():
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.join(ctx.fork(panic))
+            yield ctx.fork(panic)
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             cause = exc.args[0]
             assert type(cause) == RuntimeError
             assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
-    Simulation(root).simulate(until=20)
+    simulate(20, root)
 
-def test_illegal_wait_after_wait():
+def test_illegal_suspend():
     def root(ctx):
-        ctx.wait()
-        ctx.wait()
+        ctx.suspend()
+        yield ctx.suspend()
 
     try:
-        Simulation(root).simulate(until=20)
+        simulate(20, root)
+        assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
-def test_illegal_join_after_wait():
-    def root(ctx):
-        ctx.wait()
-        ctx.join()
-
-    try:
-        Simulation(root).simulate(until=20)
-    except AssertionError as exc:
-        assert exc.args[0].startswith('Next event already scheduled!')
-
-def test_illegal_wait_after_join():
+def test_illegal_wait_followed_by_join():
     def root(ctx):
         def child(ctx):
-            yield ctx.wait()
-        ctx.join(ctx.fork(child))
+            yield ctx.wait(1)
+
         ctx.wait()
+        yield ctx.fork(child)
 
     try:
-        Simulation(root).simulate(until=20)
-    except AssertionError as exc:
-        assert exc.args[0].startswith('Next event already scheduled!')
-
-def test_illegal_join_after_join():
-    def root(ctx):
-        def child(ctx):
-            yield ctx.wait()
-        ctx.join(ctx.fork(child))
-        ctx.join(ctx.fork(child))
-
-    try:
-        Simulation(root).simulate(until=20)
+        simulate(20, root)
+        assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
@@ -186,6 +170,6 @@ def test_no_schedule():
         yield
 
     try:
-        Simulation(root).simulate(until=20)
+        simulate(20, root)
     except AssertionError as exc:
         assert exc.args[0].startswith('No event has been scheduled!')
