@@ -218,16 +218,12 @@ class Simulation(Dispatcher):
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
     @context
-    def wait(self, delay=None):
-        if delay is None:
-            return
+    def wait(self, delay):
+        assert delay >= 0
+        proc = self.active_proc
+        assert proc.next_event is None
 
-        proc = Process(next(self.pid), wait, wait(self.context))
-
-        # Schedule start of the process.
-        self.schedule(proc, Init, None, self.now + delay)
-
-        return proc
+        self.schedule(proc, Success, None, self.now + delay)
 
     def step(self):
         self.now, eid, proc, evt = heappop(self.events)

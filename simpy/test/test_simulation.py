@@ -99,7 +99,7 @@ def test_join_any():
             for process in processes:
                 ctx.signal(process)
             try:
-                yield ctx.wait()
+                yield
                 assert False, 'There should have been an interrupt'
             except Interrupt as e:
                 ctx.exit(e.cause)
@@ -153,12 +153,11 @@ def test_illegal_suspend():
         assert exc.args[0].startswith('Next event already scheduled!')
 
 def test_illegal_wait_followed_by_join():
-    pytest.skip()
     def root(ctx):
         def child(ctx):
             yield ctx.wait(1)
 
-        ctx.wait()
+        ctx.wait(1)
         yield ctx.fork(child)
 
     try:
@@ -201,7 +200,7 @@ def test_resume_before_start():
 def test_immediate_resume():
     def root(ctx, result):
         def child(ctx, result):
-            yield ctx.wait()
+            yield
             result.append(ctx.now)
 
         def resumer(ctx, other):
