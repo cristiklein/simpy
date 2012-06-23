@@ -1,6 +1,7 @@
 import inspect
 from heapq import heappush, heappop
 from itertools import count
+from collections import defaultdict
 
 
 class Interrupt(Exception):
@@ -28,8 +29,6 @@ class Context(object):
         self.id = id
         self.pem = pem
         self.next_event = None
-        self.signallers = []
-        self.joiners = []
         self.state = Inactive
         self.result = None
 
@@ -57,6 +56,8 @@ def context(func):
 class Dispatcher(object):
     def __init__(self):
         self.events = []
+        self.joiners = defaultdict(list)
+        self.signallers = defaultdict(list)
         self.pid = count()
         self.active_ctx = None
 
@@ -86,22 +87,27 @@ class Dispatcher(object):
     def join(self, ctx):
         ctx.process = None
 
+        joiners = self.joiners.pop(ctx, None)
+        signallers = self.signallers.pop(ctx, None)
+
         if ctx.state == Failed:
             # TODO Don't know about this one. This check causes the whole
             # simulation to crash if there is a crashed process and no other
             # process to handle this crash. Something like this must certainely
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
-            if not ctx.joiners and not ctx.signallers:
+            if not joiners and not signallers:
                 raise ctx.result.args[0]
 
-        for joiner in ctx.joiners:
-            if joiner.process is None: continue
-            self.schedule(joiner, ctx.state == Done, ctx.result)
+        if joiners:
+            for joiner in joiners:
+                if joiner.process is None: continue
+                self.schedule(joiner, ctx.state == Done, ctx.result)
 
-        for signaller in ctx.signallers:
-            if signaller.process is None: continue
-            self.schedule(signaller, False, Interrupt(ctx))
+        if signallers:
+            for signaller in signallers:
+                if signaller.process is None: continue
+                self.schedule(signaller, False, Interrupt(ctx))
 
     @context
     def exit(self, result=None):
@@ -132,7 +138,7 @@ class Dispatcher(object):
             self.schedule(ctx, False, Interrupt(other))
             self.active_ctx = prev
         else:
-            other.signallers.append(ctx)
+            self.signallers[other].append(ctx)
 
     def process(self, ctx):
         assert self.active_ctx is None
@@ -177,7 +183,7 @@ class Dispatcher(object):
                 self.schedule(ctx, target.state == Done, target.result)
                 self.active_ctx = prev
             else:
-                target.joiners.append(self.active_ctx)
+                 self.joiners[target].append(ctx)
         else:
             # FIXME This isn't working yet.
             #assert ctx.next_event is None, 'Next event already scheduled!'
