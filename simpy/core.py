@@ -14,13 +14,9 @@ class Failure(Exception):
     pass
 
 
-# TODO Create Context class somehow dynamically if context properties should
-# also be supported.
-
-Inactive = 0
-Active = 1
-Done = 2
-Failed = 3
+Failed = 0
+Success = 1
+Init = 2
 
 
 class Process(object):
@@ -30,8 +26,8 @@ class Process(object):
         self.sim = sim
         self.id = id
         self.pem = pem
+        self.state = None
         self.next_event = None
-        self.state = Inactive
         self.result = None
         self.process = process
 
@@ -75,7 +71,6 @@ class Dispatcher(object):
         for name, func in self.context_funcs.items():
             setattr(self.context, name, func)
 
-
     def schedule(self, proc, evt_type, value):
         proc.next_event = (evt_type, value)
         self.events.append((proc, proc.next_event))
@@ -89,7 +84,7 @@ class Dispatcher(object):
 
         prev, self.active_proc = self.active_proc, proc
         # Schedule start of the process.
-        self.schedule(proc, True, None)
+        self.schedule(proc, Init, None)
         self.active_proc = prev
 
         return proc
@@ -112,12 +107,12 @@ class Dispatcher(object):
         if joiners:
             for joiner in joiners:
                 if joiner.process is None: continue
-                self.schedule(joiner, proc.state == Done, proc.result)
+                self.schedule(joiner, proc.state, proc.result)
 
         if signallers:
             for signaller in signallers:
                 if signaller.process is None: continue
-                self.schedule(signaller, False, Interrupt(proc))
+                self.schedule(signaller, Failed, Interrupt(proc))
 
     @context
     def exit(self, result=None):
@@ -126,16 +121,20 @@ class Dispatcher(object):
 
     @context
     def resume(self, other, value=None):
-        assert other.state == Active, 'Process %s is not active' % other
+        if other.next_event is not None:
+            assert other.next_event[0] != Init, (
+                    'Process %s is not initialized' % other)
         # TODO Isn't this dangerous? If other has already been resumed, this
         # call will silently drop the previous result.
-        self.schedule(other, True, value)
+        self.schedule(other, Success, value)
 
     @context
     def interrupt(self, other, cause=None):
-        assert other.state == Active, 'Process %s is not active' % other
+        if other.next_event is not None:
+            assert other.next_event[0] != Init, (
+                    'Process %s is not initialized' % other)
         proc = self.active_proc
-        self.schedule(other, False, Interrupt(cause))
+        self.schedule(other, Failed, Interrupt(cause))
 
     @context
     def signal(self, other):
@@ -145,7 +144,7 @@ class Dispatcher(object):
         if other.process is None:
             # FIXME This context switching is ugly.
             prev, self.active_proc = self.active_proc, other
-            self.schedule(proc, False, Interrupt(other))
+            self.schedule(proc, Failed, Interrupt(other))
             self.active_proc = prev
         else:
             self.signallers[other].append(proc)
@@ -155,7 +154,6 @@ class Dispatcher(object):
 
         evt_type, value = proc.next_event
         proc.next_event = None
-        proc.state = Active
         self.active_proc = proc
         try:
             if evt_type:
@@ -166,7 +164,7 @@ class Dispatcher(object):
                 target = proc.process.throw(value)
         except StopIteration:
             # Process has terminated.
-            proc.state = Done
+            proc.state = Success
             self.join(proc)
             self.active_proc = None
             return
@@ -190,7 +188,7 @@ class Dispatcher(object):
                 # FIXME This context switching is ugly.
                 prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
-                self.schedule(proc, target.state == Done, target.result)
+                self.schedule(proc, target.state, target.result)
                 self.active_proc = prev
             else:
                  self.joiners[target].append(proc)
@@ -229,10 +227,10 @@ class Simulation(Dispatcher):
         if delay is None:
             # Mark this process as scheduled. This is to prevent multiple calls
             # to wait without a yield.
-            proc.next_event = True
+            proc.next_event = (Success, None)
             return
 
-        self.schedule(proc, True, None, self.now + delay)
+        self.schedule(proc, Success, None, self.now + delay)
 
     def step(self):
         self.now, eid, proc, evt = heappop(self.events)

@@ -195,7 +195,7 @@ def test_resume_before_start():
         simulate(20, root)
         assert False, 'This must fail'
     except AssertionError as exc:
-        assert exc.args[0] == 'Process child is not active'
+        assert exc.args[0] == 'Process child is not initialized'
 
 def test_immediate_resume():
     def root(ctx, result):
