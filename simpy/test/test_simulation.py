@@ -151,6 +151,21 @@ def test_illegal_suspend():
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
+def test_illegal_interrupt():
+    def root(ctx):
+        def child(ctx):
+            yield
+
+        child = ctx.fork(child)
+        ctx.interrupt(child)
+        yield
+
+    try:
+        simulate(20, root)
+        assert False, 'Expected an exception.'
+    except AssertionError as exc:
+        assert exc.args[0] == 'Process child is not initialized'
+
 def test_illegal_wait_followed_by_join():
     def root(ctx):
         def child(ctx):
