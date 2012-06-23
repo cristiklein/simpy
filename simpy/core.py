@@ -21,19 +21,15 @@ Init = 2
 
 class Process(object):
     __slots__ = ('sim', 'id', 'pem', 'next_event', 'state', 'result',
-            'process')
-    def __init__(self, sim, id, pem, process):
+            'generator')
+    def __init__(self, sim, id, pem, generator):
         self.sim = sim
         self.id = id
         self.pem = pem
         self.state = None
         self.next_event = None
         self.result = None
-        self.process = process
-
-    @property
-    def now(self):
-        return self.sim.now
+        self.generator = generator
 
     def __str__(self):
         return self.pem.__name__
@@ -90,7 +86,7 @@ class Dispatcher(object):
         return proc
 
     def join(self, proc):
-        proc.process = None
+        proc.generator = None
 
         joiners = self.joiners.pop(proc, None)
         signallers = self.signallers.pop(proc, None)
@@ -106,12 +102,12 @@ class Dispatcher(object):
 
         if joiners:
             for joiner in joiners:
-                if joiner.process is None: continue
+                if joiner.generator is None: continue
                 self.schedule(joiner, proc.state, proc.result)
 
         if signallers:
             for signaller in signallers:
-                if signaller.process is None: continue
+                if signaller.generator is None: continue
                 self.schedule(signaller, Failed, Interrupt(proc))
 
     @context
@@ -141,7 +137,7 @@ class Dispatcher(object):
         """Interrupt this process, if the target terminates."""
         proc = self.active_proc
 
-        if other.process is None:
+        if other.generator is None:
             # FIXME This context switching is ugly.
             prev, self.active_proc = self.active_proc, other
             self.schedule(proc, Failed, Interrupt(other))
@@ -158,10 +154,10 @@ class Dispatcher(object):
         try:
             if evt_type:
                 # A "successful" event.
-                target = proc.process.send(value)
+                target = proc.generator.send(value)
             else:
                 # An "unsuccessful" event.
-                target = proc.process.throw(value)
+                target = proc.generator.throw(value)
         except StopIteration:
             # Process has terminated.
             proc.state = Success
@@ -184,7 +180,7 @@ class Dispatcher(object):
             assert proc.next_event is None, 'Next event already scheduled!'
 
             # Add this process to the list of waiters.
-            if target.process is None:
+            if target.generator is None:
                 # FIXME This context switching is ugly.
                 prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
