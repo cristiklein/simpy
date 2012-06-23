@@ -32,8 +32,7 @@ class Context(object):
         self.state = Inactive
         self.result = None
 
-        for func in sim.context_funcs:
-            setattr(self, func.__name__, func)
+        self.__dict__.update(sim.context_funcs)
 
         self.process = pem(self, *args, **kwargs)
 
@@ -61,11 +60,11 @@ class Dispatcher(object):
         self.pid = count()
         self.active_ctx = None
 
-        self.context_funcs = []
+        self.context_funcs = {}
         for name in dir(self):
             obj = getattr(self, name)
             if callable(obj) and hasattr(obj, 'context'):
-                self.context_funcs.append(obj)
+                self.context_funcs[name] = obj
 
     def schedule(self, ctx, evt_type, value):
         ctx.next_event = (evt_type, value)
