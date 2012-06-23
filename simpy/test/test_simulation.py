@@ -173,3 +173,43 @@ def test_no_schedule():
         simulate(20, root)
     except AssertionError as exc:
         assert exc.args[0].startswith('No event has been scheduled!')
+
+def test_resume_before_start():
+    """A process must be started before any there can be any interaction.
+
+    As a consequence you can't resume or interrupt a just forked process as
+    shown in this test. See :func:`test_immediate_resume` for the correct way
+    to immediately resume a forked process.
+    """
+    def root(ctx):
+        def child(ctx):
+            yield ctx.wait(1)
+
+        c = ctx.fork(child)
+        ctx.resume(c)
+        yield ctx.exit()
+
+    try:
+        simulate(20, root)
+        assert False, 'This must fail'
+    except AssertionError as exc:
+        assert exc.args[0] == 'Process child is not active'
+
+def test_immediate_resume():
+    def root(ctx, result):
+        def child(ctx, result):
+            yield ctx.wait()
+            result.append(ctx.now)
+
+        def resumer(ctx, other):
+            ctx.resume(other)
+            yield ctx.exit()
+
+        c = ctx.fork(child, result)
+        ctx.fork(resumer, c)
+        yield ctx.exit()
+
+    result = []
+    simulate(20, root, result)
+    # Confirm that child has been interrupted immediately at timestep 0.
+    assert result == [0]

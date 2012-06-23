@@ -1,3 +1,4 @@
+import inspect
 from heapq import heappush, heappop
 from itertools import count
 
@@ -15,6 +16,12 @@ class Failure(Exception):
 # TODO Create Context class somehow dynamically if context properties should
 # also be supported.
 
+Inactive = 0
+Active = 1
+Done = 2
+Failed = 3
+
+
 class Context(object):
     def __init__(self, sim, id, pem, args, kwargs):
         self.sim = sim
@@ -23,6 +30,7 @@ class Context(object):
         self.next_event = None
         self.signallers = []
         self.joiners = []
+        self.state = Inactive
         self.result = None
 
         for func in sim.context_funcs:
@@ -64,7 +72,8 @@ class Dispatcher(object):
 
     @context
     def fork(self, pem, *args, **kwargs):
-        # TODO Handle immediately terminating processes (e.g. no generators).
+        assert inspect.isgeneratorfunction(pem), (
+                'Process function %s is not a generator' % pem)
         ctx = Context(self, next(self.pid), pem, args, kwargs)
 
         prev, self.active_ctx = self.active_ctx, ctx
@@ -77,7 +86,7 @@ class Dispatcher(object):
     def join(self, ctx):
         ctx.process = None
 
-        if not ctx.result_type:
+        if ctx.state == Failed:
             # TODO Don't know about this one. This check causes the whole
             # simulation to crash if there is a crashed process and no other
             # process to handle this crash. Something like this must certainely
@@ -88,7 +97,7 @@ class Dispatcher(object):
 
         for joiner in ctx.joiners:
             if joiner.process is None: continue
-            self.schedule(joiner, ctx.result_type, ctx.result)
+            self.schedule(joiner, ctx.state == Done, ctx.result)
 
         for signaller in ctx.signallers:
             if signaller.process is None: continue
@@ -107,12 +116,14 @@ class Dispatcher(object):
 
     @context
     def resume(self, other, value=None):
+        assert other.state == Active, 'Process %s is not active' % other
         # TODO Isn't this dangerous? If other has already been resumed, this
         # call will silently drop the previous result.
         self.schedule(other, True, value)
 
     @context
     def interrupt(self, other, cause=None):
+        assert other.state == Active, 'Process %s is not active' % other
         ctx = self.active_ctx
         self.schedule(other, False, InterruptedException(cause))
 
@@ -134,6 +145,7 @@ class Dispatcher(object):
 
         evt_type, value = ctx.next_event
         ctx.next_event = None
+        ctx.state = Active
         self.active_ctx = ctx
         try:
             if evt_type:
@@ -144,13 +156,13 @@ class Dispatcher(object):
                 target = ctx.process.throw(value)
         except StopIteration:
             # Process has terminated.
-            ctx.result_type = True
+            ctx.state = Done
             self.join(ctx)
             self.active_ctx = None
             return
         except BaseException as e:
             # Process has failed.
-            ctx.result_type = False
+            ctx.state = Failed
             ctx.result = Failure(e)
             self.join(ctx)
             self.active_ctx = None
@@ -166,7 +178,7 @@ class Dispatcher(object):
                 # FIXME This context switching is ugly.
                 prev, self.active_ctx = self.active_ctx, target
                 # Process has already terminated. Resume as soon as possible.
-                self.schedule(ctx, target.result_type, target.result)
+                self.schedule(ctx, target.state == Done, target.result)
                 self.active_ctx = prev
             else:
                 target.joiners.append(self.active_ctx)
