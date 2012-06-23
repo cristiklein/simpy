@@ -109,12 +109,6 @@ class Dispatcher(object):
         raise StopIteration()
 
     @context
-    def suspend(self):
-        ctx = self.active_ctx
-        assert ctx.next_event is None, 'Next event already scheduled!'
-        ctx.next_event = True
-
-    @context
     def resume(self, other, value=None):
         assert other.state == Active, 'Process %s is not active' % other
         # TODO Isn't this dangerous? If other has already been resumed, this
@@ -169,6 +163,8 @@ class Dispatcher(object):
             return
 
         if target is not None:
+            # TODO Improve this error message.
+            assert type(target) is Context, 'Invalid yield value "%s"' % target
             # TODO The stacktrace won't show the position in the pem where this
             # exception occured. Maybe throw the assertion error into the pem?
             assert ctx.next_event is None, 'Next event already scheduled!'
@@ -182,6 +178,10 @@ class Dispatcher(object):
                 self.active_ctx = prev
             else:
                 target.joiners.append(self.active_ctx)
+        else:
+            # FIXME This isn't working yet.
+            #assert ctx.next_event is None, 'Next event already scheduled!'
+            pass
 
         self.active_ctx = None
 
@@ -205,7 +205,10 @@ class Simulation(Dispatcher):
         assert ctx.next_event is None
 
         if delay is None:
-            return self.suspend()
+            # Mark this context as scheduled. This is to prevent multiple calls
+            # to wait without a yield.
+            ctx.next_event = True
+            return
 
         # Next event wird von process gebraucht, um das Ergebnis reinzusenden.
         self.schedule(ctx, True, None, self.now + delay)

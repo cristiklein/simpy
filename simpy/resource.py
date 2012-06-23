@@ -6,7 +6,7 @@ class Resource(object):
         self.waiters = []
 
     def waiter(self, ctx):
-        yield ctx.suspend()
+        yield
 
     def check(self, ctx):
         self.resume()

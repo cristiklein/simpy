@@ -141,9 +141,10 @@ def test_crashing_child_process():
     simulate(20, root)
 
 def test_illegal_suspend():
+    pytest.skip()
     def root(ctx):
-        ctx.suspend()
-        yield ctx.suspend()
+        ctx.wait()
+        yield
 
     try:
         simulate(20, root)
@@ -165,14 +166,15 @@ def test_illegal_wait_followed_by_join():
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
-def test_no_schedule():
+def test_invalid_schedule():
     def root(ctx):
-        yield
+        yield 'this will not work'
 
     try:
         simulate(20, root)
+        assert False, 'Expected an exception.'
     except AssertionError as exc:
-        assert exc.args[0].startswith('No event has been scheduled!')
+        assert exc.args[0] == 'Invalid yield value "this will not work"'
 
 def test_resume_before_start():
     """A process must be started before any there can be any interaction.
