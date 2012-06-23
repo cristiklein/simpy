@@ -3,7 +3,7 @@ from heapq import heappush, heappop
 from itertools import count
 
 
-class InterruptedException(Exception):
+class Interrupt(Exception):
     def __init__(self, cause):
         Exception.__init__(self)
         self.cause = cause
@@ -101,7 +101,7 @@ class Dispatcher(object):
 
         for signaller in ctx.signallers:
             if signaller.process is None: continue
-            self.schedule(signaller, False, InterruptedException(ctx))
+            self.schedule(signaller, False, Interrupt(ctx))
 
     @context
     def exit(self, result=None):
@@ -125,7 +125,7 @@ class Dispatcher(object):
     def interrupt(self, other, cause=None):
         assert other.state == Active, 'Process %s is not active' % other
         ctx = self.active_ctx
-        self.schedule(other, False, InterruptedException(cause))
+        self.schedule(other, False, Interrupt(cause))
 
     @context
     def signal(self, other):
@@ -135,7 +135,7 @@ class Dispatcher(object):
         if other.process is None:
             # FIXME This context switching is ugly.
             prev, self.active_ctx = self.active_ctx, other
-            self.schedule(ctx, False, InterruptedException(other))
+            self.schedule(ctx, False, Interrupt(other))
             self.active_ctx = prev
         else:
             other.signallers.append(ctx)

@@ -1,6 +1,6 @@
 import pytest
 
-from simpy import simulate, InterruptedException, Failure
+from simpy import simulate, Interrupt, Failure
 
 def test_simple_process():
     def pem(ctx, result):
@@ -19,7 +19,7 @@ def test_interrupt():
             try:
                 yield ctx.wait(10)
                 raise RuntimeError('Expected an interrupt')
-            except InterruptedException:
+            except Interrupt:
                 pass
 
         process = ctx.fork(pem)
@@ -101,7 +101,7 @@ def test_join_any():
             try:
                 yield ctx.wait()
                 assert False, 'There should have been an interrupt'
-            except InterruptedException as e:
+            except Interrupt as e:
                 ctx.exit(e.cause)
 
         # Wait until the a child has terminated.
