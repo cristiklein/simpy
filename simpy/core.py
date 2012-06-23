@@ -206,6 +206,10 @@ class SimulationContext(Context):
         return self.sim.now
 
 
+def wait(ctx):
+    yield ctx.exit()
+
+
 class Simulation(Dispatcher):
     def __init__(self):
         Dispatcher.__init__(self, SimulationContext)
@@ -221,16 +225,15 @@ class Simulation(Dispatcher):
 
     @context
     def wait(self, delay=None):
-        proc = self.active_proc
-        assert proc.next_event is None
-
         if delay is None:
-            # Mark this process as scheduled. This is to prevent multiple calls
-            # to wait without a yield.
-            proc.next_event = (Success, None)
             return
 
-        self.schedule(proc, Success, None, self.now + delay)
+        proc = Process(self, next(self.pid), wait, wait(self.context))
+
+        # Schedule start of the process.
+        self.schedule(proc, Init, None, self.now + delay)
+
+        return proc
 
     def step(self):
         self.now, eid, proc, evt = heappop(self.events)

@@ -153,6 +153,7 @@ def test_illegal_suspend():
         assert exc.args[0].startswith('Next event already scheduled!')
 
 def test_illegal_wait_followed_by_join():
+    pytest.skip()
     def root(ctx):
         def child(ctx):
             yield ctx.wait(1)
