@@ -1,7 +1,7 @@
-import inspect
 from heapq import heappush, heappop
 from itertools import count
 from collections import defaultdict
+from types import GeneratorType
 
 
 class Interrupt(Exception):
@@ -23,18 +23,17 @@ Done = 2
 Failed = 3
 
 
-class Context(object):
-    def __init__(self, sim, id, pem, args, kwargs):
+class Process(object):
+    __slots__ = ('sim', 'id', 'pem', 'next_event', 'state', 'result',
+            'process')
+    def __init__(self, sim, id, pem, process):
         self.sim = sim
         self.id = id
         self.pem = pem
         self.next_event = None
         self.state = Inactive
         self.result = None
-
-        self.__dict__.update(sim.context_funcs)
-
-        self.process = pem(self, *args, **kwargs)
+        self.process = process
 
     @property
     def now(self):
@@ -52,13 +51,19 @@ def context(func):
     return func
 
 
+class Context(object):
+    def __init__(self, sim):
+        self.sim = sim
+
+
 class Dispatcher(object):
-    def __init__(self):
+    def __init__(self, context_type):
+        self.context_type = context_type
         self.events = []
         self.joiners = defaultdict(list)
         self.signallers = defaultdict(list)
         self.pid = count()
-        self.active_ctx = None
+        self.active_proc = None
 
         self.context_funcs = {}
         for name in dir(self):
@@ -66,51 +71,57 @@ class Dispatcher(object):
             if callable(obj) and hasattr(obj, 'context'):
                 self.context_funcs[name] = obj
 
-    def schedule(self, ctx, evt_type, value):
-        ctx.next_event = (evt_type, value)
-        self.events.append((ctx, ctx.next_event))
+        self.context = context_type(self)
+        for name, func in self.context_funcs.items():
+            setattr(self.context, name, func)
+
+
+    def schedule(self, proc, evt_type, value):
+        proc.next_event = (evt_type, value)
+        self.events.append((proc, proc.next_event))
 
     @context
     def fork(self, pem, *args, **kwargs):
-        assert inspect.isgeneratorfunction(pem), (
-                'Process function %s is not a generator' % pem)
-        ctx = Context(self, next(self.pid), pem, args, kwargs)
+        process = pem(self.context, *args, **kwargs)
+        assert type(process) is GeneratorType, (
+                'Process function %s is did not return a generator' % pem)
+        proc = Process(self, next(self.pid), pem, process)
 
-        prev, self.active_ctx = self.active_ctx, ctx
+        prev, self.active_proc = self.active_proc, proc
         # Schedule start of the process.
-        self.schedule(ctx, True, None)
-        self.active_ctx = prev
+        self.schedule(proc, True, None)
+        self.active_proc = prev
 
-        return ctx
+        return proc
 
-    def join(self, ctx):
-        ctx.process = None
+    def join(self, proc):
+        proc.process = None
 
-        joiners = self.joiners.pop(ctx, None)
-        signallers = self.signallers.pop(ctx, None)
+        joiners = self.joiners.pop(proc, None)
+        signallers = self.signallers.pop(proc, None)
 
-        if ctx.state == Failed:
+        if proc.state == Failed:
             # TODO Don't know about this one. This check causes the whole
             # simulation to crash if there is a crashed process and no other
             # process to handle this crash. Something like this must certainely
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
             if not joiners and not signallers:
-                raise ctx.result.args[0]
+                raise proc.result.args[0]
 
         if joiners:
             for joiner in joiners:
                 if joiner.process is None: continue
-                self.schedule(joiner, ctx.state == Done, ctx.result)
+                self.schedule(joiner, proc.state == Done, proc.result)
 
         if signallers:
             for signaller in signallers:
                 if signaller.process is None: continue
-                self.schedule(signaller, False, Interrupt(ctx))
+                self.schedule(signaller, False, Interrupt(proc))
 
     @context
     def exit(self, result=None):
-        self.active_ctx.result = result
+        self.active_proc.result = result
         raise StopIteration()
 
     @context
@@ -123,105 +134,110 @@ class Dispatcher(object):
     @context
     def interrupt(self, other, cause=None):
         assert other.state == Active, 'Process %s is not active' % other
-        ctx = self.active_ctx
+        proc = self.active_proc
         self.schedule(other, False, Interrupt(cause))
 
     @context
     def signal(self, other):
         """Interrupt this process, if the target terminates."""
-        ctx = self.active_ctx
+        proc = self.active_proc
 
         if other.process is None:
             # FIXME This context switching is ugly.
-            prev, self.active_ctx = self.active_ctx, other
-            self.schedule(ctx, False, Interrupt(other))
-            self.active_ctx = prev
+            prev, self.active_proc = self.active_proc, other
+            self.schedule(proc, False, Interrupt(other))
+            self.active_proc = prev
         else:
-            self.signallers[other].append(ctx)
+            self.signallers[other].append(proc)
 
-    def process(self, ctx):
-        assert self.active_ctx is None
+    def process(self, proc):
+        assert self.active_proc is None
 
-        evt_type, value = ctx.next_event
-        ctx.next_event = None
-        ctx.state = Active
-        self.active_ctx = ctx
+        evt_type, value = proc.next_event
+        proc.next_event = None
+        proc.state = Active
+        self.active_proc = proc
         try:
             if evt_type:
                 # A "successful" event.
-                target = ctx.process.send(value)
+                target = proc.process.send(value)
             else:
                 # An "unsuccessful" event.
-                target = ctx.process.throw(value)
+                target = proc.process.throw(value)
         except StopIteration:
             # Process has terminated.
-            ctx.state = Done
-            self.join(ctx)
-            self.active_ctx = None
+            proc.state = Done
+            self.join(proc)
+            self.active_proc = None
             return
         except BaseException as e:
             # Process has failed.
-            ctx.state = Failed
-            ctx.result = Failure(e)
-            self.join(ctx)
-            self.active_ctx = None
+            proc.state = Failed
+            proc.result = Failure(e)
+            self.join(proc)
+            self.active_proc = None
             return
 
         if target is not None:
             # TODO Improve this error message.
-            assert type(target) is Context, 'Invalid yield value "%s"' % target
+            assert type(target) is Process, 'Invalid yield value "%s"' % target
             # TODO The stacktrace won't show the position in the pem where this
             # exception occured. Maybe throw the assertion error into the pem?
-            assert ctx.next_event is None, 'Next event already scheduled!'
+            assert proc.next_event is None, 'Next event already scheduled!'
 
             # Add this process to the list of waiters.
             if target.process is None:
                 # FIXME This context switching is ugly.
-                prev, self.active_ctx = self.active_ctx, target
+                prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
-                self.schedule(ctx, target.state == Done, target.result)
-                self.active_ctx = prev
+                self.schedule(proc, target.state == Done, target.result)
+                self.active_proc = prev
             else:
-                 self.joiners[target].append(ctx)
+                 self.joiners[target].append(proc)
         else:
             # FIXME This isn't working yet.
-            #assert ctx.next_event is None, 'Next event already scheduled!'
+            #assert proc.next_event is None, 'Next event already scheduled!'
             pass
 
-        self.active_ctx = None
+        self.active_proc = None
+
+
+class SimulationContext(Context):
+    @property
+    def now(self):
+        return self.sim.now
 
 
 class Simulation(Dispatcher):
     def __init__(self):
-        Dispatcher.__init__(self)
+        Dispatcher.__init__(self, SimulationContext)
         self.now = 0
         self.eid = count()
 
-    def schedule(self, ctx, evt_type, value, at=None):
+    def schedule(self, proc, evt_type, value, at=None):
         if at is None:
             at = self.now
 
-        ctx.next_event = (evt_type, value)
-        heappush(self.events, (at, next(self.eid), ctx, ctx.next_event))
+        proc.next_event = (evt_type, value)
+        heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
     @context
     def wait(self, delay=None):
-        ctx = self.active_ctx
-        assert ctx.next_event is None
+        proc = self.active_proc
+        assert proc.next_event is None
 
         if delay is None:
-            # Mark this context as scheduled. This is to prevent multiple calls
+            # Mark this process as scheduled. This is to prevent multiple calls
             # to wait without a yield.
-            ctx.next_event = True
+            proc.next_event = True
             return
 
-        # Next event wird von process gebraucht, um das Ergebnis reinzusenden.
-        self.schedule(ctx, True, None, self.now + delay)
+        self.schedule(proc, True, None, self.now + delay)
 
     def step(self):
-        self.now, eid, ctx, evt = heappop(self.events)
-        if ctx.next_event is not evt: return
-        self.process(ctx)
+        self.now, eid, proc, evt = heappop(self.events)
+        if proc.next_event is not evt: return
+        self.process(proc)
 
     def peek(self):
         while self.events:
@@ -236,5 +252,5 @@ class Simulation(Dispatcher):
 
 def simulate(until, root, *args, **kwargs):
     sim = Simulation()
-    ctx = sim.fork(root, *args, **kwargs)
+    proc = sim.fork(root, *args, **kwargs)
     return sim.simulate(until)
