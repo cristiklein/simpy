@@ -15,7 +15,7 @@ class Resource(object):
     def resume(self, ctx=None):
         while self.capacity > 0 and self.waiters:
             self.capacity -= 1
-            self.ctx.resume(self.waiters.pop(0), 'res')
+            self.ctx.resume(self.waiters.pop(0), None)
 
     def request(self):
         waiter = self.ctx.fork(self.waiter)
