@@ -20,10 +20,8 @@ Init = 2
 
 
 class Process(object):
-    __slots__ = ('sim', 'id', 'pem', 'next_event', 'state', 'result',
-            'generator')
-    def __init__(self, sim, id, pem, generator):
-        self.sim = sim
+    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator')
+    def __init__(self, id, pem, generator):
         self.id = id
         self.pem = pem
         self.state = None
@@ -76,7 +74,7 @@ class Dispatcher(object):
         process = pem(self.context, *args, **kwargs)
         assert type(process) is GeneratorType, (
                 'Process function %s is did not return a generator' % pem)
-        proc = Process(self, next(self.pid), pem, process)
+        proc = Process(next(self.pid), pem, process)
 
         prev, self.active_proc = self.active_proc, proc
         # Schedule start of the process.
@@ -224,7 +222,7 @@ class Simulation(Dispatcher):
         if delay is None:
             return
 
-        proc = Process(self, next(self.pid), wait, wait(self.context))
+        proc = Process(next(self.pid), wait, wait(self.context))
 
         # Schedule start of the process.
         self.schedule(proc, Init, None, self.now + delay)
