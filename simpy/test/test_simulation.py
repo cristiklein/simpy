@@ -141,9 +141,8 @@ def test_crashing_child_process():
     simulate(20, root)
 
 def test_illegal_suspend():
-    pytest.skip()
     def root(ctx):
-        ctx.wait()
+        ctx.wait(1)
         yield
 
     try:

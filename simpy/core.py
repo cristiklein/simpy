@@ -46,6 +46,9 @@ class Context(object):
         self.sim = sim
 
 
+Ignore = object()
+
+
 class Dispatcher(object):
     def __init__(self, context_type):
         self.context_type = context_type
@@ -171,25 +174,26 @@ class Dispatcher(object):
             return
 
         if target is not None:
-            # TODO Improve this error message.
-            assert type(target) is Process, 'Invalid yield value "%s"' % target
-            # TODO The stacktrace won't show the position in the pem where this
-            # exception occured. Maybe throw the assertion error into the pem?
-            assert proc.next_event is None, 'Next event already scheduled!'
+            if target is not Ignore:
+                # TODO Improve this error message.
+                assert type(target) is Process, 'Invalid yield value "%s"' % target
+                # TODO The stacktrace won't show the position in the pem where this
+                # exception occured. Maybe throw the assertion error into the pem?
+                assert proc.next_event is None, 'Next event already scheduled!'
 
-            # Add this process to the list of waiters.
-            if target.generator is None:
-                # FIXME This context switching is ugly.
-                prev, self.active_proc = self.active_proc, target
-                # Process has already terminated. Resume as soon as possible.
-                self.schedule(proc, target.state, target.result)
-                self.active_proc = prev
+                # Add this process to the list of waiters.
+                if target.generator is None:
+                    # FIXME This context switching is ugly.
+                    prev, self.active_proc = self.active_proc, target
+                    # Process has already terminated. Resume as soon as possible.
+                    self.schedule(proc, target.state, target.result)
+                    self.active_proc = prev
+                else:
+                    self.joiners[target].append(proc)
             else:
-                 self.joiners[target].append(proc)
+                assert proc.next_event is not None
         else:
-            # FIXME This isn't working yet.
-            #assert proc.next_event is None, 'Next event already scheduled!'
-            pass
+            assert proc.next_event is None, 'Next event already scheduled!'
 
         self.active_proc = None
 
@@ -224,6 +228,7 @@ class Simulation(Dispatcher):
         assert proc.next_event is None
 
         self.schedule(proc, Success, None, self.now + delay)
+        return Ignore
 
     def step(self):
         self.now, eid, proc, evt = heappop(self.events)
