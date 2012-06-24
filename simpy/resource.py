@@ -6,6 +6,7 @@ class Resource(object):
         self.waiters = []
 
     def waiter(self, ctx):
+        self.waiters.append(ctx.process)
         yield
 
     def check(self, ctx):
@@ -19,7 +20,6 @@ class Resource(object):
 
     def request(self):
         waiter = self.ctx.fork(self.waiter)
-        self.waiters.append(waiter)
         self.ctx.fork(self.check)
         return waiter
 

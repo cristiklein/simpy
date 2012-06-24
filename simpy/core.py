@@ -45,6 +45,10 @@ class Context(object):
     def __init__(self, sim):
         self.sim = sim
 
+    @property
+    def process(self):
+        return self.sim.active_proc
+
 
 Ignore = object()
 
