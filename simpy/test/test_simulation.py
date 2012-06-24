@@ -184,14 +184,13 @@ def test_illegal_interrupt():
             yield
 
         child = ctx.fork(child)
-        ctx.interrupt(child)
+        try:
+            ctx.interrupt(child)
+        except AssertionError as exc:
+            assert exc.args[0] == 'Process child is not initialized'
         yield
 
-    try:
-        simulate(20, root)
-        assert False, 'Expected an exception.'
-    except AssertionError as exc:
-        assert exc.args[0] == 'Process child is not initialized'
+    simulate(20, root)
 
 def test_illegal_wait_followed_by_join():
     def root(ctx):
