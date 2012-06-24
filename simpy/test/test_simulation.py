@@ -28,6 +28,33 @@ def test_interrupt():
 
     simulate(20, root)
 
+def test_concurrent_interrupts():
+    """If there are multiple interrupts at the same time, only the most
+    recently scheduled will be used.
+
+    # TODO Discuss if this is ok
+    """
+    def root(ctx, interrupts):
+        def fox(ctx, interrupts):
+            while True:
+                try:
+                    yield
+                except Interrupt as exc:
+                    interrupts.append(exc.cause)
+
+        def farmer(ctx, name, fox):
+            ctx.interrupt(fox, name)
+            yield
+
+        fantastic_mr_fox = ctx.fork(fox, interrupts)
+        for name in ('boggis', 'bunce', 'beans'):
+            ctx.fork(farmer, name, fantastic_mr_fox)
+        yield
+
+    interrupts = []
+    simulate(20, root, interrupts)
+    assert interrupts == ['beans']
+
 def test_join():
     def root(ctx):
         def pem(ctx):
@@ -229,3 +256,28 @@ def test_immediate_resume():
     simulate(20, root, result)
     # Confirm that child has been interrupted immediately at timestep 0.
     assert result == [0]
+
+def test_signal():
+    """Only the most recently scheduled signal of multiple concurrent ones is
+    used.
+
+    *root* wants to be signalled if any of its three children terminate.
+    Because each *child* terminates at the same time, there will be only one
+    interrupt.
+
+    # FIXME Figure out if this is good or bad...
+    """
+    def root(ctx):
+        def child(ctx):
+            yield ctx.exit()
+
+        children = [ctx.fork(child) for i in range(3)]
+        for child in children:
+            ctx.signal(child)
+
+        try:
+            yield
+        except Interrupt as exc:
+            assert exc.cause == children[-1]
+
+    simulate(20, root)
