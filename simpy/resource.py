@@ -6,11 +6,11 @@ class Resource(object):
         self.waiters = []
 
     def waiter(self, ctx):
-        self.waiters.append(ctx.process)
-        yield
+        if self.capacity > 0:
+            self.capacity -= 1
+            ctx.exit()
 
-    def check(self, ctx):
-        self.resume()
+        self.waiters.append(ctx.process)
         yield
 
     def resume(self, ctx=None):
@@ -19,9 +19,7 @@ class Resource(object):
             self.ctx.resume(self.waiters.pop(0), None)
 
     def request(self):
-        waiter = self.ctx.fork(self.waiter)
-        self.ctx.fork(self.check)
-        return waiter
+        return self.ctx.fork(self.waiter)
 
     def release(self):
         self.capacity += 1
