@@ -3,7 +3,7 @@ from io import StringIO
 import os
 import traceback
 
-from simpy.core import Simulation, Context, InterruptedException
+from simpy.core import Simulation, Context, Interrupt
 from simpy import core
 
 
@@ -47,7 +47,7 @@ def trace_func(simulation, trace, func):
         lineno = stack[0][1]
 
         caller = (filename, lineno)
-        trace.append((True, caller, simulation.now, simulation.active_ctx,
+        trace.append((True, caller, simulation.now, simulation.active_proc,
             func.__name__, args, kwargs))
         result = func(*args, **kwargs)
         trace.append((False, result))
@@ -58,12 +58,10 @@ def trace_func(simulation, trace, func):
 def trace(simulation):
     history = []
 
-    traced_context_funcs = []
-    for func in simulation.context_funcs:
+    # Overwrite context function with tracer functions.
+    for name, func in simulation.context_funcs.items():
         tracer = trace_func(simulation, history, func)
-        traced_context_funcs.append(tracer)
-        setattr(simulation, func.__name__, tracer)
-    simulation.context_funcs = traced_context_funcs
+        setattr(simulation.context, name, tracer)
 
     simulation.process = trace_func(simulation, history, simulation.process)
     simulation.schedule = trace_func(simulation, history, simulation.schedule)
@@ -125,7 +123,8 @@ class SvgRenderer(object):
         descr = '<h2>Init</h2>'
         descr += '<p><span class="code">%s(%s)</span></p>' % (
                 pem, ', '.join(
-                    args + tuple(n + '=' + kwargs[n] for n in sorted(kwargs))))
+                    tuple(str(arg) for arg in args) +
+                    tuple(n + '=' + str(kwargs[n]) for n in sorted(kwargs))))
 
         path = 'M %f %f %f %f %f %f %f %f %f %f Z' % (
                 child.id * scale - node_size / 2, y - node_size / 2,
@@ -162,6 +161,13 @@ class SvgRenderer(object):
                     pid * scale - node_size / 2, y + node_size / 2)
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
+
+    def resume(self, caller, timestep, active_ctx, other, value=None):
+        descr = '<h2>Resume</h2>'
+        self.render_icon('timeout', self.y, active_ctx.id, descr, caller)
+        self.y += self.scale
+        yield
+        self.fixup = self.scale
 
     def wait(self, caller, timestep, active_ctx, delay=None):
         descr = '<h2>Wait</h2>'
@@ -345,10 +351,28 @@ def root(ctx):
     yield ctx.fork(p1)
     yield ctx.wait(1)
 
+from simpy.resource import Resource
+
+def root(ctx, result=[]):
+    resource = Resource(ctx, 'res')
+
+    def child(ctx, name, resource, result):
+        yield resource.request()
+        result.append((name, ctx.now))
+        yield ctx.wait(1)
+        resource.release()
+
+    ctx.fork(child, 'a', resource, result)
+    ctx.fork(child, 'b', resource, result)
+    yield
+
 sim = Simulation()
 history = trace(sim)
 sim.fork(root)
 sim.simulate(until=20)
+
+from pprint import pprint
+pprint(history)
 
 with open('test.html', 'w') as f:
     data = SvgRenderer(history)()
