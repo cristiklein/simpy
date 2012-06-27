@@ -1,3 +1,6 @@
+# TODO Fix vertical indentation on wait.
+
+
 from functools import wraps
 from io import StringIO
 import os
@@ -49,7 +52,11 @@ def trace_func(simulation, trace, func):
         caller = (filename, lineno)
         trace.append((True, caller, simulation.now, simulation.active_proc,
             func.__name__, args, kwargs))
-        result = func(*args, **kwargs)
+        try:
+            result = func(*args, **kwargs)
+        except BaseException as e:
+            trace.append((False, e))
+            raise
         trace.append((False, result))
         return result
     return wrapper
@@ -86,7 +93,9 @@ class SvgRenderer(object):
         self.groups['block'] = StringIO()
         self.groups['event'] = StringIO()
 
-        self.y = self.scale
+        self.y = 0
+        self.fixup = 0
+        self.terminated = False
 
     def create_popupinfo(self, text, code=None):
         args = '\'%s\'' % text.replace('"', '&quot;')
@@ -122,10 +131,11 @@ class SvgRenderer(object):
 
         descr = '<h2>Init</h2>'
         descr += '<p><span class="code">%s(%s)</span></p>' % (
-                pem, ', '.join(
-                    tuple(str(arg) for arg in args) +
-                    tuple(n + '=' + str(kwargs[n]) for n in sorted(kwargs))))
+                pem.__name__, '')#', '.join(
+                    #tuple(str(arg) for arg in args) +
+                    #tuple(n + '=' + str(kwargs[n]) for n in sorted(kwargs))))
 
+        print('child', code)
         path = 'M %f %f %f %f %f %f %f %f %f %f Z' % (
                 child.id * scale - node_size / 2, y - node_size / 2,
                 child.id * scale + node_size / 2, y - node_size / 2,
@@ -148,6 +158,7 @@ class SvgRenderer(object):
                 pid * scale - node_size / 2, y - node_size,
                 pid * scale, y - node_size / 2,
                 pid * scale + node_size / 2, y - node_size)
+        print('> process', ctx.id)
         yield
         y = self.y - self.fixup
         if not self.terminated:
@@ -161,6 +172,7 @@ class SvgRenderer(object):
                     pid * scale - node_size / 2, y + node_size / 2)
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
+        print('< process', ctx.id)
 
     def resume(self, caller, timestep, active_ctx, other, value=None):
         descr = '<h2>Resume</h2>'
@@ -180,6 +192,8 @@ class SvgRenderer(object):
         descr = '<h2>Terminate</h2>'
         self.render_icon('terminate', self.y, active_ctx.id, descr, caller)
         self.terminated = True
+        self.y += self.scale
+        self.fixup = self.scale
         yield
 
     def schedule(self, caller, timestep, active_ctx, ctx, evt_type,
@@ -209,6 +223,12 @@ class SvgRenderer(object):
             self.render_icon('resume_failure', self.y, tgt_pid, descr)
         yield
 
+        # Increase y coordinate if this schedule happens on the termination of
+        # a process.
+        if self.terminated:
+            self.y += self.scale
+            self.fixup += self.scale
+
     def __call__(self):
         scale, node_size = self.scale, self.node_size
         timestep_start = 0
@@ -217,6 +237,8 @@ class SvgRenderer(object):
             if trace[0]:
                 # A function was about to be called.
                 caller, timestep, active_ctx, fname, args, kwargs = trace[1:]
+                print('> %.1f %.1f %s - %s %s %s' % (self.y, timestep,
+                    active_ctx, fname, str(args), str(kwargs)))
 
                 if not hasattr(self, fname):
                     renderer_stack.append(None)
@@ -232,6 +254,7 @@ class SvgRenderer(object):
             else:
                 # A function call has succeeded.
                 result = trace[1:]
+                print('< %.1f' % self.y)
 
                 renderer = renderer_stack.pop()
                 if renderer is not None:
@@ -253,7 +276,6 @@ class SvgRenderer(object):
                             node_size, timestep_end - timestep_start - node_size,
                             popupinfo))
 
-                self.y += scale
                 timestep_start = self.y
         self.y += node_size
 
@@ -317,7 +339,7 @@ class SvgRenderer(object):
                 '<div class="simulation-flow">\n' +
                 '<svg height="%d" xmlns="http://www.w3.org/2000/svg">\n' % self.y +
                 '<defs>\n' + icon_defs + '</defs>\n' +
-                '<g transform="translate(%f, %f)">\n' % (self.scale * 1.5, 0) +
+                '<g transform="translate(%f, %f)">\n' % (self.scale * 1.5, self.scale) +
                 '<filter id="dropshadow" width="150%" height="150%">\n' +
                 '<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>\n' +
                 '<feOffset dx="2" dy="2" result="offsetblur"/>\n' +
@@ -360,19 +382,19 @@ def root(ctx, result=[]):
         yield resource.request()
         result.append((name, ctx.now))
         yield ctx.wait(1)
+        yield ctx.wait(1)
         resource.release()
 
     ctx.fork(child, 'a', resource, result)
-    ctx.fork(child, 'b', resource, result)
+    #ctx.fork(child, 'b', resource, result)
     yield
 
 sim = Simulation()
 history = trace(sim)
-sim.fork(root)
+# FIXME This is ugly but currently necessary, because only context methods are
+# patched right now.
+sim.context.fork(root)
 sim.simulate(until=20)
-
-from pprint import pprint
-pprint(history)
 
 with open('test.html', 'w') as f:
     data = SvgRenderer(history)()
