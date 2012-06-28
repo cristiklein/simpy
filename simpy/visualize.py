@@ -1,7 +1,23 @@
 # TODO Fix vertical indentation on wait.
+# TODO Show return values in schedule popups.
+# TODO Show delay in wait popups.
+# TODO Show termination line if possible
+# TODO Show arguments in init popup.
+# TODO Show process names on top? Maybe hover them?
+# TODO Show timesteps and process steps on the left.
+# TODO Don't show a step bar for external calls (like the initial fork)
+# TODO Write all data into the html files. Don't reference stuff.
+# TODO Draw thick line between process steps if it is alive.
+# TODO Highlight lines where a process is resumed and suspended.
+# TODO Figure out a better representation of the suspend cause.
+# TODO How to visualize a suspend at all?
+# TODO Use templates to build the visualization.
+# TODO Templates should be able to build partial html fragments so that
+# multiple visualization can be embedded on a single page.
 
 
 from functools import wraps
+from itertools import count
 from io import StringIO
 import os
 import traceback
@@ -88,39 +104,47 @@ class SvgRenderer(object):
         self.files = set()
 
         self.groups = {}
+        self.groups['popupinfo'] = StringIO()
         self.groups['timestep'] = StringIO()
         self.groups['controlflow'] = StringIO()
         self.groups['block'] = StringIO()
         self.groups['event'] = StringIO()
 
+        self.popup_ids = count()
         self.y = 0
+        self.max_pid = 0
         self.fixup = 0
         self.terminated = False
 
     def create_popupinfo(self, text, code=None):
-        args = '\'%s\'' % text.replace('"', '&quot;')
+        popup_id = next(self.popup_ids)
+        data = 'popups[%s] = {text: "%s"' % (popup_id,
+                text.replace('"', '&quot;'))
         if code is not None:
-            filename, lineno = code
-            self.files.add(filename)
-            args += ', \'%s\', %d' % (filename, lineno)
+            data += ', filename: "%s", lineno: "%s"' % code
+            self.files.add(code[0])
+        data += '};\n'
+        self.groups['popupinfo'].write(data)
         return ('onmouseover="show_popup(arguments, %s)" '
-                'onmouseout="hide_popup(arguments[0])"' % args)
+                'onmouseout="hide_popup(arguments[0])"' % popup_id)
 
     def render_icon(self, name, y, pid, description, code=None):
         x = pid * self.scale
         popupinfo = self.create_popupinfo(description, code)
         self.groups['event'].write(
                 '<use xlink:href="#%s-icon" '
-                'transform="translate(%f %f) scale(%f)" %s/>\n' % (
+                'transform="translate(%f %f) scale(%f)" %s></use>\n' % (
                     name, x, y, self.node_size * 0.4, popupinfo))
 
     def fork(self, caller, timestep, active_ctx, pem, *args, **kwargs):
         scale, node_size, y = self.scale, self.node_size, self.y
         descr = '<h2>Fork</h2>'
         pid = active_ctx.id if active_ctx is not None else -1
-        self.render_icon('fork', y, pid, descr, caller)
+        self.render_icon('fork', y, pid, descr,
+                caller if active_ctx is not None else None)
         self.y += self.scale
         child = yield
+        self.max_pid = max(self.max_pid, child.id)
 
         self.groups['controlflow'].write(
                 '<path d="M %f %f %f %f" class="flow"/>\n' % (
@@ -135,7 +159,6 @@ class SvgRenderer(object):
                     #tuple(str(arg) for arg in args) +
                     #tuple(n + '=' + str(kwargs[n]) for n in sorted(kwargs))))
 
-        print('child', code)
         path = 'M %f %f %f %f %f %f %f %f %f %f Z' % (
                 child.id * scale - node_size / 2, y - node_size / 2,
                 child.id * scale + node_size / 2, y - node_size / 2,
@@ -158,8 +181,12 @@ class SvgRenderer(object):
                 pid * scale - node_size / 2, y - node_size,
                 pid * scale, y - node_size / 2,
                 pid * scale + node_size / 2, y - node_size)
-        print('> process', ctx.id)
         yield
+        if self.y - y <= 0:
+            # FIXME This is ugly but currently happens if there is a simple
+            # suspend (yield None) which doesn't cause a context function call.
+            self.y += self.scale
+            self.fixup = self.scale
         y = self.y - self.fixup
         if not self.terminated:
             path += '%f %f %f %f %f %f Z' % (
@@ -172,7 +199,6 @@ class SvgRenderer(object):
                     pid * scale - node_size / 2, y + node_size / 2)
 
         self.groups['block'].write('<path d="%s" class="state"/>\n' % path)
-        print('< process', ctx.id)
 
     def resume(self, caller, timestep, active_ctx, other, value=None):
         descr = '<h2>Resume</h2>'
@@ -186,11 +212,12 @@ class SvgRenderer(object):
         self.render_icon('timeout', self.y, active_ctx.id, descr, caller)
         self.y += self.scale
         yield
-        self.fixup = self.scale
+        self.fixup = 2 * self.scale
+        self.y += self.scale
 
     def join(self, caller, timestep, active_ctx, ctx):
         descr = '<h2>Terminate</h2>'
-        self.render_icon('terminate', self.y, active_ctx.id, descr, caller)
+        self.render_icon('terminate', self.y, active_ctx.id, descr)
         self.terminated = True
         self.y += self.scale
         self.fixup = self.scale
@@ -237,8 +264,6 @@ class SvgRenderer(object):
             if trace[0]:
                 # A function was about to be called.
                 caller, timestep, active_ctx, fname, args, kwargs = trace[1:]
-                print('> %.1f %.1f %s - %s %s %s' % (self.y, timestep,
-                    active_ctx, fname, str(args), str(kwargs)))
 
                 if not hasattr(self, fname):
                     renderer_stack.append(None)
@@ -254,9 +279,8 @@ class SvgRenderer(object):
             else:
                 # A function call has succeeded.
                 result = trace[1:]
-                print('< %.1f' % self.y)
-
                 renderer = renderer_stack.pop()
+
                 if renderer is not None:
                     try:
                         renderer.send(result[0])
@@ -279,21 +303,13 @@ class SvgRenderer(object):
                 timestep_start = self.y
         self.y += node_size
 
-        icon_defs = ''
-        for name in sorted(icons):
-            icon_defs += '<g id="%s-icon" class="%s icon">%s</g>' % (
-                    name, name, icons[name])
-
         # Render sourcecode.
-        sourcecode_style = StringIO()
-        sourcecode = StringIO()
-
         try:
             from pygments import highlight
             from pygments.lexers import PythonLexer
             from pygments.formatters import HtmlFormatter
 
-            sourcecode_files = []
+            sources = {}
             lexer = PythonLexer()
             for filename in sorted(self.files):
                 with open(filename) as f:
@@ -303,99 +319,48 @@ class SvgRenderer(object):
                             hl_lines=hl_lines)
                     code = highlight(data, lexer, formatter)
 
-                sourcecode_files.append((
-                        filename,
-                        '<div id="%s">%s</div>\n' % (filename, code)))
+                sources[filename] = code
 
-            sourcecode_style.write(
-                    HtmlFormatter().get_style_defs('.highlight'))
-
-            sourcecode.write('<div class="navbar"><ul>%s</ul></div>\n' % (
-                    ''.join(['<li onclick="show_source(\'%s\')">%s</li>' % (
-                            filename, filename)
-                        for filename, code in sourcecode_files])))
-
-            sourcecode.write('<div name="page">\n')
-            for idx, (filename, code) in enumerate(sourcecode_files):
-                cls = 'hidden' if idx != 0 else ''
-                sourcecode.write('<div name="%s" class="%s">' % (
-                    filename, cls))
-                sourcecode.write(code)
-                sourcecode.write('</div>\n')
-            sourcecode.write('</div>\n')
+            source_style = HtmlFormatter().get_style_defs('.highlight')
 
         except ImportError:
             # TODO Render raw.
             pass
 
-        return ('<html>\n' +
-                '<head>\n'
-                '<link rel="stylesheet" type="text/css" href="contrib/style.css"></link>\n' +
-                '<script type="text/javascript" src="contrib/interactive.js"></script>\n' +
-                '<style>\n' + sourcecode_style.getvalue() + '</style>\n' +
-                '</head>\n' +
-                '<body onload="init_popup()">\n' +
-                '<div class="visualization">\n' +
-                '<div class="simulation-flow">\n' +
-                '<svg height="%d" xmlns="http://www.w3.org/2000/svg">\n' % self.y +
-                '<defs>\n' + icon_defs + '</defs>\n' +
-                '<g transform="translate(%f, %f)">\n' % (self.scale * 1.5, self.scale) +
-                '<filter id="dropshadow" width="150%" height="150%">\n' +
-                '<feGaussianBlur in="SourceAlpha" stdDeviation="2"/>\n' +
-                '<feOffset dx="2" dy="2" result="offsetblur"/>\n' +
-                '<feComponentTransfer>\n' +
-                '<feFuncA type="linear" slope="0.6"/>\n' +
-                '</feComponentTransfer>\n' +
-                '<feMerge>\n' +
-                '<feMergeNode/>\n' +
-                '<feMergeNode in="SourceGraphic"/>\n' +
-                '</feMerge>\n' +
-                '</filter>\n' +
-                self.groups['timestep'].getvalue() +
-                self.groups['controlflow'].getvalue() +
-                self.groups['block'].getvalue() +
-                self.groups['event'].getvalue() +
-                '</g>\n' +
-                '</svg></div>\n' +
-                '<div name="sourcecode" class="sourcecode">\n' +
-                sourcecode.getvalue() +
-                '</div>\n' +
-                '</div>\n' +
-                '</body>\n' +
-                '</html>\n')
+        try:
+            from jinja2 import Environment, PackageLoader
+            env = Environment(loader=PackageLoader('simpy', 'templates'))
+            template = env.get_template('singlepage.tmpl')
+            variables = dict(
+                    width=self.scale * (self.max_pid + 2),
+                    height=self.y,
+                    x_shift=self.scale * 1.5,
+                    y_shift=self.scale,
+                    icon_defs=sorted(icons.items()),
+                    sources=sorted(sources.items()),
+                    source_style=source_style,
+            )
+            for name in self.groups:
+                variables[name] = self.groups[name].getvalue()
+
+            return str(template.render(**variables))
+        except ImportError:
+            pass
 
 
-def root(ctx):
-    def p1(ctx):
-        yield ctx.wait(2)
+if __name__ == '__main__':
+    import sys
+    import imp
 
-    ctx.fork(p1)
-    yield ctx.fork(p1)
-    yield ctx.wait(1)
+    mod = imp.load_source('simulation', sys.argv[1])
+    root = getattr(mod, sys.argv[2])
 
-from simpy.resource import Resource
+    sim = Simulation()
+    history = trace(sim)
+    # FIXME This is ugly but currently necessary, because only context methods are
+    # patched right now.
+    sim.context.fork(root)
+    sim.simulate(until=20)
 
-def root(ctx, result=[]):
-    resource = Resource(ctx, 'res')
-
-    def child(ctx, name, resource, result):
-        yield resource.request()
-        result.append((name, ctx.now))
-        yield ctx.wait(1)
-        yield ctx.wait(1)
-        resource.release()
-
-    ctx.fork(child, 'a', resource, result)
-    #ctx.fork(child, 'b', resource, result)
-    yield
-
-sim = Simulation()
-history = trace(sim)
-# FIXME This is ugly but currently necessary, because only context methods are
-# patched right now.
-sim.context.fork(root)
-sim.simulate(until=20)
-
-with open('test.html', 'w') as f:
     data = SvgRenderer(history)()
-    f.write(data)
+    print(data)
