@@ -30,10 +30,16 @@ class Process(object):
         self.generator = generator
 
     def __str__(self):
-        return self.pem.__name__
+        if hasattr(self.pem, '__name__'):
+            return self.pem.__name__
+        else:
+            return str(self.pem)
 
     def __repr__(self):
-        return self.pem.__name__
+        if hasattr(self.pem, '__name__'):
+            return self.pem.__name__
+        else:
+            return str(self.pem)
 
 
 def context(func):
