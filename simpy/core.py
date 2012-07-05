@@ -134,6 +134,7 @@ class Dispatcher(object):
         # TODO Isn't this dangerous? If other has already been resumed, this
         # call will silently drop the previous result.
         self.schedule(other, Success, value)
+        return Ignore
 
     @context
     def interrupt(self, other, cause=None):
