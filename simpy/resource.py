@@ -5,22 +5,15 @@ class Resource(object):
         self.capacity = capacity
         self.waiters = []
 
-    def waiter(self, ctx):
+    def request(self):
         if self.capacity > 0:
             self.capacity -= 1
-            ctx.exit()
-
-        self.waiters.append(ctx.process)
-        yield
-
-    def resume(self, ctx=None):
-        while self.capacity > 0 and self.waiters:
-            self.capacity -= 1
-            self.ctx.resume(self.waiters.pop(0), None)
-
-    def request(self):
-        return self.ctx.fork(self.waiter)
+            return self.ctx.resume(self.ctx.process)
+        else:
+            self.waiters.append(self.ctx.process)
 
     def release(self):
         self.capacity += 1
-        self.resume()
+        while self.capacity > 0 and self.waiters:
+            self.capacity -= 1
+            self.ctx.resume(self.waiters.pop(0), None)
