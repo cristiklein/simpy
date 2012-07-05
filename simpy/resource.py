@@ -13,7 +13,7 @@ class Resource(object):
             self.waiters.append(self.ctx.process)
 
     def release(self):
-        self.capacity += 1
-        while self.capacity > 0 and self.waiters:
-            self.capacity -= 1
+        if self.waiters:
             self.ctx.resume(self.waiters.pop(0), None)
+        else:
+            self.capacity += 1
