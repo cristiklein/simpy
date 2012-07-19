@@ -180,6 +180,7 @@ class Dispatcher(object):
             # Process has failed.
             proc.state = Failed
             proc.result = Failure(e)
+            proc.result.__cause__ = e
             self.join(proc)
             self.active_proc = None
             return
