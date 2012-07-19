@@ -30,10 +30,16 @@ class Process(object):
         self.generator = generator
 
     def __str__(self):
-        return self.pem.__name__
+        if hasattr(self.pem, '__name__'):
+            return self.pem.__name__
+        else:
+            return str(self.pem)
 
     def __repr__(self):
-        return self.pem.__name__
+        if hasattr(self.pem, '__name__'):
+            return self.pem.__name__
+        else:
+            return str(self.pem)
 
 
 def context(func):
@@ -128,6 +134,7 @@ class Dispatcher(object):
         # TODO Isn't this dangerous? If other has already been resumed, this
         # call will silently drop the previous result.
         self.schedule(other, Success, value)
+        return Ignore
 
     @context
     def interrupt(self, other, cause=None):
@@ -173,6 +180,7 @@ class Dispatcher(object):
             # Process has failed.
             proc.state = Failed
             proc.result = Failure(e)
+            proc.result.__cause__ = e
             self.join(proc)
             self.active_proc = None
             return
