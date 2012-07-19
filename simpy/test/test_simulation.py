@@ -167,6 +167,28 @@ def test_crashing_child_process():
 
     simulate(20, root)
 
+
+def test_crashing_child_traceback():
+    def root(ctx):
+        def panic(ctx):
+            yield ctx.wait(1)
+            raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
+
+        try:
+            yield ctx.fork(panic)
+            assert False, "Hey, where's the roflcopter?"
+        except Failure as exc:
+            import traceback
+            stacktrace = traceback.format_exc()
+            # The original exception cause (the raise in the child process) ...
+            assert 'raise RuntimeError' in stacktrace
+            # ...as well as the current frame must be visible in the
+            # stacktrace.
+            assert 'yield ctx.fork(panic)' in stacktrace
+
+    simulate(20, root)
+
+
 def test_illegal_suspend():
     def root(ctx):
         ctx.wait(1)
