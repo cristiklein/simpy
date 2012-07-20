@@ -1,7 +1,16 @@
+from __future__ import print_function
+
+import sys
+
+if sys.version_info < (2, 6):
+    print('Only Python version 2.6 and above are supported')
+    sys.exit(1)
+
 from heapq import heappush, heappop
 from itertools import count
 from collections import defaultdict
 from types import GeneratorType
+import traceback
 
 
 class Interrupt(Exception):
@@ -11,7 +20,14 @@ class Interrupt(Exception):
 
 
 class Failure(Exception):
-    pass
+    if sys.version_info < (3, 2):
+        def __init__(self):
+            Exception.__init__(self)
+            self.stacktrace = traceback.format_exc(sys.exc_info()[2]).strip()
+
+        def __str__(self):
+            return 'Caused by the following exception:\n\n%s' % (
+                    self.stacktrace)
 
 
 Failed = 0
@@ -109,7 +125,7 @@ class Dispatcher(object):
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
             if not joiners and not signallers:
-                raise proc.result.args[0]
+                raise proc.result.__cause__
 
         if joiners:
             for joiner in joiners:
@@ -179,7 +195,7 @@ class Dispatcher(object):
         except BaseException as e:
             # Process has failed.
             proc.state = Failed
-            proc.result = Failure(e)
+            proc.result = Failure()
             proc.result.__cause__ = e
             self.join(proc)
             self.active_proc = None
