@@ -161,7 +161,7 @@ def test_crashing_child_process():
             yield ctx.fork(panic)
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
-            cause = exc.args[0]
+            cause = exc.__cause__
             assert type(cause) == RuntimeError
             assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
@@ -182,6 +182,7 @@ def test_crashing_child_traceback():
             stacktrace = traceback.format_exc()
             # The original exception cause (the raise in the child process) ...
             assert 'raise RuntimeError' in stacktrace
+            assert type(exc.__cause__) is RuntimeError
             # ...as well as the current frame must be visible in the
             # stacktrace.
             assert 'yield ctx.fork(panic)' in stacktrace
