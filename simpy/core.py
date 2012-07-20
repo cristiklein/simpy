@@ -20,7 +20,9 @@ class Interrupt(Exception):
 
 
 class Failure(Exception):
-    if sys.version_info < (3, 2):
+    if sys.version_info < (3, 0):
+        # Exception chaining was added in Python 3. Mimic exception chaining as
+        # good as possible for Python 2.
         def __init__(self):
             Exception.__init__(self)
             self.stacktrace = traceback.format_exc(sys.exc_info()[2]).strip()
