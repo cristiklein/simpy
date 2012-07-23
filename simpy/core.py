@@ -15,8 +15,11 @@ import traceback
 
 class Interrupt(Exception):
     def __init__(self, cause):
-        Exception.__init__(self)
-        self.cause = cause
+        Exception.__init__(self, cause)
+
+    @property
+    def cause(self):
+        return self.args[0]
 
 
 class Failure(Exception):

@@ -19,12 +19,12 @@ def test_interrupt():
             try:
                 yield ctx.wait(10)
                 raise RuntimeError('Expected an interrupt')
-            except Interrupt:
-                pass
+            except Interrupt as interrupt:
+                assert interrupt.cause == 'interrupt!'
 
         process = ctx.fork(pem)
         yield ctx.wait(5)
-        ctx.interrupt(process)
+        ctx.interrupt(process, 'interrupt!')
 
     simulate(20, root)
 
