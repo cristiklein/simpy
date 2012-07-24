@@ -18,7 +18,7 @@ def test_interrupt():
         def pem(ctx):
             try:
                 yield ctx.wait(10)
-                raise RuntimeError('Expected an interrupt')
+                pytest.fail('Expected an interrupt')
             except Interrupt as interrupt:
                 assert interrupt.cause == 'interrupt!'
 
