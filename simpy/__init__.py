@@ -1,3 +1,3 @@
-__version__ = '0.1'
+from simpy.core import Simulation, Interrupt, Failure, simulate
 
-from simpy.core import Simulation
+__version__ = '3.0a1'
