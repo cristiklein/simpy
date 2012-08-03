@@ -76,18 +76,24 @@ class Context(object):
     def process(self):
         return self.sim.active_proc
 
+    @property
+    def now(self):
+        return self.sim.now
+
 
 Ignore = object()
 
 
-class Dispatcher(object):
-    def __init__(self, context_type):
-        self.context_type = context_type
+class Simulation(object):
+    def __init__(self):
         self.events = []
         self.joiners = defaultdict(list)
         self.signallers = defaultdict(list)
+
         self.pid = count()
+        self.eid = count()
         self.active_proc = None
+        self.now = 0
 
         self.context_funcs = {}
         for name in dir(self):
@@ -95,13 +101,16 @@ class Dispatcher(object):
             if callable(obj) and hasattr(obj, 'context'):
                 self.context_funcs[name] = obj
 
-        self.context = context_type(self)
+        self.context = Context(self)
         for name, func in self.context_funcs.items():
             setattr(self.context, name, func)
 
-    def schedule(self, proc, evt_type, value):
+    def schedule(self, proc, evt_type, value, at=None):
+        if at is None:
+            at = self.now
+
         proc.next_event = (evt_type, value)
-        self.events.append((proc, proc.next_event))
+        heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
     @context
     def fork(self, pem, *args, **kwargs):
@@ -148,6 +157,15 @@ class Dispatcher(object):
         raise StopIteration()
 
     @context
+    def wait(self, delay):
+        assert delay >= 0
+        proc = self.active_proc
+        assert proc.next_event is None
+
+        self.schedule(proc, Success, None, self.now + delay)
+        return Ignore
+
+    @context
     def resume(self, other, value=None):
         if other.next_event is not None:
             assert other.next_event[0] != Init, (
@@ -178,8 +196,11 @@ class Dispatcher(object):
         else:
             self.signallers[other].append(proc)
 
-    def process(self, proc):
+    def step(self):
         assert self.active_proc is None
+
+        self.now, eid, proc, evt = heappop(self.events)
+        if proc.next_event is not evt: return
 
         evt_type, value = proc.next_event
         proc.next_event = None
@@ -229,44 +250,6 @@ class Dispatcher(object):
             assert proc.next_event is None, 'Next event already scheduled!'
 
         self.active_proc = None
-
-
-class SimulationContext(Context):
-    @property
-    def now(self):
-        return self.sim.now
-
-
-def wait(ctx):
-    yield ctx.exit()
-
-
-class Simulation(Dispatcher):
-    def __init__(self):
-        Dispatcher.__init__(self, SimulationContext)
-        self.now = 0
-        self.eid = count()
-
-    def schedule(self, proc, evt_type, value, at=None):
-        if at is None:
-            at = self.now
-
-        proc.next_event = (evt_type, value)
-        heappush(self.events, (at, next(self.eid), proc, proc.next_event))
-
-    @context
-    def wait(self, delay):
-        assert delay >= 0
-        proc = self.active_proc
-        assert proc.next_event is None
-
-        self.schedule(proc, Success, None, self.now + delay)
-        return Ignore
-
-    def step(self):
-        self.now, eid, proc, evt = heappop(self.events)
-        if proc.next_event is not evt: return
-        self.process(proc)
 
     def peek(self):
         while self.events:
