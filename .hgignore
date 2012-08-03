@@ -1,5 +1,14 @@
 syntax: glob
+
 *.pyc
+*~
+.DS_Store
+docs/build/*
+docs/html/*
+dist/*
+MANIFEST
+.tox/
+*.egg-info/*
 *.swp
 *.egg-info
 *.html
