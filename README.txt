@@ -44,6 +44,27 @@ the current simulation time each step::
     2
 
 
+A Simple Example
+----------------
+
+This is the simplest possible for a Simpy simulation. A *clock* process prints
+the current simulation time each step::
+
+    >>> import simpy
+    >>>
+    >>> def clock(context):
+    ...     while True:
+    ...         print(context.now)
+    ...         yield context.hold(1)
+    ...
+    >>> sim = simpy.Simulation()
+    >>> sim.activate(clock)
+    >>> sim.simulate(3)
+    0
+    1
+    2
+
+
 Installation
 ------------
 
