@@ -1,21 +1,19 @@
 from __future__ import print_function
-
-import sys
-
-if sys.version_info < (2, 6):
-    print('Only Python version 2.6 and above are supported')
-    sys.exit(1)
-
 from heapq import heappush, heappop
 from itertools import count
 from collections import defaultdict
 from types import GeneratorType
 import traceback
+import sys
 
 
 class Interrupt(Exception):
+    """This exceptions is sent into a process if it was interrupted by
+    another process.
+
+    """
     def __init__(self, cause):
-        Exception.__init__(self, cause)
+        super(Interrupt, self).__init__(cause)
 
     @property
     def cause(self):
@@ -23,6 +21,7 @@ class Interrupt(Exception):
 
 
 class Failure(Exception):
+    """This exception indicates that a process failed during its execution."""
     if sys.version_info < (3, 0):
         # Exception chaining was added in Python 3. Mimic exception chaining as
         # good as possible for Python 2.
