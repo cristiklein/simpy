@@ -260,9 +260,3 @@ class Simulation(object):
     def simulate(self, until):
         while self.events and until > self.events[0][0]:
             self.step()
-
-
-def simulate(until, root, *args, **kwargs):
-    sim = Simulation()
-    proc = sim.fork(root, *args, **kwargs)
-    return sim.simulate(until)
