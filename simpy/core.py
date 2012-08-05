@@ -63,28 +63,80 @@ class Process(object):
             return str(self.pem)
 
 
-def context(func):
-    func.context = True
-    return func
+def process(ctx):
+    return ctx.sim.active_proc
 
 
-class Context(object):
-    def __init__(self, sim):
-        self.sim = sim
+def now(ctx):
+    return ctx.sim.now
 
-    @property
-    def process(self):
-        return self.sim.active_proc
 
-    @property
-    def now(self):
-        return self.sim.now
+def fork(sim, pem, *args, **kwargs):
+    process = pem(sim.context, *args, **kwargs)
+    assert type(process) is GeneratorType, (
+            'Process function %s is did not return a generator' % pem)
+    proc = Process(next(sim.pid), pem, process)
+
+    prev, sim.active_proc = sim.active_proc, proc
+    # Schedule start of the process.
+    sim._schedule(proc, Init, None)
+    sim.active_proc = prev
+
+    return proc
+
+
+def exit(sim, result=None):
+    sim.active_proc.result = result
+    raise StopIteration()
+
+
+def wait(sim, delay):
+    assert delay >= 0
+    proc = sim.active_proc
+    assert proc.next_event is None
+
+    sim._schedule(proc, Success, None, sim.now + delay)
+    return Ignore
+
+
+def resume(sim, other, value=None):
+    if other.next_event is not None:
+        assert other.next_event[0] != Init, (
+                'Process %s is not initialized' % other)
+    # TODO Isn't this dangerous? If other has already been resumed, this
+    # call will silently drop the previous result.
+    sim._schedule(other, Success, value)
+    return Ignore
+
+
+def interrupt(sim, other, cause=None):
+    if other.next_event is not None:
+        assert other.next_event[0] != Init, (
+                'Process %s is not initialized' % other)
+    proc = sim.active_proc
+    sim._schedule(other, Failed, Interrupt(cause))
+
+
+def signal(sim, other):
+    """Interrupt this process, if the target terminates."""
+    proc = sim.active_proc
+
+    if other.generator is None:
+        # FIXME This context switching is ugly.
+        prev, sim.active_proc = sim.active_proc, other
+        sim._schedule(proc, Failed, Interrupt(other))
+        sim.active_proc = prev
+    else:
+        sim.signallers[other].append(proc)
 
 
 Ignore = object()
 
 
 class Simulation(object):
+    context_funcs = (fork, exit, interrupt, wait, resume, signal)
+    context_props = (now, process)
+
     def __init__(self):
         self.events = []
         self.joiners = defaultdict(list)
@@ -95,38 +147,31 @@ class Simulation(object):
         self.active_proc = None
         self.now = 0
 
-        self.context_funcs = {}
-        for name in dir(self):
-            obj = getattr(self, name)
-            if callable(obj) and hasattr(obj, 'context'):
-                self.context_funcs[name] = obj
+        # Define context class for this simulation.
+        class Context(object):
+            pass
 
-        self.context = Context(self)
-        for name, func in self.context_funcs.items():
-            setattr(self.context, name, func)
+        # Attach properties to the context class.
+        for prop in self.context_props:
+            setattr(Context, prop.__name__, property(prop))
 
-    def schedule(self, proc, evt_type, value, at=None):
+        # Instanciate the context and bind it to the simulation.
+        self.context = Context()
+        self.context.sim = self
+
+        # Attach context function and bind them to the simulation.
+        for func in self.context_funcs:
+            setattr(self.context, func.__name__,
+                    func.__get__(self, Simulation))
+
+    def _schedule(self, proc, evt_type, value, at=None):
         if at is None:
             at = self.now
 
         proc.next_event = (evt_type, value)
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
-    @context
-    def fork(self, pem, *args, **kwargs):
-        process = pem(self.context, *args, **kwargs)
-        assert type(process) is GeneratorType, (
-                'Process function %s is did not return a generator' % pem)
-        proc = Process(next(self.pid), pem, process)
-
-        prev, self.active_proc = self.active_proc, proc
-        # Schedule start of the process.
-        self.schedule(proc, Init, None)
-        self.active_proc = prev
-
-        return proc
-
-    def join(self, proc):
+    def _join(self, proc):
         proc.generator = None
 
         joiners = self.joiners.pop(proc, None)
@@ -144,57 +189,16 @@ class Simulation(object):
         if joiners:
             for joiner in joiners:
                 if joiner.generator is None: continue
-                self.schedule(joiner, proc.state, proc.result)
+                self._schedule(joiner, proc.state, proc.result)
 
         if signallers:
             for signaller in signallers:
                 if signaller.generator is None: continue
-                self.schedule(signaller, Failed, Interrupt(proc))
+                self._schedule(signaller, Failed, Interrupt(proc))
 
-    @context
-    def exit(self, result=None):
-        self.active_proc.result = result
-        raise StopIteration()
-
-    @context
-    def wait(self, delay):
-        assert delay >= 0
-        proc = self.active_proc
-        assert proc.next_event is None
-
-        self.schedule(proc, Success, None, self.now + delay)
-        return Ignore
-
-    @context
-    def resume(self, other, value=None):
-        if other.next_event is not None:
-            assert other.next_event[0] != Init, (
-                    'Process %s is not initialized' % other)
-        # TODO Isn't this dangerous? If other has already been resumed, this
-        # call will silently drop the previous result.
-        self.schedule(other, Success, value)
-        return Ignore
-
-    @context
-    def interrupt(self, other, cause=None):
-        if other.next_event is not None:
-            assert other.next_event[0] != Init, (
-                    'Process %s is not initialized' % other)
-        proc = self.active_proc
-        self.schedule(other, Failed, Interrupt(cause))
-
-    @context
-    def signal(self, other):
-        """Interrupt this process, if the target terminates."""
-        proc = self.active_proc
-
-        if other.generator is None:
-            # FIXME This context switching is ugly.
-            prev, self.active_proc = self.active_proc, other
-            self.schedule(proc, Failed, Interrupt(other))
-            self.active_proc = prev
-        else:
-            self.signallers[other].append(proc)
+    def __getattr__(self, name):
+        # Provide context functions and properties for convenience.
+        return getattr(self.context, name)
 
     def step(self):
         assert self.active_proc is None
@@ -215,7 +219,7 @@ class Simulation(object):
         except StopIteration:
             # Process has terminated.
             proc.state = Success
-            self.join(proc)
+            self._join(proc)
             self.active_proc = None
             return
         except BaseException as e:
@@ -223,7 +227,7 @@ class Simulation(object):
             proc.state = Failed
             proc.result = Failure()
             proc.result.__cause__ = e
-            self.join(proc)
+            self._join(proc)
             self.active_proc = None
             return
 
@@ -240,7 +244,7 @@ class Simulation(object):
                     # FIXME This context switching is ugly.
                     prev, self.active_proc = self.active_proc, target
                     # Process has already terminated. Resume as soon as possible.
-                    self.schedule(proc, target.state, target.result)
+                    self._schedule(proc, target.state, target.result)
                     self.active_proc = prev
                 else:
                     self.joiners[target].append(proc)
