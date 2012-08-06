@@ -136,6 +136,7 @@ Ignore = object()
 class Simulation(object):
     context_funcs = (fork, exit, interrupt, wait, resume, signal)
     context_props = (now, process)
+    simulation_funcs = (fork, exit, interrupt, resume)
 
     def __init__(self):
         self.events = []
@@ -163,6 +164,11 @@ class Simulation(object):
         for func in self.context_funcs:
             setattr(self.context, func.__name__,
                     func.__get__(self, Simulation))
+
+        # Attach public simulation functions to this instance.
+        for func in self.simulation_funcs:
+            setattr(self, func.__name__, func.__get__(self, Simulation))
+
 
     def _schedule(self, proc, evt_type, value, at=None):
         if at is None:
@@ -195,10 +201,6 @@ class Simulation(object):
             for signaller in signallers:
                 if signaller.generator is None: continue
                 self._schedule(signaller, Failed, Interrupt(proc))
-
-    def __getattr__(self, name):
-        # Provide context functions and properties for convenience.
-        return getattr(self.context, name)
 
     def step(self):
         assert self.active_proc is None
