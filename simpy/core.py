@@ -136,7 +136,7 @@ Ignore = object()
 class Simulation(object):
     context_funcs = (fork, exit, interrupt, wait, resume, signal)
     context_props = (now, process)
-    simulation_funcs = (fork, exit, interrupt, resume)
+    simulation_funcs = (fork, interrupt, resume)
 
     def __init__(self):
         self.events = []
