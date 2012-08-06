@@ -68,7 +68,7 @@ def process(ctx):
 
 
 def now(ctx):
-    return ctx.sim.now
+    return ctx.sim._now
 
 
 def fork(sim, pem, *args, **kwargs):
@@ -95,7 +95,7 @@ def wait(sim, delay):
     proc = sim.active_proc
     assert proc.next_event is None
 
-    sim._schedule(proc, Success, None, sim.now + delay)
+    sim._schedule(proc, Success, None, sim._now + delay)
     return Ignore
 
 
@@ -146,7 +146,7 @@ class Simulation(object):
         self.pid = count()
         self.eid = count()
         self.active_proc = None
-        self.now = 0
+        self._now = 0
 
         # Define context class for this simulation.
         class Context(object):
@@ -169,10 +169,13 @@ class Simulation(object):
         for func in self.simulation_funcs:
             setattr(self, func.__name__, func.__get__(self, Simulation))
 
+    @property
+    def now(self):
+        return self._now
 
     def _schedule(self, proc, evt_type, value, at=None):
         if at is None:
-            at = self.now
+            at = self._now
 
         proc.next_event = (evt_type, value)
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
@@ -205,7 +208,7 @@ class Simulation(object):
     def step(self):
         assert self.active_proc is None
 
-        self.now, eid, proc, evt = heappop(self.events)
+        self._now, eid, proc, evt = heappop(self.events)
         if proc.next_event is not evt: return
 
         evt_type, value = proc.next_event
