@@ -70,7 +70,7 @@ def now(ctx):
     return ctx.sim._now
 
 
-def fork(sim, pem, *args, **kwargs):
+def start(sim, pem, *args, **kwargs):
     process = pem(sim.context, *args, **kwargs)
     assert type(process) is GeneratorType, (
             'Process function %s is did not return a generator' % pem)
@@ -89,7 +89,7 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-def wait(sim, delay):
+def hold(sim, delay):
     assert delay >= 0
     proc = sim.active_proc
     assert proc.next_event is None
@@ -133,9 +133,9 @@ Ignore = object()
 
 
 class Simulation(object):
-    context_funcs = (fork, exit, interrupt, wait, resume, signal)
+    context_funcs = (start, exit, interrupt, hold, resume, signal)
     context_props = (now, process)
-    simulation_funcs = (fork, interrupt, resume)
+    simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
         self.events = []
