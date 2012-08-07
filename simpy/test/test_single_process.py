@@ -5,7 +5,9 @@ resources).
 
 """
 # Pytest gets the parameters "sim" and "log" from the *conftest.py* file
-from simpy.util import at, delayed
+import pytest
+
+# from simpy.util import at, delayed
 
 
 def test_discrete_time_steps(sim, log):
@@ -34,6 +36,7 @@ def test_stop_self(sim, log):
     assert log == [0, 1]
 
 
+@pytest.mark.xfail
 def test_start_delayed(sim):
     """The *start* method starts a process at the current time. However,
     there is a helper that lets you delay the start of a process.
@@ -47,6 +50,7 @@ def test_start_delayed(sim):
     sim.simulate()
 
 
+@pytest.mark.xfail
 def test_start_at(sim):
     """The *start* method starts a process at the current time. However,
     there is a helper that lets you start a process at a certain point
@@ -59,3 +63,13 @@ def test_start_at(sim):
 
     sim.start(at(t=5), pem)
     sim.simulate()
+
+
+@pytest.mark.xfail
+def test_yield_none_forbidden(sim):
+    """A process may not yield ``None``."""
+    def pem(context):
+        yield
+
+    sim.start(pem)
+    pytest.raises(ValueError, sim.simulate)

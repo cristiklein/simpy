@@ -31,6 +31,31 @@ def test_interruption(sim):
     sim.simulate(until=30)
 
 
+def test_concurrent_interrupts(sim, log):
+    """If there are multiple interrupts at the same time, only the most
+    recently scheduled will be used.
+
+    """
+    def fox(context, log):
+        while True:
+            try:
+                yield context.hold(10)
+            except simpy.Interrupt as interrupt:
+                log.append(interrupt.cause)
+
+    def farmer(context, name, fox):
+        context.interrupt(fox, name)
+        yield context.hold(1)
+
+    fantastic_mr_fox = sim.start(fox, log)
+    for name in ('boggis', 'bunce', 'beans'):
+        sim.start(farmer, name, fantastic_mr_fox)
+
+    sim.simulate(20)
+    assert log == ['beans']
+
+
+@pytest.mark.xfail
 def test_suspend_resume(sim):
     """If a process passivates itself, it will no longer get active by
     itself but needs to be reactivated by another process (in contrast
@@ -61,10 +86,11 @@ def test_wait_for_proc(sim):
 
         assert context.now == 5
 
-    sim.start(waiter)
+    sim.start(waiter, finisher)
     sim.simulate()
 
 
+@pytest.mark.xfail
 def test_get_process_state(sim):
     """A process may be *active* (has event scheduled), *passive* (has
     no event scheduled) or *terminated* (PEM generator stopped).
