@@ -37,6 +37,7 @@ class Failure(Exception):
 Failed = 0
 Success = 1
 Init = 2
+Infinity = float('inf')
 
 
 class Process(object):
@@ -89,12 +90,12 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-def hold(sim, delay):
-    assert delay >= 0
+def hold(sim, delta_t):
+    assert delta_t >= 0
     proc = sim.active_proc
     assert proc.next_event is None
 
-    sim._schedule(proc, Success, None, sim._now + delay)
+    sim._schedule(proc, Success, None, sim._now + delta_t)
     return Ignore
 
 
@@ -265,6 +266,6 @@ class Simulation(object):
             heappop(self.events)
         return self.events[0][0]
 
-    def simulate(self, until):
+    def simulate(self, until=Infinity):
         while self.events and until > self.events[0][0]:
             self.step()
