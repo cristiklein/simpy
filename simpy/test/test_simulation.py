@@ -1,107 +1,59 @@
-import pytest
+from simpy import Interrupt, Failure
 
-from simpy import simulate, Interrupt, Failure
 
-def test_simple_process():
-    def pem(ctx, result):
-        while True:
-            result.append(ctx.now)
-            yield ctx.wait(1)
-
-    result = []
-    simulate(4, pem, result)
-
-    assert result == [0, 1, 2, 3]
-
-def test_interrupt():
+def test_join(sim):
     def root(ctx):
         def pem(ctx):
-            try:
-                yield ctx.wait(10)
-                pytest.fail('Expected an interrupt')
-            except Interrupt as interrupt:
-                assert interrupt.cause == 'interrupt!'
+            yield ctx.hold(10)
 
-        process = ctx.fork(pem)
-        yield ctx.wait(5)
-        ctx.interrupt(process, 'interrupt!')
-
-    simulate(20, root)
-
-def test_concurrent_interrupts():
-    """If there are multiple interrupts at the same time, only the most
-    recently scheduled will be used.
-
-    # TODO Discuss if this is ok
-    """
-    def root(ctx, interrupts):
-        def fox(ctx, interrupts):
-            while True:
-                try:
-                    yield
-                except Interrupt as exc:
-                    interrupts.append(exc.cause)
-
-        def farmer(ctx, name, fox):
-            ctx.interrupt(fox, name)
-            yield
-
-        fantastic_mr_fox = ctx.fork(fox, interrupts)
-        for name in ('boggis', 'bunce', 'beans'):
-            ctx.fork(farmer, name, fantastic_mr_fox)
-        yield
-
-    interrupts = []
-    simulate(20, root, interrupts)
-    assert interrupts == ['beans']
-
-def test_join():
-    def root(ctx):
-        def pem(ctx):
-            yield ctx.wait(10)
-
-        yield ctx.fork(pem)
+        yield ctx.start(pem)
         assert ctx.now == 10
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_join_result():
+
+def test_join_log(sim):
     def root(ctx):
         def pem(ctx):
-            yield ctx.wait(10)
+            yield ctx.hold(10)
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
-        result = yield ctx.fork(pem)
-        assert result == 'oh noes, i am dead x_x'
+        log = yield ctx.start(pem)
+        assert log == 'oh noes, i am dead x_x'
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_join_after_terminate():
+
+def test_join_after_terminate(sim):
     def root(ctx):
         def pem(ctx):
-            yield ctx.wait(10)
+            yield ctx.hold(10)
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
-        child = ctx.fork(pem)
-        yield ctx.wait(15)
-        result = yield child
-        assert result == 'oh noes, i am dead x_x'
+        child = ctx.start(pem)
+        yield ctx.hold(15)
+        log = yield child
+        assert log == 'oh noes, i am dead x_x'
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_join_all():
+
+def test_join_all(sim):
     def root(ctx):
         def pem(ctx, i):
-            yield ctx.wait(i)
+            yield ctx.hold(i)
             ctx.exit(i)
 
-        # Fork many child processes and let them wait for a while. The first
-        # child waits the longest time.
-        processes = [ctx.fork(pem, i) for i in reversed(range(10))]
+        # start many child processes and let them hold for a while. The first
+        # child holds the longest time.
+        processes = [ctx.start(pem, i) for i in reversed(range(10))]
 
-        # Wait until all children have been terminated.
+        # hold until all children have been terminated.
         results = []
         for process in processes:
             results.append((yield process))
@@ -110,17 +62,19 @@ def test_join_all():
         # The first child should have terminated at timestep 9. Confirm!
         assert ctx.now == 9
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_join_any():
+
+def test_join_any(sim):
     def root(ctx):
         def pem(ctx, i):
-            yield ctx.wait(i)
+            yield ctx.hold(i)
             ctx.exit(i)
 
-        # Fork many child processes and let them wait for a while. The first
-        # child waits the longest time.
-        processes = [ctx.fork(pem, i) for i in reversed(range(10))]
+        # start many child processes and let them hold for a while. The first
+        # child holds the longest time.
+        processes = [ctx.start(pem, i) for i in reversed(range(10))]
 
         def join_any(ctx, processes):
             for process in processes:
@@ -131,51 +85,56 @@ def test_join_any():
             except Interrupt as e:
                 ctx.exit(e.cause)
 
-        # Wait until the a child has terminated.
-        first_dead = yield ctx.fork(join_any, processes)
+        # hold until the a child has terminated.
+        first_dead = yield ctx.start(join_any, processes)
         # Confirm that the child created at last has terminated as first.
         assert ctx.now == 0
         assert first_dead == processes[-1]
         assert first_dead.result == 0
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_crashing_process():
+
+def test_crashing_process(sim):
     def root(ctx):
-        yield ctx.wait(1)
+        yield ctx.hold(1)
         raise RuntimeError("That's it, I'm done")
 
     try:
-        simulate(20, root)
+        sim.start(root)
+        sim.simulate(20)
         assert False, 'Fishy!! This is not supposed to happen!'
     except RuntimeError as exc:
         assert exc.args[0] == "That's it, I'm done"
 
-def test_crashing_child_process():
+
+def test_crashing_child_process(sim):
     def root(ctx):
         def panic(ctx):
-            yield ctx.wait(1)
+            yield ctx.hold(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.fork(panic)
+            yield ctx.start(panic)
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             cause = exc.__cause__
             assert type(cause) == RuntimeError
             assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
 
-def test_crashing_child_traceback():
+def test_crashing_child_traceback(sim):
     def root(ctx):
         def panic(ctx):
-            yield ctx.wait(1)
+            yield ctx.hold(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.fork(panic)
+            yield ctx.start(panic)
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             import traceback
@@ -185,101 +144,113 @@ def test_crashing_child_traceback():
             assert type(exc.__cause__) is RuntimeError
             # ...as well as the current frame must be visible in the
             # stacktrace.
-            assert 'yield ctx.fork(panic)' in stacktrace
+            assert 'yield ctx.start(panic)' in stacktrace
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
 
-def test_illegal_suspend():
+def test_illegal_suspend(sim):
     def root(ctx):
-        ctx.wait(1)
+        ctx.hold(1)
         yield
 
     try:
-        simulate(20, root)
+        sim.start(root)
+        sim.simulate(20)
         assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
-def test_illegal_interrupt():
+
+def test_illegal_interrupt(sim):
     def root(ctx):
         def child(ctx):
             yield
 
-        child = ctx.fork(child)
+        child = ctx.start(child)
         try:
             ctx.interrupt(child)
         except AssertionError as exc:
             assert exc.args[0] == 'Process child is not initialized'
         yield
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)
 
-def test_illegal_wait_followed_by_join():
+
+def test_illegal_hold_followed_by_join(sim):
     def root(ctx):
         def child(ctx):
-            yield ctx.wait(1)
+            yield ctx.hold(1)
 
-        ctx.wait(1)
-        yield ctx.fork(child)
+        ctx.hold(1)
+        yield ctx.start(child)
 
     try:
-        simulate(20, root)
+        sim.start(root)
+        sim.simulate(20)
         assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
 
-def test_invalid_schedule():
+
+def test_invalid_schedule(sim):
     def root(ctx):
         yield 'this will not work'
 
     try:
-        simulate(20, root)
+        sim.start(root)
+        sim.simulate(20)
         assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0] == 'Invalid yield value "this will not work"'
 
-def test_resume_before_start():
+
+def test_resume_before_start(sim):
     """A process must be started before any there can be any interaction.
 
-    As a consequence you can't resume or interrupt a just forked process as
+    As a consequence you can't resume or interrupt a just started process as
     shown in this test. See :func:`test_immediate_resume` for the correct way
-    to immediately resume a forked process.
+    to immediately resume a started process.
     """
     def root(ctx):
         def child(ctx):
-            yield ctx.wait(1)
+            yield ctx.hold(1)
 
-        c = ctx.fork(child)
+        c = ctx.start(child)
         ctx.resume(c)
         yield ctx.exit()
 
     try:
-        simulate(20, root)
+        sim.start(root)
+        sim.simulate(20)
         assert False, 'This must fail'
     except AssertionError as exc:
         assert exc.args[0] == 'Process child is not initialized'
 
-def test_immediate_resume():
-    def root(ctx, result):
-        def child(ctx, result):
+
+def test_immediate_resume(sim, log):
+    def root(ctx, log):
+        def child(ctx, log):
             yield
-            result.append(ctx.now)
+            log.append(ctx.now)
 
         def resumer(ctx, other):
             ctx.resume(other)
             yield ctx.exit()
 
-        c = ctx.fork(child, result)
-        ctx.fork(resumer, c)
+        c = ctx.start(child, log)
+        ctx.start(resumer, c)
         yield ctx.exit()
 
-    result = []
-    simulate(20, root, result)
+    sim.start(root, log)
+    sim.simulate(20)
     # Confirm that child has been interrupted immediately at timestep 0.
-    assert result == [0]
+    assert log == [0]
 
-def test_signal():
+
+def test_signal(sim):
     """Only the most recently scheduled signal of multiple concurrent ones is
     used.
 
@@ -293,7 +264,7 @@ def test_signal():
         def child(ctx):
             yield ctx.exit()
 
-        children = [ctx.fork(child) for i in range(3)]
+        children = [ctx.start(child) for i in range(3)]
         for child in children:
             ctx.signal(child)
 
@@ -302,4 +273,5 @@ def test_signal():
         except Interrupt as exc:
             assert exc.cause == children[-1]
 
-    simulate(20, root)
+    sim.start(root)
+    sim.simulate(20)

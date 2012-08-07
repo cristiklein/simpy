@@ -4,9 +4,12 @@ Theses test cases demonstrate the API for shared resources.
 
 """
 # Pytest gets the parameters "sim" and "log" from the *conftest.py* file
+import pytest
+
 import simpy
 
 
+@pytest.mark.xfail
 def test_resource(sim, log):
     """A *resource* is something with a limited numer of slots that need
     to be requested before and released after the usage (e.g., gas pumps
@@ -30,6 +33,7 @@ def test_resource(sim, log):
     assert log == [('a', 1), ('b',  2)]
 
 
+@pytest.mark.xfail
 def test_container(sim, log):
     """A *container* is a resource (of optinally limited capacity) where
     you can put in our take out a discrete or continuous amount of
@@ -63,6 +67,7 @@ def test_container(sim, log):
     assert log == [('p', 1), ('g', 1), ('g', 2), ('p', 2)]
 
 
+@pytest.mark.xfail
 def test_store(sim):
     """A store offers items of various types (e.g., apples and pears).
     You put concrete objects into a store and will get a concrete object

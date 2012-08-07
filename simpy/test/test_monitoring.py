@@ -6,9 +6,12 @@ resources.
 """
 # Pytest gets the parameters "sim" and "log" from the *conftest.py*
 # file
+import pytest
+
 import simpy
 
 
+@pytest.mark.xfail
 def test_whitebox_monitor_explicit(sim):
     """*Whitebox monitoring* means, the user monitors the attributes of
     a process from within the process and has thus full access to all
@@ -31,6 +34,7 @@ def test_whitebox_monitor_explicit(sim):
     assert monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
+@pytest.mark.xfail
 def test_whitebox_monitor_implicit(sim):
     """This is the same example as above, but shows that the monitor can
     also be configured to implictly collect data.
@@ -52,6 +56,7 @@ def test_whitebox_monitor_implicit(sim):
     assert monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
+@pytest.mark.xfail
 def test_whitebox_monitor_data_object(sim):
     """If the *PEM* is an instance method of an object,
     a :class:`~simpy.Monitor` can be configured to automatically collect
@@ -79,6 +84,7 @@ def test_whitebox_monitor_data_object(sim):
     assert spam.monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
+@pytest.mark.xfail
 def test_blackbox_monitor_processes(sim):
     """A :class:`~simpy.Monitor` also provides a *PEM*
     (:meth:`Monitor.run`) that collects data from a number of objects in
@@ -112,6 +118,7 @@ def test_blackbox_monitor_processes(sim):
         ]
 
 
+@pytest.mark.xfail
 def test_monitor_resource_queue_length(sim):
     """The number of queueing processes for a resource can be collected
     via a :class:`~simpy.Monitor` process (as in
@@ -139,6 +146,7 @@ def test_monitor_resource_queue_length(sim):
     assert monitor.data == [(0, 0), (1, 1)]  # (time, len(queue))
 
 
+@pytest.mark.xfail
 def test_monitor_resource_wait_time(sim):
     """There are two ways to monitor the time a process waited for (or
     used) a resource:
@@ -151,6 +159,7 @@ def test_monitor_resource_wait_time(sim):
     assert False  # No test yet
 
 
+@pytest.mark.xfail
 def test_resource_utilization(sim):
     """utilization monitoring of pumps (percent of time it’s being used)."""
     assert False  # No test yet
