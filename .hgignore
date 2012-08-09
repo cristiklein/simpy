@@ -2,13 +2,12 @@ syntax: glob
 
 *.pyc
 *~
+*.egg-info/
+*.swp
+.ropeproject/
+.tox/
 .DS_Store
 docs/build/*
 docs/html/*
 dist/*
 MANIFEST
-.tox/
-*.egg-info/*
-*.swp
-*.egg-info
-*.html
