@@ -3,7 +3,7 @@ from itertools import count
 from collections import defaultdict
 from types import GeneratorType
 
-from simpy.exceptions import SimEnd
+from simpy.exceptions import Interrupt, Failure, SimEnd
 
 Failed = 0
 Success = 1
