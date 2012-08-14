@@ -177,9 +177,8 @@ class Simulation(object):
                 self._schedule(signaller, Failed, Interrupt(proc))
 
     def peek(self):
-        """
-        Returns the time of the next event or ``inf`` if no more events are
-        scheduled.
+        """Return the time of the next event or ``inf`` if no more
+        events are scheduled.
 
         """
         try:
@@ -259,7 +258,7 @@ class Simulation(object):
         self.active_proc = None
 
     def step_dt(self, delta_t=1):
-        """Executes all events that occur within the next *delta_t*
+        """Execute all events that occur within the next *delta_t*
         units of simulation time.
 
         """
@@ -275,8 +274,5 @@ class Simulation(object):
         if until <= 0:
             raise ValueError('until(=%s) should be a number > 0.' % until)
 
-        try:
-            while self.peek() < until:
-                self.step()
-        except SimEnd:
-            pass
+        while self.peek() < until:
+            self.step()
