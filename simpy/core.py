@@ -239,10 +239,24 @@ class Simulation(object):
         self.active_proc = None
 
     def peek(self):
-        while self.events:
-            if self.events[0][2].next_event is self.events[0][3]: break
-            heappop(self.events)
-        return self.events[0][0]
+        """
+        Returns the time of the next event or ``inf`` if no more events are
+        scheduled.
+
+        """
+        try:
+            while True:
+                # Pop all removed events from the queue
+                # self.events[0][3] is the scheduled event
+                # self.events[0][2] is the corresponding proc
+                if self.events[0][3] is self.events[0][2].next_event:
+                    break
+
+                heappop(self.events)
+
+            return self.events[0][0]  # time of first event
+        except IndexError:
+            return Infinity
 
     def step_dt(self, delta_t=1):
         """Executes all events that occur within the next *delta_t*
