@@ -33,15 +33,22 @@ class Failure(Exception):
             return 'Caused by the following exception:\n\n%s' % (
                     self.stacktrace)
 
+    def __str__(self):
+        return '%s' % self.__cause__
+
 
 Failed = 0
 Success = 1
 Init = 2
+Suspended = 3
+
+
 Infinity = float('inf')
 
 
 class Process(object):
-    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator')
+    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator',
+            'interrupts')
     def __init__(self, id, pem, generator):
         self.id = id
         self.pem = pem
@@ -49,6 +56,7 @@ class Process(object):
         self.next_event = None
         self.result = None
         self.generator = generator
+        self.interrupts = []
 
     def __str__(self):
         if hasattr(self.pem, '__name__'):
@@ -110,11 +118,16 @@ def resume(sim, other, value=None):
 
 
 def interrupt(sim, other, cause=None):
-    if other.next_event is not None:
-        assert other.next_event[0] != Init, (
-                'Process %s is not initialized' % other)
-    proc = sim.active_proc
-    sim._schedule(other, Failed, Interrupt(cause))
+    assert other.next_event[0] != Init, (
+            'Process %s is not initialized' % other)
+
+    if not other.interrupts:
+        # This is the first interrupt, so schedule it.
+        sim._schedule(other,
+                Success if other.next_event[0] == Suspended else Failed,
+                None)
+
+    other.interrupts.append(cause)
 
 
 def signal(sim, other):
@@ -211,9 +224,16 @@ class Simulation(object):
         self._now, eid, proc, evt = heappop(self.events)
         if proc.next_event is not evt: return
 
-        evt_type, value = proc.next_event
+        evt_type, value = evt
         proc.next_event = None
         self.active_proc = proc
+
+        # Check if there are interrupts for this process.
+        interrupts = proc.interrupts
+        if interrupts:
+            cause = interrupts.pop(0)
+            value = cause if evt_type else Interrupt(cause)
+
         try:
             if evt_type:
                 # A "successful" event.
@@ -252,11 +272,23 @@ class Simulation(object):
                     self._schedule(proc, target.state, target.result)
                     self.active_proc = prev
                 else:
+                    # FIXME This is a bit ugly. Because next_event cannot be
+                    # None this stub event is used. It will never be executed
+                    # because it isn't scheduled. This is necessary for
+                    # interrupt handling.
+                    proc.next_event = (Success, None)
                     self.joiners[target].append(proc)
             else:
                 assert proc.next_event is not None
         else:
             assert proc.next_event is None, 'Next event already scheduled!'
+            proc.next_event = (Suspended, None)
+
+        # Schedule concurrent interrupts.
+        if interrupts:
+            self._schedule(proc,
+                    Success if proc.next_event[0] == Suspended else Failed,
+                    None)
 
         self.active_proc = None
 
@@ -264,7 +296,10 @@ class Simulation(object):
         while self.events:
             if self.events[0][2].next_event is self.events[0][3]: break
             heappop(self.events)
-        return self.events[0][0]
+        return self.events[0][0] if self.events else Infinity
+
+    def alive(self):
+        return bool(self.events)
 
     def simulate(self, until=Infinity):
         while self.events and until > self.events[0][0]:
