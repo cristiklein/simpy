@@ -32,9 +32,7 @@ def test_interruption(sim):
 
 
 def test_concurrent_interrupts(sim, log):
-    """If there are multiple interrupts at the same time, only the most
-    recently scheduled will be used.
-
+    """Concurrent interrupts are scheduled in the order in which they occured.
     """
     def fox(context, log):
         while True:
@@ -52,7 +50,7 @@ def test_concurrent_interrupts(sim, log):
         sim.start(farmer, name, fantastic_mr_fox)
 
     sim.simulate(20)
-    assert log == ['beans']
+    assert log == ['boggis', 'bunce', 'beans']
 
 
 @pytest.mark.xfail

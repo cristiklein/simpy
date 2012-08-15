@@ -8,11 +8,16 @@ from simpy.exceptions import Interrupt, Failure, SimEnd
 Failed = 0
 Success = 1
 Init = 2
+Suspended = 3
+
+
 Infinity = float('inf')
 
 
 class Process(object):
-    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator')
+    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator',
+            'joiners', 'signallers', 'interrupts')
+
     def __init__(self, id, pem, generator):
         self.id = id
         self.pem = pem
@@ -20,6 +25,9 @@ class Process(object):
         self.next_event = None
         self.result = None
         self.generator = generator
+        self.joiners = []
+        self.signallers = []
+        self.interrupts = []
 
     def __str__(self):
         if hasattr(self.pem, '__name__'):
@@ -81,11 +89,17 @@ def resume(sim, other, value=None):
 
 
 def interrupt(sim, other, cause=None):
-    if other.next_event is not None:
-        assert other.next_event[0] != Init, (
-                'Process %s is not initialized' % other)
-    proc = sim.active_proc
-    sim._schedule(other, Failed, Interrupt(cause))
+    assert other.next_event[0] != Init, (
+            'Process %s is not initialized' % other)
+
+    interrupts = other.interrupts
+    if not interrupts:
+        # This is the first interrupt, so schedule it.
+        sim._schedule(other,
+                Success if other.next_event[0] == Suspended else Failed,
+                None)
+
+    interrupts.append(cause)
 
 
 def signal(sim, other):
@@ -98,7 +112,7 @@ def signal(sim, other):
         sim._schedule(proc, Failed, Interrupt(other))
         sim.active_proc = prev
     else:
-        sim.signallers[other].append(proc)
+        other.signallers.append(proc)
 
 
 Ignore = object()
@@ -111,8 +125,6 @@ class Simulation(object):
 
     def __init__(self):
         self.events = []
-        self.joiners = defaultdict(list)
-        self.signallers = defaultdict(list)
 
         self.pid = count()
         self.eid = count()
@@ -152,10 +164,11 @@ class Simulation(object):
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
     def _join(self, proc):
-        proc.generator = None
+        joiners = proc.joiners
+        signallers = proc.signallers
+        interrupts = proc.interrupts
 
-        joiners = self.joiners.pop(proc, None)
-        signallers = self.signallers.pop(proc, None)
+        proc.generator = None
 
         if proc.state == Failed:
             # TODO Don't know about this one. This check causes the whole
@@ -179,21 +192,12 @@ class Simulation(object):
     def peek(self):
         """Return the time of the next event or ``inf`` if no more
         events are scheduled.
-
         """
-        try:
-            while True:
-                # Pop all removed events from the queue
-                # self.events[0][3] is the scheduled event
-                # self.events[0][2] is the corresponding proc
-                if self.events[0][3] is self.events[0][2].next_event:
-                    break
 
-                heappop(self.events)
-
-            return self.events[0][0]  # time of first event
-        except IndexError:
-            return Infinity
+        while self.events:
+            if self.events[0][2].next_event is self.events[0][3]: break
+            heappop(self.events)
+        return self.events[0][0] if self.events else Infinity
 
     def step(self):
         assert self.active_proc is None
@@ -208,9 +212,16 @@ class Simulation(object):
             if evt is proc.next_event:
                 break
 
-        evt_type, value = proc.next_event
+        evt_type, value = evt
         proc.next_event = None
         self.active_proc = proc
+
+        # Check if there are interrupts for this process.
+        interrupts = proc.interrupts
+        if interrupts:
+            cause = interrupts.pop(0)
+            value = cause if evt_type else Interrupt(cause)
+
         try:
             if evt_type:
                 # A "successful" event.
@@ -249,11 +260,23 @@ class Simulation(object):
                     self._schedule(proc, target.state, target.result)
                     self.active_proc = prev
                 else:
-                    self.joiners[target].append(proc)
+                    # FIXME This is a bit ugly. Because next_event cannot be
+                    # None this stub event is used. It will never be executed
+                    # because it isn't scheduled. This is necessary for
+                    # interrupt handling.
+                    proc.next_event = (Success, None)
+                    target.joiners.append(proc)
             else:
                 assert proc.next_event is not None
         else:
             assert proc.next_event is None, 'Next event already scheduled!'
+            proc.next_event = (Suspended, None)
+
+        # Schedule concurrent interrupts.
+        if interrupts:
+            self._schedule(proc,
+                    Success if proc.next_event[0] == Suspended else Failed,
+                    None)
 
         self.active_proc = None
 

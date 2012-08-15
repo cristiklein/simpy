@@ -32,6 +32,9 @@ class Failure(Exception):
             return 'Caused by the following exception:\n\n%s' % (
                     self.stacktrace)
 
+    def __str__(self):
+        return '%s' % self.__cause__
+
 
 class SimEnd(Exception):
     """This exception is raised by :meth:`simpy.Simulation.step` if

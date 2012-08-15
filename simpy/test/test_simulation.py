@@ -1,6 +1,9 @@
 from simpy import Interrupt, Failure
 
 
+pytest_plugins = ['simpy.test.support']
+
+
 def test_join(sim):
     def root(ctx):
         def pem(ctx):
@@ -275,3 +278,96 @@ def test_signal(sim):
 
     sim.start(root)
     sim.simulate(20)
+
+
+def test_interrupt_chain(ctx):
+    """Tests the chaining of concurrent interrupts."""
+
+    # Interruptor processes will wait for one timestep and than interrupt the
+    # given process.
+    def interruptor(ctx, process, id):
+        yield ctx.hold(1)
+        ctx.interrupt(process, id)
+
+    def child(ctx):
+        yield ctx.hold(2)
+        ctx.exit('i am done')
+
+    # Start ten processes which will interrupt ourselves after one timestep.
+    for i in range(10):
+        ctx.start(interruptor, ctx.process, i)
+
+    child_proc = ctx.start(child)
+
+    # Check that we are interrupted ten times while waiting for child_proc to
+    # complete.
+    log = []
+    while child_proc.state is None:
+        try:
+            value = yield child_proc
+        except Interrupt as interrupt:
+            value = interrupt.cause
+
+        log.append(value)
+
+    assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'i am done']
+
+
+def test_suspend_interrupt(ctx):
+    """Tests that an interrupt is not raised in a suspended process. The cause
+    of the interrupt is passed directly into the process."""
+
+    def child(ctx):
+        # Suspend this process.
+        value = yield
+        ctx.exit(value)
+
+    child_proc = ctx.start(child)
+    # Wait until child has started.
+    yield ctx.hold(0)
+    # Interrupt child_proc and use 'cake' as the cause.
+    ctx.interrupt(child_proc, 'cake')
+    result = yield child_proc
+
+    assert result == 'cake'
+
+
+def test_interrupt_chain_suspend(ctx):
+    """Tests the handling of interrupt chaining while the victim is suspended.
+    """
+
+    def interruptor(ctx, process, id):
+        yield ctx.hold(1)
+        ctx.interrupt(process, id)
+
+    # Start ten processes which will interrupt ourselves after one timestep.
+    for i in range(10):
+        ctx.start(interruptor, ctx.process, i)
+
+    # Check that no interrupts are raised if we are suspended. Instead the
+    # interrupt cause is passed directly into this process.
+    log = []
+    for i in range(10):
+        value = yield
+        log.append(value)
+
+    assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+
+def test_interrupted_join(ctx):
+    """Tests that interrupts are raised while the victim is waiting for another
+    process."""
+
+    def interruptor(ctx, process):
+        yield ctx.hold(1)
+        ctx.interrupt(process)
+
+    def child(ctx):
+        yield ctx.hold(2)
+
+    ctx.start(interruptor, ctx.process)
+    try:
+        yield ctx.start(child)
+        assert False, 'Excepted an interrupt'
+    except Interrupt as interrupt:
+        pass
