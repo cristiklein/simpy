@@ -48,7 +48,8 @@ Infinity = float('inf')
 
 class Process(object):
     __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator',
-            'interrupts')
+            'joiners', 'signallers', 'interrupts')
+
     def __init__(self, id, pem, generator):
         self.id = id
         self.pem = pem
@@ -56,6 +57,8 @@ class Process(object):
         self.next_event = None
         self.result = None
         self.generator = generator
+        self.joiners = []
+        self.signallers = []
         self.interrupts = []
 
     def __str__(self):
@@ -121,13 +124,14 @@ def interrupt(sim, other, cause=None):
     assert other.next_event[0] != Init, (
             'Process %s is not initialized' % other)
 
-    if not other.interrupts:
+    interrupts = other.interrupts
+    if not interrupts:
         # This is the first interrupt, so schedule it.
         sim._schedule(other,
                 Success if other.next_event[0] == Suspended else Failed,
                 None)
 
-    other.interrupts.append(cause)
+    interrupts.append(cause)
 
 
 def signal(sim, other):
@@ -140,7 +144,7 @@ def signal(sim, other):
         sim._schedule(proc, Failed, Interrupt(other))
         sim.active_proc = prev
     else:
-        sim.signallers[other].append(proc)
+        other.signallers.append(proc)
 
 
 Ignore = object()
@@ -153,8 +157,6 @@ class Simulation(object):
 
     def __init__(self):
         self.events = []
-        self.joiners = defaultdict(list)
-        self.signallers = defaultdict(list)
 
         self.pid = count()
         self.eid = count()
@@ -194,10 +196,11 @@ class Simulation(object):
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
     def _join(self, proc):
-        proc.generator = None
+        joiners = proc.joiners
+        signallers = proc.signallers
+        interrupts = proc.interrupts
 
-        joiners = self.joiners.pop(proc, None)
-        signallers = self.signallers.pop(proc, None)
+        proc.generator = None
 
         if proc.state == Failed:
             # TODO Don't know about this one. This check causes the whole
@@ -277,7 +280,7 @@ class Simulation(object):
                     # because it isn't scheduled. This is necessary for
                     # interrupt handling.
                     proc.next_event = (Success, None)
-                    self.joiners[target].append(proc)
+                    target.joiners.append(proc)
             else:
                 assert proc.next_event is not None
         else:
