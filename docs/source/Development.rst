@@ -75,8 +75,8 @@ Again, refresh this patch after you are done with your changes.
 .. note::
 
     For more details on Mercurial patch management, see the chapter
-    `Managing change with Mercurial Queues`
-    http://hgbook.red-bean.com/read/managing-change-with-mercurial-queues.html
+    `Managing change with Mercurial Queues
+    <http://hgbook.red-bean.com/read/managing-change-with-mercurial-queues.html>`_
     in the Mercurial book.
 
 Submitting patchsets
@@ -92,6 +92,7 @@ First, you need to enable the patchbomb extension in Mercurial. Open up
 ``simpy/.hg/hgrc`` and make sure ``patchbomb`` is listed unter ``extensions``:
 
 ::
+
     [extensions]
     patchbomb =
 
