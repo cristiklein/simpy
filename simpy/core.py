@@ -1,17 +1,20 @@
 from heapq import heappush, heappop
 from itertools import count
-from collections import defaultdict
 from types import GeneratorType
 
 from simpy.exceptions import Interrupt, Failure, SimEnd
 
+
+# Event types
 Failed = 0
 Success = 1
 Init = 2
 Suspended = 3
 
-
 Infinity = float('inf')
+
+Event = object()
+"""Yielded by a PEM if it waits for an event (e.g. via "yield ctx.hold(1))."""
 
 
 class Process(object):
@@ -75,7 +78,7 @@ def hold(sim, delta_t):
     assert proc.next_event is None
 
     sim._schedule(proc, Success, None, sim._now + delta_t)
-    return Ignore
+    return Event
 
 
 def resume(sim, other, value=None):
@@ -85,7 +88,7 @@ def resume(sim, other, value=None):
     # TODO Isn't this dangerous? If other has already been resumed, this
     # call will silently drop the previous result.
     sim._schedule(other, Success, value)
-    return Ignore
+    return Event
 
 
 def interrupt(sim, other, cause=None):
@@ -113,9 +116,6 @@ def signal(sim, other):
         sim.active_proc = prev
     else:
         other.signallers.append(proc)
-
-
-Ignore = object()
 
 
 class Simulation(object):
@@ -190,14 +190,23 @@ class Simulation(object):
                 self._schedule(signaller, Failed, Interrupt(proc))
 
     def peek(self):
-        """Return the time of the next event or ``inf`` if no more
-        events are scheduled.
-        """
+        """Return the time of the next event or ``inf`` if the event
+        queue is empty.
 
-        while self.events:
-            if self.events[0][2].next_event is self.events[0][3]: break
-            heappop(self.events)
-        return self.events[0][0] if self.events else Infinity
+        """
+        try:
+            while True:
+                # Pop all removed events from the queue
+                # self.events[0][3] is the scheduled event
+                # self.events[0][2] is the corresponding proc
+                if self.events[0][3] is self.events[0][2].next_event:
+                    break
+                heappop(self.events)
+
+            return self.events[0][0]  # time of first event
+
+        except IndexError:
+            return Infinity
 
     def step(self):
         assert self.active_proc is None
@@ -245,7 +254,7 @@ class Simulation(object):
             return
 
         if target is not None:
-            if target is not Ignore:
+            if target is not Event:
                 # TODO Improve this error message.
                 assert type(target) is Process, 'Invalid yield value "%s"' % target
                 # TODO The stacktrace won't show the position in the pem where this
