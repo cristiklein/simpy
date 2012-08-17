@@ -295,7 +295,7 @@ def test_interrupt_chain(ctx):
 
     # Start ten processes which will interrupt ourselves after one timestep.
     for i in range(10):
-        ctx.start(interruptor, ctx.process, i)
+        ctx.start(interruptor, ctx.active_process, i)
 
     child_proc = ctx.start(child)
 
@@ -342,7 +342,7 @@ def test_interrupt_chain_suspend(ctx):
 
     # Start ten processes which will interrupt ourselves after one timestep.
     for i in range(10):
-        ctx.start(interruptor, ctx.process, i)
+        ctx.start(interruptor, ctx.active_process, i)
 
     # Check that no interrupts are raised if we are suspended. Instead the
     # interrupt cause is passed directly into this process.
@@ -365,7 +365,7 @@ def test_interrupted_join(ctx):
     def child(ctx):
         yield ctx.hold(2)
 
-    ctx.start(interruptor, ctx.process)
+    ctx.start(interruptor, ctx.active_process)
     try:
         yield ctx.start(child)
         assert False, 'Excepted an interrupt'

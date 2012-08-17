@@ -45,14 +45,6 @@ class Process(object):
             return str(self.pem)
 
 
-def process(ctx):
-    return ctx.sim.active_proc
-
-
-def now(ctx):
-    return ctx.sim._now
-
-
 def start(sim, pem, *args, **kwargs):
     process = pem(sim.context, *args, **kwargs)
     assert type(process) is GeneratorType, (
@@ -118,9 +110,23 @@ def signal(sim, other):
         other.signallers.append(proc)
 
 
+class Context(object):
+    def __init__(self, sim):
+        self._sim = sim
+
+    @property
+    def active_process(self):
+        """Return the currently active process."""
+        return self._sim.active_proc
+
+    @property
+    def now(self):
+        """Return the current simulation time."""
+        return self._sim._now
+
+
 class Simulation(object):
     context_funcs = (start, exit, interrupt, hold, resume, signal)
-    context_props = (now, process)
     simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
@@ -131,17 +137,8 @@ class Simulation(object):
         self.active_proc = None
         self._now = 0
 
-        # Define context class for this simulation.
-        class Context(object):
-            pass
-
-        # Attach properties to the context class.
-        for prop in self.context_props:
-            setattr(Context, prop.__name__, property(prop))
-
         # Instanciate the context and bind it to the simulation.
-        self.context = Context()
-        self.context.sim = self
+        self.context = Context(self)
 
         # Attach context function and bind them to the simulation.
         for func in self.context_funcs:
