@@ -27,7 +27,7 @@ def pytest_pyfunc_call(pyfuncitem):
     if inspect.isgeneratorfunction(testfunction):
         process = simulation.start(testfunction, **funcargs)
 
-        while process.generator is not None and simulation.peek() != Infinity:
+        while process.peg is not None and simulation.peek() != Infinity:
             simulation.step()
     else:
         testfunction(**funcargs)
