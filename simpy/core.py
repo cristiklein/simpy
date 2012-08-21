@@ -18,38 +18,41 @@ Event = object()
 
 
 class Process(object):
-    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator',
+    """A *Process* is a wrapper for instantiated PEMs.
+
+    A Processes needs a unique process ID (*pid*) and a process event
+    generator (*peg* -- the generator that the PEM returns).
+
+    The *Process* class contains internal and external status
+    information. It is also used for process interaction, e.g., for
+    interruptions.
+
+    """
+    __slots__ = ('pid', 'peg', 'next_event', 'state', 'result',
             'joiners', 'signallers', 'interrupts')
 
-    def __init__(self, id, pem, generator):
-        self.id = id
-        self.pem = pem
+    def __init__(self, pid, peg):
+        self.pid = pid
+        self.peg = peg
+
         self.state = None
         self.next_event = None
         self.result = None
-        self.generator = generator
         self.joiners = []
         self.signallers = []
         self.interrupts = []
 
-    def __str__(self):
-        if hasattr(self.pem, '__name__'):
-            return self.pem.__name__
-        else:
-            return str(self.pem)
-
     def __repr__(self):
-        if hasattr(self.pem, '__name__'):
-            return self.pem.__name__
-        else:
-            return str(self.pem)
+        """Return a string "Process(pid, pem_name)"."""
+        return '%s(%s, %s)' % (self.__class__.__name__, self.pid,
+                               self.peg.__name__)
 
 
 def start(sim, pem, *args, **kwargs):
-    process = pem(sim.context, *args, **kwargs)
-    assert type(process) is GeneratorType, (
+    peg = pem(sim.context, *args, **kwargs)
+    assert type(peg) is GeneratorType, (
             'Process function %s is did not return a generator' % pem)
-    proc = Process(next(sim.pid), pem, process)
+    proc = Process(next(sim.pid), peg)
 
     prev, sim.active_proc = sim.active_proc, proc
     # Schedule start of the process.
@@ -76,7 +79,7 @@ def hold(sim, delta_t):
 def resume(sim, other, value=None):
     if other.next_event is not None:
         assert other.next_event[0] != Init, (
-                'Process %s is not initialized' % other)
+                '%s is not initialized' % other)
     # TODO Isn't this dangerous? If other has already been resumed, this
     # call will silently drop the previous result.
     sim._schedule(other, Success, value)
@@ -85,7 +88,7 @@ def resume(sim, other, value=None):
 
 def interrupt(sim, other, cause=None):
     assert other.next_event[0] != Init, (
-            'Process %s is not initialized' % other)
+            '%s is not initialized' % other)
 
     interrupts = other.interrupts
     if not interrupts:
@@ -101,7 +104,7 @@ def signal(sim, other):
     """Interrupt this process, if the target terminates."""
     proc = sim.active_proc
 
-    if other.generator is None:
+    if other.peg is None:
         # FIXME This context switching is ugly.
         prev, sim.active_proc = sim.active_proc, other
         sim._schedule(proc, Failed, Interrupt(other))
@@ -165,7 +168,7 @@ class Simulation(object):
         signallers = proc.signallers
         interrupts = proc.interrupts
 
-        proc.generator = None
+        proc.peg = None
 
         if proc.state == Failed:
             # TODO Don't know about this one. This check causes the whole
@@ -178,12 +181,12 @@ class Simulation(object):
 
         if joiners:
             for joiner in joiners:
-                if joiner.generator is None: continue
+                if joiner.peg is None: continue
                 self._schedule(joiner, proc.state, proc.result)
 
         if signallers:
             for signaller in signallers:
-                if signaller.generator is None: continue
+                if signaller.peg is None: continue
                 self._schedule(signaller, Failed, Interrupt(proc))
 
     def peek(self):
@@ -231,10 +234,10 @@ class Simulation(object):
         try:
             if evt_type:
                 # A "successful" event.
-                target = proc.generator.send(value)
+                target = proc.peg.send(value)
             else:
                 # An "unsuccessful" event.
-                target = proc.generator.throw(value)
+                target = proc.peg.throw(value)
         except StopIteration:
             # Process has terminated.
             proc.state = Success
@@ -259,7 +262,7 @@ class Simulation(object):
                 assert proc.next_event is None, 'Next event already scheduled!'
 
                 # Add this process to the list of waiters.
-                if target.generator is None:
+                if target.peg is None:
                     # FIXME This context switching is ugly.
                     prev, self.active_proc = self.active_proc, target
                     # Process has already terminated. Resume as soon as possible.

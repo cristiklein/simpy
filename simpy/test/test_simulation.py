@@ -175,7 +175,7 @@ def test_illegal_interrupt(sim):
         try:
             ctx.interrupt(child)
         except AssertionError as exc:
-            assert exc.args[0] == 'Process child is not initialized'
+            assert exc.args[0] == 'Process(1, child) is not initialized'
         yield
 
     sim.start(root)
@@ -230,7 +230,7 @@ def test_resume_before_start(sim):
         sim.simulate(20)
         assert False, 'This must fail'
     except AssertionError as exc:
-        assert exc.args[0] == 'Process child is not initialized'
+        assert exc.args[0] == 'Process(1, child) is not initialized'
 
 
 def test_immediate_resume(sim, log):
