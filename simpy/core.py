@@ -54,67 +54,117 @@ class Process(object):
 
 
 def start(sim, pem, *args, **kwargs):
+    """Start a new process for ``pem``.
+
+    Pass *simulation context* and, optionally, ``*args`` and
+    ``**kwargs`` to the PEM.
+
+    If ``pem`` is not a generator function, raise a :class`ValueError`.
+
+    """
     peg = pem(sim.context, *args, **kwargs)
-    assert type(peg) is GeneratorType, (
-            'Process function %s is did not return a generator' % pem)
+    if type(peg) is not GeneratorType:
+        raise ValueError('PEM %s is not a generator function.' % pem)
 
     proc = Process(next(sim.pid), peg)
-
-    prev, sim.active_proc = sim.active_proc, proc
-    # Schedule start of the process.
-    sim._schedule(proc, EVT_INIT, None)
-    sim.active_proc = prev
+    sim._schedule(proc, EVT_INIT)
 
     return proc
 
 
 def exit(sim, result=None):
+    """Stop the current process, optinally providing a ``result``.
+
+    The ``result`` is sent to processes waiting for the current process
+    and can also be obtained via :attr:`Process.result`.
+
+    """
     sim.active_proc.result = result
     raise StopIteration()
 
 
-def hold(sim, delta_t):
-    assert delta_t >= 0
+def hold(sim, delta_t=Infinity):
+    """Schedule a new event in ``delta_t`` time units.
+
+    If ``delta_t`` is omitted, schedule an event at *infinity*. This is
+    a week suspend. A process holding until *infinity* can only become
+    active again if it gets interrupted.
+
+    Raise a :class:`ValueError` if ``delta_t < 0``.
+
+    Raise a :class:`RuntimeError` if this (or another event-generating)
+    method was previously called without yielding its result.
+
+    """
+    if delta_t < 0:
+        raise ValueError('delta_t=%s must be >= 0.' % delta_t)
+
     proc = sim.active_proc
-    assert proc._next_event is None
+    if proc._next_event:
+        raise RuntimeError('%s already has an event scheduled. Did you forget '
+                           'to yield?' % proc)
 
     sim._schedule(proc, EVT_SEND, None, sim._now + delta_t)
-    return Event
 
-
-def resume(sim, other, value=None):
-    if other._next_event is not None:
-        assert other._next_event[0] != EVT_INIT, (
-                '%s is not initialized' % other)
-    # TODO Isn't this dangerous? If other has already been resumed, this
-    # call will silently drop the previous result.
-    sim._schedule(other, EVT_SEND, value)
     return Event
 
 
 def interrupt(sim, other, cause=None):
-    assert other._next_event[0] != EVT_INIT, (
-            '%s is not initialized' % other)
+    """Interupt ``other`` process optionally providing a ``cause``.
+
+    Another process cannot be interrupted if it is suspend (and has no
+    event scheduled) or if it was just initialized and could not issue
+    a *hold* yet. Raise a :class:`RuntimeError` in both cases.
+
+    """
+    if not other._next_event:
+        raise RuntimeError('%s has no event scheduled and cannot be '
+                           'interrupted.' % other)
+    if other._next_event[0] is EVT_INIT:
+        raise RuntimeError('%s was just initialized and cannot yet be '
+                           'interrupted.' % other)
 
     interrupts = other._interrupts
     if not interrupts:
         # This is the first interrupt, so schedule it.
-        sim._schedule(other,
-                EVT_SEND if other._next_event[0] == EVT_SUSPENDED else EVT_THROW,
-                None)
+        sim._schedule(other, EVT_THROW)
 
     interrupts.append(cause)
 
 
+def suspend(sim):
+    """Suspend the current process by deleting all future events.
+
+    A suspended process needs to be resumed (see
+    :class:`Context.resume`) by another process to get active again.
+
+    """
+    sim.active_proc._next_event = None
+
+    return Event
+
+
+def resume(sim, other):
+    """Resume the suspended process ``other``.
+
+    Raise a :class:`RuntimeError` if ``other`` is not suspended.
+
+    """
+    if other._next_event:
+        raise RuntimeError('%s is not suspended.' % other)
+
+    sim._schedule(other, EVT_SEND)
+
+    return Event
+
+
 def signal(sim, other):
-    """Interrupt this process, if the target terminates."""
+    """Register at ``other`` to receive an interrupt when it terminates."""
     proc = sim.active_proc
 
     if other.peg is None:
-        # FIXME This context switching is ugly.
-        prev, sim.active_proc = sim.active_proc, other
+        # Other has already termianted
         sim._schedule(proc, EVT_THROW, Interrupt(other))
-        sim.active_proc = prev
     else:
         other._signallers.append(proc)
 
@@ -135,7 +185,7 @@ class Context(object):
 
 
 class Simulation(object):
-    context_funcs = (start, exit, interrupt, hold, resume, signal)
+    context_funcs = (start, exit, interrupt, hold, suspend, resume, signal)
     simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
@@ -162,7 +212,7 @@ class Simulation(object):
     def now(self):
         return self._now
 
-    def _schedule(self, proc, evt_type, value, at=None):
+    def _schedule(self, proc, evt_type, value=None, at=None):
         if at is None:
             at = self._now
 
