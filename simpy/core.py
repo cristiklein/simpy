@@ -6,10 +6,14 @@ from simpy.exceptions import Interrupt, Failure, SimEnd
 
 
 # Event types
-Failed = 0
-Success = 1
-Init = 2
-Suspended = 3
+EVT_THROW = 0  # Throw an error into the PEG
+EVT_SEND = 1  # Default event, send value into the PEG
+EVT_INIT = 2  # First event after a proc was started
+EVT_SUSPENDED = 3
+
+# Process states
+STATE_FAILED = 0
+STATE_SUCCEEDED = 1
 
 Infinity = float('inf')
 
@@ -53,11 +57,12 @@ def start(sim, pem, *args, **kwargs):
     peg = pem(sim.context, *args, **kwargs)
     assert type(peg) is GeneratorType, (
             'Process function %s is did not return a generator' % pem)
+
     proc = Process(next(sim.pid), peg)
 
     prev, sim.active_proc = sim.active_proc, proc
     # Schedule start of the process.
-    sim._schedule(proc, Init, None)
+    sim._schedule(proc, EVT_INIT, None)
     sim.active_proc = prev
 
     return proc
@@ -73,29 +78,29 @@ def hold(sim, delta_t):
     proc = sim.active_proc
     assert proc._next_event is None
 
-    sim._schedule(proc, Success, None, sim._now + delta_t)
+    sim._schedule(proc, EVT_SEND, None, sim._now + delta_t)
     return Event
 
 
 def resume(sim, other, value=None):
     if other._next_event is not None:
-        assert other._next_event[0] != Init, (
+        assert other._next_event[0] != EVT_INIT, (
                 '%s is not initialized' % other)
     # TODO Isn't this dangerous? If other has already been resumed, this
     # call will silently drop the previous result.
-    sim._schedule(other, Success, value)
+    sim._schedule(other, EVT_SEND, value)
     return Event
 
 
 def interrupt(sim, other, cause=None):
-    assert other._next_event[0] != Init, (
+    assert other._next_event[0] != EVT_INIT, (
             '%s is not initialized' % other)
 
     interrupts = other._interrupts
     if not interrupts:
         # This is the first interrupt, so schedule it.
         sim._schedule(other,
-                Success if other._next_event[0] == Suspended else Failed,
+                EVT_SEND if other._next_event[0] == EVT_SUSPENDED else EVT_THROW,
                 None)
 
     interrupts.append(cause)
@@ -108,7 +113,7 @@ def signal(sim, other):
     if other.peg is None:
         # FIXME This context switching is ugly.
         prev, sim.active_proc = sim.active_proc, other
-        sim._schedule(proc, Failed, Interrupt(other))
+        sim._schedule(proc, EVT_THROW, Interrupt(other))
         sim.active_proc = prev
     else:
         other._signallers.append(proc)
@@ -171,7 +176,7 @@ class Simulation(object):
 
         proc.peg = None
 
-        if proc.state == Failed:
+        if proc.state == STATE_FAILED:
             # TODO Don't know about this one. This check causes the whole
             # simulation to crash if there is a crashed process and no other
             # process to handle this crash. Something like this must certainely
@@ -183,12 +188,13 @@ class Simulation(object):
         if joiners:
             for joiner in joiners:
                 if joiner.peg is None: continue
-                self._schedule(joiner, proc.state, proc.result)
+                evt = EVT_THROW if proc.state == STATE_FAILED else EVT_SEND
+                self._schedule(joiner, evt, proc.result)
 
         if signallers:
             for signaller in signallers:
                 if signaller.peg is None: continue
-                self._schedule(signaller, Failed, Interrupt(proc))
+                self._schedule(signaller, EVT_THROW, Interrupt(proc))
 
     def peek(self):
         """Return the time of the next event or ``inf`` if the event
@@ -241,13 +247,13 @@ class Simulation(object):
                 target = proc.peg.throw(value)
         except StopIteration:
             # Process has terminated.
-            proc.state = Success
+            proc.state = STATE_SUCCEEDED
             self._join(proc)
             self.active_proc = None
             return
         except BaseException as e:
             # Process has failed.
-            proc.state = Failed
+            proc.state = STATE_FAILED
             proc.result = Failure()
             proc.result.__cause__ = e
             self._join(proc)
@@ -267,25 +273,26 @@ class Simulation(object):
                     # FIXME This context switching is ugly.
                     prev, self.active_proc = self.active_proc, target
                     # Process has already terminated. Resume as soon as possible.
-                    self._schedule(proc, target.state, target.result)
+                    evt = EVT_THROW if target.state == STATE_FAILED else EVT_SEND
+                    self._schedule(proc, evt, target.result)
                     self.active_proc = prev
                 else:
                     # FIXME This is a bit ugly. Because next_event cannot be
                     # None this stub event is used. It will never be executed
                     # because it isn't scheduled. This is necessary for
                     # interrupt handling.
-                    proc._next_event = (Success, None)
+                    proc._next_event = (EVT_SEND, None)
                     target._joiners.append(proc)
             else:
                 assert proc._next_event is not None
         else:
             assert proc._next_event is None, 'Next event already scheduled!'
-            proc._next_event = (Suspended, None)
+            proc._next_event = (EVT_SUSPENDED, None)
 
         # Schedule concurrent interrupts.
         if interrupts:
             self._schedule(proc,
-                    Success if proc._next_event[0] == Suspended else Failed,
+                    EVT_SEND if proc._next_event[0] == EVT_SUSPENDED else EVT_THROW,
                     None)
 
         self.active_proc = None
