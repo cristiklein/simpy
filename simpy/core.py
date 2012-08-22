@@ -28,19 +28,20 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'peg', 'next_event', 'state', 'result',
-            'joiners', 'signallers', 'interrupts')
+    __slots__ = ('pid', 'peg', 'state', 'result',
+            '_next_event', '_joiners', '_signallers', '_interrupts')
 
     def __init__(self, pid, peg):
         self.pid = pid
         self.peg = peg
 
         self.state = None
-        self.next_event = None
         self.result = None
-        self.joiners = []
-        self.signallers = []
-        self.interrupts = []
+
+        self._next_event = None
+        self._joiners = []
+        self._signallers = []
+        self._interrupts = []
 
     def __repr__(self):
         """Return a string "Process(pid, pem_name)"."""
@@ -70,15 +71,15 @@ def exit(sim, result=None):
 def hold(sim, delta_t):
     assert delta_t >= 0
     proc = sim.active_proc
-    assert proc.next_event is None
+    assert proc._next_event is None
 
     sim._schedule(proc, Success, None, sim._now + delta_t)
     return Event
 
 
 def resume(sim, other, value=None):
-    if other.next_event is not None:
-        assert other.next_event[0] != Init, (
+    if other._next_event is not None:
+        assert other._next_event[0] != Init, (
                 '%s is not initialized' % other)
     # TODO Isn't this dangerous? If other has already been resumed, this
     # call will silently drop the previous result.
@@ -87,14 +88,14 @@ def resume(sim, other, value=None):
 
 
 def interrupt(sim, other, cause=None):
-    assert other.next_event[0] != Init, (
+    assert other._next_event[0] != Init, (
             '%s is not initialized' % other)
 
-    interrupts = other.interrupts
+    interrupts = other._interrupts
     if not interrupts:
         # This is the first interrupt, so schedule it.
         sim._schedule(other,
-                Success if other.next_event[0] == Suspended else Failed,
+                Success if other._next_event[0] == Suspended else Failed,
                 None)
 
     interrupts.append(cause)
@@ -110,7 +111,7 @@ def signal(sim, other):
         sim._schedule(proc, Failed, Interrupt(other))
         sim.active_proc = prev
     else:
-        other.signallers.append(proc)
+        other._signallers.append(proc)
 
 
 class Context(object):
@@ -160,13 +161,13 @@ class Simulation(object):
         if at is None:
             at = self._now
 
-        proc.next_event = (evt_type, value)
-        heappush(self.events, (at, next(self.eid), proc, proc.next_event))
+        proc._next_event = (evt_type, value)
+        heappush(self.events, (at, next(self.eid), proc, proc._next_event))
 
     def _join(self, proc):
-        joiners = proc.joiners
-        signallers = proc.signallers
-        interrupts = proc.interrupts
+        joiners = proc._joiners
+        signallers = proc._signallers
+        interrupts = proc._interrupts
 
         proc.peg = None
 
@@ -199,7 +200,7 @@ class Simulation(object):
                 # Pop all removed events from the queue
                 # self.events[0][3] is the scheduled event
                 # self.events[0][2] is the corresponding proc
-                if self.events[0][3] is self.events[0][2].next_event:
+                if self.events[0][3] is self.events[0][2]._next_event:
                     break
                 heappop(self.events)
 
@@ -218,15 +219,15 @@ class Simulation(object):
                 raise SimEnd()
 
             # Break from the loop if we find a valid event.
-            if evt is proc.next_event:
+            if evt is proc._next_event:
                 break
 
         evt_type, value = evt
-        proc.next_event = None
+        proc._next_event = None
         self.active_proc = proc
 
         # Check if there are interrupts for this process.
-        interrupts = proc.interrupts
+        interrupts = proc._interrupts
         if interrupts:
             cause = interrupts.pop(0)
             value = cause if evt_type else Interrupt(cause)
@@ -259,7 +260,7 @@ class Simulation(object):
                 assert type(target) is Process, 'Invalid yield value "%s"' % target
                 # TODO The stacktrace won't show the position in the pem where this
                 # exception occured. Maybe throw the assertion error into the pem?
-                assert proc.next_event is None, 'Next event already scheduled!'
+                assert proc._next_event is None, 'Next event already scheduled!'
 
                 # Add this process to the list of waiters.
                 if target.peg is None:
@@ -273,18 +274,18 @@ class Simulation(object):
                     # None this stub event is used. It will never be executed
                     # because it isn't scheduled. This is necessary for
                     # interrupt handling.
-                    proc.next_event = (Success, None)
-                    target.joiners.append(proc)
+                    proc._next_event = (Success, None)
+                    target._joiners.append(proc)
             else:
-                assert proc.next_event is not None
+                assert proc._next_event is not None
         else:
-            assert proc.next_event is None, 'Next event already scheduled!'
-            proc.next_event = (Suspended, None)
+            assert proc._next_event is None, 'Next event already scheduled!'
+            proc._next_event = (Suspended, None)
 
         # Schedule concurrent interrupts.
         if interrupts:
             self._schedule(proc,
-                    Success if proc.next_event[0] == Suspended else Failed,
+                    Success if proc._next_event[0] == Suspended else Failed,
                     None)
 
         self.active_proc = None
