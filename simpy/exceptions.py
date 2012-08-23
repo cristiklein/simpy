@@ -6,6 +6,9 @@ import traceback
 import sys
 
 
+# TODO: Move Interrupt and Failure to core, remove SimEnd.
+
+
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
     another process.

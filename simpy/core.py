@@ -17,6 +17,7 @@ STATE_SUCCEEDED = 1
 
 Infinity = float('inf')
 
+
 Event = object()
 """Yielded by a PEM if it waits for an event (e.g. via "yield ctx.hold(1))."""
 
@@ -39,12 +40,12 @@ class Process(object):
         self.pid = pid
         self.peg = peg
 
-        self.state = None
+        self.state = None  # FIXME: Remove or make private?
         self.result = None
 
         self._next_event = None
         self._joiners = []
-        self._signallers = []
+        self._signallers = []  # FIXME: Rename to _observers?
         self._interrupts = []
 
     def __repr__(self):
@@ -96,6 +97,7 @@ def hold(sim, delta_t=Infinity):
     method was previously called without yielding its result.
 
     """
+    # FIXME: better check for "delta_t <= 0"?
     if delta_t < 0:
         raise ValueError('delta_t=%s must be >= 0.' % delta_t)
 
@@ -155,11 +157,10 @@ def resume(sim, other):
 
     sim._schedule(other, EVT_SEND)
 
-    return Event
-
 
 def signal(sim, other):
     """Register at ``other`` to receive an interrupt when it terminates."""
+    # FIXME: Rename to "monitor" or "observe"?
     proc = sim.active_proc
 
     if other.peg is None:
@@ -170,6 +171,17 @@ def signal(sim, other):
 
 
 class Context(object):
+    """This class provides the API for process to interact with the
+    simulation and other processes.
+
+    Every instance of :class:`Simulation` has exactly one context
+    associated with it. It is passed to every PEM when it is called.
+
+    """
+    # All methods (like hold or interrupt) are added to the context
+    # instance by the Simulation and they are all bound to the
+    # Simulation instance.
+
     def __init__(self, sim):
         self._sim = sim
 
@@ -185,10 +197,27 @@ class Context(object):
 
 
 class Simulation(object):
-    context_funcs = (start, exit, interrupt, hold, suspend, resume, signal)
+    """This is SimPy's central class and actually performs a simulation.
+
+    It manages the processes' events and coordinates their execution.
+
+    Processes interact with the simulation via a simulation
+    :class:`Context` object that is passed to every process when it is
+    started.
+
+    """
+    # The following functions are all bound to a Simulation instance and
+    # are later set as attributes to the Context and Simulation
+    # instances.
+    # Since some of these methods are shared between the Simulation and
+    # Context and some are exclusively for the Context, they are defined
+    # as module level Functions to keep the Simulation and Context APIs
+    # clean.
+    context_funcs = (start, exit, hold, interrupt, suspend, resume, signal)
     simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
+        # FIXME: Make events, pid, eid, active_proc and context private.
         self.events = []
 
         self.pid = count()
@@ -196,7 +225,7 @@ class Simulation(object):
         self.active_proc = None
         self._now = 0
 
-        # Instanciate the context and bind it to the simulation.
+        # Instantiate the context and bind it to the simulation.
         self.context = Context(self)
 
         # Attach context function and bind them to the simulation.
@@ -210,9 +239,22 @@ class Simulation(object):
 
     @property
     def now(self):
+        """Return the current simulation time."""
         return self._now
 
     def _schedule(self, proc, evt_type, value=None, at=None):
+        """Schedule a new event for process ``proc``.
+
+        ``evt_type`` should be one of the ``EVT_*`` constants defined on
+        top of this module.
+
+        The optional ``value`` will be sent into the PEG when the event
+        is processed.
+
+        The event will be scheduled at the simulation time ``at`` or at
+        the current time if no value is provided.
+
+        """
         if at is None:
             at = self._now
 
@@ -220,30 +262,35 @@ class Simulation(object):
         heappush(self.events, (at, next(self.eid), proc, proc._next_event))
 
     def _join(self, proc):
+        """Notify all registered processes that the process ``proc``
+        terminated.
+
+        """
         joiners = proc._joiners
         signallers = proc._signallers
-        interrupts = proc._interrupts
 
         proc.peg = None
 
+        # FIXME: Remove this and directly raise exceptions from
+        # processes. Forwarding of exceptions can still be done manually
+        # if you really need this (which I doubt)
         if proc.state == STATE_FAILED:
-            # TODO Don't know about this one. This check causes the whole
-            # simulation to crash if there is a crashed process and no other
-            # process to handle this crash. Something like this must certainely
-            # be done, because exception should never ever be silently ignored.
-            # Still, a check like this looks fishy to me.
+            # Raise the exception of a crashed process if there is no
+            # other process to handle it.
             if not joiners and not signallers:
                 raise proc.result.__cause__
 
         if joiners:
             for joiner in joiners:
-                if joiner.peg is None: continue
+                if joiner.peg is None:  # FIXME: Can this happen?
+                    continue
                 evt = EVT_THROW if proc.state == STATE_FAILED else EVT_SEND
                 self._schedule(joiner, evt, proc.result)
 
         if signallers:
             for signaller in signallers:
-                if signaller.peg is None: continue
+                if signaller.peg is None:
+                    continue
                 self._schedule(signaller, EVT_THROW, Interrupt(proc))
 
     def peek(self):
@@ -266,13 +313,18 @@ class Simulation(object):
             return Infinity
 
     def step(self):
+        """Get and process the next event.
+
+        Raise an :class:`IndexError` if no valid event is on the heap.
+
+        """
+        # FIXME: Is it really possible to call step() from within
+        # step()? I think not ...
         assert self.active_proc is None
 
+        # Get the next valid event from the heap
         while True:
-            try:
-                self._now, eid, proc, evt = heappop(self.events)
-            except IndexError:
-                raise SimEnd()
+            self._now, eid, proc, evt = heappop(self.events)
 
             # Break from the loop if we find a valid event.
             if evt is proc._next_event:
@@ -288,6 +340,7 @@ class Simulation(object):
             cause = interrupts.pop(0)
             value = cause if evt_type else Interrupt(cause)
 
+        # Get next event from process
         try:
             if evt_type:
                 # A "successful" event.
@@ -302,6 +355,7 @@ class Simulation(object):
             self.active_proc = None
             return
         except BaseException as e:
+            # TODO: Remove this
             # Process has failed.
             proc.state = STATE_FAILED
             proc.result = Failure()
@@ -310,40 +364,37 @@ class Simulation(object):
             self.active_proc = None
             return
 
-        if target is not None:
-            if target is not Event:
-                # TODO Improve this error message.
-                assert type(target) is Process, 'Invalid yield value "%s"' % target
-                # TODO The stacktrace won't show the position in the pem where this
-                # exception occured. Maybe throw the assertion error into the pem?
-                assert proc._next_event is None, 'Next event already scheduled!'
-
-                # Add this process to the list of waiters.
-                if target.peg is None:
-                    # FIXME This context switching is ugly.
-                    prev, self.active_proc = self.active_proc, target
-                    # Process has already terminated. Resume as soon as possible.
-                    evt = EVT_THROW if target.state == STATE_FAILED else EVT_SEND
-                    self._schedule(proc, evt, target.result)
-                    self.active_proc = prev
-                else:
-                    # FIXME This is a bit ugly. Because next_event cannot be
-                    # None this stub event is used. It will never be executed
-                    # because it isn't scheduled. This is necessary for
-                    # interrupt handling.
-                    proc._next_event = (EVT_SEND, None)
-                    target._joiners.append(proc)
-            else:
-                assert proc._next_event is not None
-        else:
+        # Check what was yielded
+        if type(target) is Process:
+            # TODO The stacktrace won't show the position in the pem where this
+            # exception occured. Maybe throw the assertion error into the pem?
             assert proc._next_event is None, 'Next event already scheduled!'
-            proc._next_event = (EVT_SUSPENDED, None)
+
+            # Add this process to the list of waiters.
+            if target.peg is None:
+                # FIXME This context switching is ugly.
+                prev, self.active_proc = self.active_proc, target
+                # Process has already terminated. Resume as soon as possible.
+                evt = EVT_THROW if target.state == STATE_FAILED else EVT_SEND
+                self._schedule(proc, evt, target.result)
+                self.active_proc = prev
+            else:
+                # FIXME This is a bit ugly. Because next_event cannot be
+                # None this stub event is used. It will never be executed
+                # because it isn't scheduled. This is necessary for
+                # interrupt handling.
+                proc._next_event = (EVT_SEND, None)
+                target._joiners.append(proc)
+
+        elif target is not event:
+            raise ValueError('Invalid yield value: %s' % target)
+
+        # else: target is event
 
         # Schedule concurrent interrupts.
         if interrupts:
-            self._schedule(proc,
-                    EVT_SEND if proc._next_event[0] == EVT_SUSPENDED else EVT_THROW,
-                    None)
+            evt = EVT_SEND if proc._next_event[0] == EVT_SUSPENDED else EVT_THROW
+            self._schedule(proc, evt, None)
 
         self.active_proc = None
 
