@@ -2,14 +2,14 @@ from heapq import heappush, heappop
 from itertools import count
 from types import GeneratorType
 
-from simpy.exceptions import Interrupt, Failure, SimEnd
+from simpy.exceptions import Interrupt, Failure
 
 
 # Event types
-EVT_THROW = 0  # Throw an error into the PEG
-EVT_SEND = 1  # Default event, send value into the PEG
+EVT_INTERRUPT = 0  # Throw an error into the PEG
+EVT_RESUME = 1  # Default event, send value into the PEG
 EVT_INIT = 2  # First event after a proc was started
-EVT_SUSPENDED = 3
+EVT_SUSPEND = 3  # Suspend the process
 
 # Process states
 STATE_FAILED = 0
@@ -33,8 +33,9 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'peg', 'state', 'result',
-            '_next_event', '_joiners', '_signallers', '_interrupts')
+    __slots__ = ('pid', 'peg', 'state', 'result', 'is_terminated',
+                 '_next_event', '_joiners', '_signallers', '_interrupts',
+                 '_terminated')
 
     def __init__(self, pid, peg):
         self.pid = pid
@@ -47,6 +48,13 @@ class Process(object):
         self._joiners = []
         self._signallers = []  # FIXME: Rename to _observers?
         self._interrupts = []
+
+        self._terminated = False
+
+    @property
+    def is_terminated(self):
+        """``True`` if the PEG stopped."""
+        return self._terminated
 
     def __repr__(self):
         """Return a string "Process(pid, pem_name)"."""
@@ -97,16 +105,10 @@ def hold(sim, delta_t=Infinity):
     method was previously called without yielding its result.
 
     """
-    # FIXME: better check for "delta_t <= 0"?
     if delta_t < 0:
         raise ValueError('delta_t=%s must be >= 0.' % delta_t)
 
-    proc = sim.active_proc
-    if proc._next_event:
-        raise RuntimeError('%s already has an event scheduled. Did you forget '
-                           'to yield?' % proc)
-
-    sim._schedule(proc, EVT_SEND, None, sim._now + delta_t)
+    sim._schedule(sim.active_proc, EVT_RESUME, at=(sim._now + delta_t))
 
     return Event
 
@@ -125,11 +127,16 @@ def interrupt(sim, other, cause=None):
     if other._next_event[0] is EVT_INIT:
         raise RuntimeError('%s was just initialized and cannot yet be '
                            'interrupted.' % other)
+    if other._next_event[0] is EVT_SUSPEND:
+        raise RuntimeError('%s is suspended and cannot be interrupted.' %
+                            other)
 
     interrupts = other._interrupts
+
+    # This is the first interrupt, so schedule it.
     if not interrupts:
-        # This is the first interrupt, so schedule it.
-        sim._schedule(other, EVT_THROW)
+        other._next_event = None
+        sim._schedule(other, EVT_INTERRUPT)
 
     interrupts.append(cause)
 
@@ -140,8 +147,11 @@ def suspend(sim):
     A suspended process needs to be resumed (see
     :class:`Context.resume`) by another process to get active again.
 
+    Raise a :class:`RuntimeError` if the process has already an event
+    scheduled.
+
     """
-    sim.active_proc._next_event = None
+    sim._schedule(sim.active_proc, EVT_SUSPEND)
 
     return Event
 
@@ -152,10 +162,11 @@ def resume(sim, other):
     Raise a :class:`RuntimeError` if ``other`` is not suspended.
 
     """
-    if other._next_event:
+    if other._next_event[0] is not EVT_SUSPEND:
         raise RuntimeError('%s is not suspended.' % other)
 
-    sim._schedule(other, EVT_SEND)
+    other._next_event = None
+    sim._schedule(other, EVT_RESUME)
 
 
 def signal(sim, other):
@@ -163,9 +174,8 @@ def signal(sim, other):
     # FIXME: Rename to "monitor" or "observe"?
     proc = sim.active_proc
 
-    if other.peg is None:
-        # Other has already termianted
-        sim._schedule(proc, EVT_THROW, Interrupt(other))
+    if other.is_terminated:
+        sim._schedule(proc, EVT_INTERRUPT, Interrupt(other))
     else:
         other._signallers.append(proc)
 
@@ -254,11 +264,28 @@ class Simulation(object):
         The event will be scheduled at the simulation time ``at`` or at
         the current time if no value is provided.
 
+        Raise a :class:`RuntimeError` if ``proc`` already has an event
+        scheduled.
+
         """
+        if proc._next_event:
+            raise RuntimeError('%s already has an event scheduled. Did you '
+                            'forget to yield?' % proc)
+
+        proc._next_event = (evt_type, value)
+
+        # Don't put anything on the heap for a suspended proc.
+        if evt_type is EVT_SUSPEND:
+            return
+
+        # Don't put events scheduled for "Infinity" onto the heap,
+        # because the will never be popped.
+        if at is Infinity:
+            return
+
         if at is None:
             at = self._now
 
-        proc._next_event = (evt_type, value)
         heappush(self.events, (at, next(self.eid), proc, proc._next_event))
 
     def _join(self, proc):
@@ -268,8 +295,6 @@ class Simulation(object):
         """
         joiners = proc._joiners
         signallers = proc._signallers
-
-        proc.peg = None
 
         # FIXME: Remove this and directly raise exceptions from
         # processes. Forwarding of exceptions can still be done manually
@@ -282,16 +307,16 @@ class Simulation(object):
 
         if joiners:
             for joiner in joiners:
-                if joiner.peg is None:  # FIXME: Can this happen?
+                if joiner.is_terminated:  # FIXME: Can this happen?
                     continue
-                evt = EVT_THROW if proc.state == STATE_FAILED else EVT_SEND
+                evt = EVT_INTERRUPT if proc.state == STATE_FAILED else EVT_RESUME
                 self._schedule(joiner, evt, proc.result)
 
         if signallers:
             for signaller in signallers:
-                if signaller.peg is None:
+                if signaller.is_terminated:
                     continue
-                self._schedule(signaller, EVT_THROW, Interrupt(proc))
+                self._schedule(signaller, EVT_INTERRUPT, Interrupt(proc))
 
     def peek(self):
         """Return the time of the next event or ``inf`` if the event
@@ -330,26 +355,23 @@ class Simulation(object):
             if evt is proc._next_event:
                 break
 
-        evt_type, value = evt
-        proc._next_event = None
         self.active_proc = proc
 
-        # Check if there are interrupts for this process.
+        evt_type, value = evt
+        proc._next_event = None
         interrupts = proc._interrupts
-        if interrupts:
-            cause = interrupts.pop(0)
-            value = cause if evt_type else Interrupt(cause)
 
         # Get next event from process
         try:
-            if evt_type:
-                # A "successful" event.
-                target = proc.peg.send(value)
+            if evt_type is EVT_INTERRUPT:
+                cause = interrupts.pop(0)
+                target = proc.peg.throw(Interrupt(cause))
             else:
-                # An "unsuccessful" event.
-                target = proc.peg.throw(value)
+                target = proc.peg.send(value)
+
         except StopIteration:
             # Process has terminated.
+            proc._terminated = True
             proc.state = STATE_SUCCEEDED
             self._join(proc)
             self.active_proc = None
@@ -371,11 +393,11 @@ class Simulation(object):
             assert proc._next_event is None, 'Next event already scheduled!'
 
             # Add this process to the list of waiters.
-            if target.peg is None:
+            if target.is_terminated:
                 # FIXME This context switching is ugly.
                 prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
-                evt = EVT_THROW if target.state == STATE_FAILED else EVT_SEND
+                evt = EVT_INTERRUPT if target.state == STATE_FAILED else EVT_RESUME
                 self._schedule(proc, evt, target.result)
                 self.active_proc = prev
             else:
@@ -383,18 +405,18 @@ class Simulation(object):
                 # None this stub event is used. It will never be executed
                 # because it isn't scheduled. This is necessary for
                 # interrupt handling.
-                proc._next_event = (EVT_SEND, None)
+                proc._next_event = (EVT_RESUME, None)
                 target._joiners.append(proc)
 
-        elif target is not event:
+        elif target is not Event:
             raise ValueError('Invalid yield value: %s' % target)
 
         # else: target is event
 
         # Schedule concurrent interrupts.
         if interrupts:
-            evt = EVT_SEND if proc._next_event[0] == EVT_SUSPENDED else EVT_THROW
-            self._schedule(proc, evt, None)
+            proc._next_event = None
+            self._schedule(proc, EVT_INTERRUPT)
 
         self.active_proc = None
 
