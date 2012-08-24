@@ -166,22 +166,6 @@ def test_illegal_suspend(sim):
         assert exc.args[0].startswith('Next event already scheduled!')
 
 
-def test_illegal_interrupt(sim):
-    def root(ctx):
-        def child(ctx):
-            yield
-
-        child = ctx.start(child)
-        try:
-            ctx.interrupt(child)
-        except AssertionError as exc:
-            assert exc.args[0] == 'Process(1, child) is not initialized'
-        yield
-
-    sim.start(root)
-    sim.simulate(20)
-
-
 def test_illegal_hold_followed_by_join(sim):
     def root(ctx):
         def child(ctx):
@@ -278,39 +262,6 @@ def test_signal(sim):
 
     sim.start(root)
     sim.simulate(20)
-
-
-def test_interrupt_chain(ctx):
-    """Tests the chaining of concurrent interrupts."""
-
-    # Interruptor processes will wait for one timestep and than interrupt the
-    # given process.
-    def interruptor(ctx, process, id):
-        yield ctx.hold(1)
-        ctx.interrupt(process, id)
-
-    def child(ctx):
-        yield ctx.hold(2)
-        ctx.exit('i am done')
-
-    # Start ten processes which will interrupt ourselves after one timestep.
-    for i in range(10):
-        ctx.start(interruptor, ctx.active_process, i)
-
-    child_proc = ctx.start(child)
-
-    # Check that we are interrupted ten times while waiting for child_proc to
-    # complete.
-    log = []
-    while child_proc.state is None:
-        try:
-            value = yield child_proc
-        except Interrupt as interrupt:
-            value = interrupt.cause
-
-        log.append(value)
-
-    assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 'i am done']
 
 
 def test_suspend_interrupt(ctx):

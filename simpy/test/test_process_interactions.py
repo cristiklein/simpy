@@ -3,54 +3,7 @@
 API tests for the interaction of multiple processes.
 
 """
-# Pytest gets the parameters "sim" and "log" from the *conftest.py* file
 import pytest
-
-import simpy
-
-
-def test_interruption(sim):
-    """With asynchronous interrupts, the victim expects an interrupt
-    while waiting for an event, but will process this even if no
-    interrupt occured.
-
-    """
-    def interruptee(context):
-        try:
-            yield context.hold(10)
-            pytest.fail('Expected an interrupt')
-        except simpy.Interrupt as interrupt:
-            assert interrupt.cause == 'interrupt!'
-
-    def interruptor(context):
-        child_process = context.start(interruptee)
-        yield context.hold(5)
-        context.interrupt(child_process, 'interrupt!')
-
-    sim.start(interruptor)
-    sim.simulate(until=30)
-
-
-def test_concurrent_interrupts(sim, log):
-    """Concurrent interrupts are scheduled in the order in which they occured.
-    """
-    def fox(context, log):
-        while True:
-            try:
-                yield context.hold(10)
-            except simpy.Interrupt as interrupt:
-                log.append(interrupt.cause)
-
-    def farmer(context, name, fox):
-        context.interrupt(fox, name)
-        yield context.hold(1)
-
-    fantastic_mr_fox = sim.start(fox, log)
-    for name in ('boggis', 'bunce', 'beans'):
-        sim.start(farmer, name, fantastic_mr_fox)
-
-    sim.simulate(20)
-    assert log == ['boggis', 'bunce', 'beans']
 
 
 @pytest.mark.xfail
@@ -86,6 +39,18 @@ def test_wait_for_proc(sim):
 
     sim.start(waiter, finisher)
     sim.simulate()
+
+
+# def test_hold_not_yielded(sim):
+#     """A "hold()" that is not yielded should not schedule an event."""
+#     def pem(context):
+#         context.hold(1)
+#         yield context.start(other_pem)
+#
+#         assert context.now == 1
+#
+#     sim.start(pem)
+#     pytest.raises(RuntimeError, sim.simulate)
 
 
 @pytest.mark.xfail

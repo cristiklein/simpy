@@ -65,7 +65,6 @@ def test_start_at(sim):
     sim.simulate()
 
 
-@pytest.mark.xfail
 def test_yield_none_forbidden(sim):
     """A process may not yield ``None``."""
     def pem(context):
@@ -73,3 +72,15 @@ def test_yield_none_forbidden(sim):
 
     sim.start(pem)
     pytest.raises(ValueError, sim.simulate)
+
+
+def test_hold_not_yielded(sim):
+    """Check if an error is raised if you forget to yield a hold."""
+    def pem(context):
+        context.hold(1)
+        yield context.hold(1)
+
+        assert context.now == 1
+
+    sim.start(pem)
+    pytest.raises(RuntimeError, sim.simulate)
