@@ -3,8 +3,7 @@
 With SimPy, simulating is fun again!
 
 """
-from simpy.core import Simulation
-from simpy.exceptions import Interrupt, Failure
+from simpy.core import Simulation, Interrupt
 
 
 __all__ = ['Simulation', 'Interrupt', 'Failure', 'test']
