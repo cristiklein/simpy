@@ -153,19 +153,6 @@ def test_crashing_child_traceback(sim):
     sim.simulate(20)
 
 
-def test_illegal_suspend(sim):
-    def root(ctx):
-        ctx.hold(1)
-        yield
-
-    try:
-        sim.start(root)
-        sim.simulate(20)
-        assert False, 'Expected an exception.'
-    except AssertionError as exc:
-        assert exc.args[0].startswith('Next event already scheduled!')
-
-
 def test_illegal_hold_followed_by_join(sim):
     def root(ctx):
         def child(ctx):
@@ -180,61 +167,6 @@ def test_illegal_hold_followed_by_join(sim):
         assert False, 'Expected an exception.'
     except AssertionError as exc:
         assert exc.args[0].startswith('Next event already scheduled!')
-
-
-def test_invalid_schedule(sim):
-    def root(ctx):
-        yield 'this will not work'
-
-    try:
-        sim.start(root)
-        sim.simulate(20)
-        assert False, 'Expected an exception.'
-    except AssertionError as exc:
-        assert exc.args[0] == 'Invalid yield value "this will not work"'
-
-
-def test_resume_before_start(sim):
-    """A process must be started before any there can be any interaction.
-
-    As a consequence you can't resume or interrupt a just started process as
-    shown in this test. See :func:`test_immediate_resume` for the correct way
-    to immediately resume a started process.
-    """
-    def root(ctx):
-        def child(ctx):
-            yield ctx.hold(1)
-
-        c = ctx.start(child)
-        ctx.resume(c)
-        yield ctx.exit()
-
-    try:
-        sim.start(root)
-        sim.simulate(20)
-        assert False, 'This must fail'
-    except AssertionError as exc:
-        assert exc.args[0] == 'Process(1, child) is not initialized'
-
-
-def test_immediate_resume(sim, log):
-    def root(ctx, log):
-        def child(ctx, log):
-            yield
-            log.append(ctx.now)
-
-        def resumer(ctx, other):
-            ctx.resume(other)
-            yield ctx.exit()
-
-        c = ctx.start(child, log)
-        ctx.start(resumer, c)
-        yield ctx.exit()
-
-    sim.start(root, log)
-    sim.simulate(20)
-    # Confirm that child has been interrupted immediately at timestep 0.
-    assert log == [0]
 
 
 def test_signal(sim):
@@ -262,47 +194,6 @@ def test_signal(sim):
 
     sim.start(root)
     sim.simulate(20)
-
-
-def test_suspend_interrupt(ctx):
-    """Tests that an interrupt is not raised in a suspended process. The cause
-    of the interrupt is passed directly into the process."""
-
-    def child(ctx):
-        # Suspend this process.
-        value = yield
-        ctx.exit(value)
-
-    child_proc = ctx.start(child)
-    # Wait until child has started.
-    yield ctx.hold(0)
-    # Interrupt child_proc and use 'cake' as the cause.
-    ctx.interrupt(child_proc, 'cake')
-    result = yield child_proc
-
-    assert result == 'cake'
-
-
-def test_interrupt_chain_suspend(ctx):
-    """Tests the handling of interrupt chaining while the victim is suspended.
-    """
-
-    def interruptor(ctx, process, id):
-        yield ctx.hold(1)
-        ctx.interrupt(process, id)
-
-    # Start ten processes which will interrupt ourselves after one timestep.
-    for i in range(10):
-        ctx.start(interruptor, ctx.active_process, i)
-
-    # Check that no interrupts are raised if we are suspended. Instead the
-    # interrupt cause is passed directly into this process.
-    log = []
-    for i in range(10):
-        value = yield
-        log.append(value)
-
-    assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
 def test_interrupted_join(ctx):

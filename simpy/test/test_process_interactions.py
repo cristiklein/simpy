@@ -6,26 +6,6 @@ API tests for the interaction of multiple processes.
 import pytest
 
 
-@pytest.mark.xfail
-def test_suspend_resume(sim):
-    """If a process passivates itself, it will no longer get active by
-    itself but needs to be reactivated by another process (in contrast
-    to interrupts, where the interrupt may or may not occur).
-
-    """
-    def sleeper(context):
-        yield context.suspend()
-        assert context.now == 10
-
-    def alarm(context, sleeper):
-        yield context.hold(10)
-        context.resume(sleeper)
-
-    sleeper = sim.start(sleeper)
-    sim.start(alarm, sleeper)
-    sim.simulate()
-
-
 def test_wait_for_proc(sim):
     """A process can wait until another process finishes."""
     def finisher(context):

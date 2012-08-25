@@ -105,7 +105,3 @@ def test_interrupt_suspended_proces(sim):
 
     sim.start(parent)
     sim.simulate()
-
-
-# TODO:
-# - interrupt chainging and suspend
