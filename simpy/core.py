@@ -33,13 +33,14 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'peg', 'state', 'result', 'is_terminated',
+    __slots__ = ('pid', 'peg', 'name', 'state', 'result', 'is_alive',
                  '_next_event', '_joiners', '_signallers', '_interrupts',
-                 '_terminated')
+                 '_alive')
 
     def __init__(self, pid, peg):
         self.pid = pid
         self.peg = peg
+        self.name = peg.__name__
 
         self.state = None  # FIXME: Remove or make private?
         self.result = None
@@ -49,17 +50,16 @@ class Process(object):
         self._signallers = []  # FIXME: Rename to _observers?
         self._interrupts = []
 
-        self._terminated = False
+        self._alive = True
 
     @property
-    def is_terminated(self):
-        """``True`` if the PEG stopped."""
-        return self._terminated
+    def is_alive(self):
+        """``False`` if the PEG stopped."""
+        return self._alive
 
     def __repr__(self):
         """Return a string "Process(pid, pem_name)"."""
-        return '%s(%s, %s)' % (self.__class__.__name__, self.pid,
-                               self.peg.__name__)
+        return '%s(%s, %s)' % (self.__class__.__name__, self.pid, self.name)
 
 
 def start(sim, pem, *args, **kwargs):
@@ -174,7 +174,7 @@ def signal(sim, other):
     # FIXME: Rename to "monitor" or "observe"?
     proc = sim.active_proc
 
-    if other.is_terminated:
+    if not other.is_alive:
         sim._schedule(proc, EVT_INTERRUPT, Interrupt(other))
     else:
         other._signallers.append(proc)
@@ -307,14 +307,14 @@ class Simulation(object):
 
         if joiners:
             for joiner in joiners:
-                if joiner.is_terminated:  # FIXME: Can this happen?
+                if not joiner.is_alive:  # FIXME: Can this happen?
                     continue
                 evt = EVT_INTERRUPT if proc.state == STATE_FAILED else EVT_RESUME
                 self._schedule(joiner, evt, proc.result)
 
         if signallers:
             for signaller in signallers:
-                if signaller.is_terminated:
+                if not signaller.is_alive:
                     continue
                 self._schedule(signaller, EVT_INTERRUPT, Interrupt(proc))
 
@@ -371,7 +371,7 @@ class Simulation(object):
 
         except StopIteration:
             # Process has terminated.
-            proc._terminated = True
+            proc._alive = False
             proc.state = STATE_SUCCEEDED
             self._join(proc)
             self.active_proc = None
@@ -393,7 +393,7 @@ class Simulation(object):
             assert proc._next_event is None, 'Next event already scheduled!'
 
             # Add this process to the list of waiters.
-            if target.is_terminated:
+            if not target.is_alive:
                 # FIXME This context switching is ugly.
                 prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
