@@ -1,6 +1,5 @@
-# encoding: utf-8
 """
-API tests for the interaction of multiple processes.
+Tests for waiting for a process to finish.
 
 """
 import pytest
@@ -21,18 +20,6 @@ def test_wait_for_proc(sim):
     sim.simulate()
 
 
-# def test_hold_not_yielded(sim):
-#     """A "hold()" that is not yielded should not schedule an event."""
-#     def pem(context):
-#         context.hold(1)
-#         yield context.start(other_pem)
-#
-#         assert context.now == 1
-#
-#     sim.start(pem)
-#     pytest.raises(RuntimeError, sim.simulate)
-
-
 def test_return_value(sim):
     """Processes can set a return value via an ``exit()`` function,
     comparable to ``sys.exit()``.
@@ -50,3 +37,19 @@ def test_return_value(sim):
 
     sim.start(parent)
     sim.simulate()
+
+
+def test_illegal_wait(sim):
+    """Raise an error if a process forget to yield an event before it
+    starts waiting for a process.
+
+    """
+    def child(context):
+        yield context.hold(1)
+
+    def parent(context):
+        context.hold(1)
+        yield context.start(child)
+
+    sim.start(parent)
+    pytest.raises(RuntimeError, sim.simulate)

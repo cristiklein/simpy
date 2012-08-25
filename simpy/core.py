@@ -2,8 +2,6 @@ from heapq import heappush, heappop
 from itertools import count
 from types import GeneratorType
 
-from simpy.exceptions import Interrupt, Failure
-
 
 # Event types
 EVT_INTERRUPT = 0  # Throw an error into the PEG
@@ -22,6 +20,19 @@ Event = object()
 """Yielded by a PEM if it waits for an event (e.g. via "yield ctx.hold(1))."""
 
 
+class Interrupt(Exception):
+    """This exceptions is sent into a process if it was interrupted by
+    another process.
+
+    """
+    def __init__(self, cause):
+        super(Interrupt, self).__init__(cause)
+
+    @property
+    def cause(self):
+        return self.args[0]
+
+
 class Process(object):
     """A *Process* is a wrapper for instantiated PEMs.
 
@@ -33,7 +44,7 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'peg', 'name', 'state', 'result', 'is_alive',
+    __slots__ = ('pid', 'peg', 'name', 'result', 'is_alive',
                  '_next_event', '_joiners', '_signallers', '_interrupts',
                  '_alive')
 
@@ -42,7 +53,6 @@ class Process(object):
         self.peg = peg
         self.name = peg.__name__
 
-        self.state = None  # FIXME: Remove or make private?
         self.result = None
 
         self._next_event = None
@@ -296,27 +306,19 @@ class Simulation(object):
         joiners = proc._joiners
         signallers = proc._signallers
 
-        # FIXME: Remove this and directly raise exceptions from
-        # processes. Forwarding of exceptions can still be done manually
-        # if you really need this (which I doubt)
-        if proc.state == STATE_FAILED:
-            # Raise the exception of a crashed process if there is no
-            # other process to handle it.
-            if not joiners and not signallers:
-                raise proc.result.__cause__
+        proc._alive = False
 
-        if joiners:
-            for joiner in joiners:
-                if not joiner.is_alive:  # FIXME: Can this happen?
-                    continue
-                evt = EVT_INTERRUPT if proc.state == STATE_FAILED else EVT_RESUME
-                self._schedule(joiner, evt, proc.result)
+        for joiner in joiners:
+            # A joiner is always alive, since "yield proc" blocks until
+            # "proc" has terminated.
+            joiner._next_event = None
+            self._schedule(joiner, EVT_RESUME, proc.result)
 
-        if signallers:
-            for signaller in signallers:
-                if not signaller.is_alive:
-                    continue
-                self._schedule(signaller, EVT_INTERRUPT, Interrupt(proc))
+        for signaller in signallers:
+            if not signaller.is_alive:
+                continue
+            signaller._next_event = None
+            self._schedule(signaller, EVT_INTERRUPT, Interrupt(proc))
 
     def peek(self):
         """Return the time of the next event or ``inf`` if the event
@@ -343,9 +345,9 @@ class Simulation(object):
         Raise an :class:`IndexError` if no valid event is on the heap.
 
         """
-        # FIXME: Is it really possible to call step() from within
-        # step()? I think not ...
-        assert self.active_proc is None
+        if self.active_proc:
+            raise RuntimeError('step() was called from within step().'
+                               'Something went horribly wrong.')
 
         # Get the next valid event from the heap
         while True:
@@ -369,44 +371,28 @@ class Simulation(object):
             else:
                 target = proc.peg.send(value)
 
+        # self.active_proc has terminated
         except StopIteration:
-            # Process has terminated.
-            proc._alive = False
-            proc.state = STATE_SUCCEEDED
             self._join(proc)
             self.active_proc = None
-            return
-        except BaseException as e:
-            # TODO: Remove this
-            # Process has failed.
-            proc.state = STATE_FAILED
-            proc.result = Failure()
-            proc.result.__cause__ = e
-            self._join(proc)
-            self.active_proc = None
-            return
+
+            return  # Don't need to check a new event
 
         # Check what was yielded
         if type(target) is Process:
-            # TODO The stacktrace won't show the position in the pem where this
-            # exception occured. Maybe throw the assertion error into the pem?
-            assert proc._next_event is None, 'Next event already scheduled!'
+            if proc._next_event:
+                proc.peg.throw(RuntimeError('%s already has an event '
+                        'scheduled. Did you forget to yield?' % proc))
 
-            # Add this process to the list of waiters.
-            if not target.is_alive:
-                # FIXME This context switching is ugly.
-                prev, self.active_proc = self.active_proc, target
-                # Process has already terminated. Resume as soon as possible.
-                evt = EVT_INTERRUPT if target.state == STATE_FAILED else EVT_RESUME
-                self._schedule(proc, evt, target.result)
-                self.active_proc = prev
-            else:
-                # FIXME This is a bit ugly. Because next_event cannot be
-                # None this stub event is used. It will never be executed
-                # because it isn't scheduled. This is necessary for
-                # interrupt handling.
+            if target.is_alive:
+                # Schedule a hold(Infinity) so that the waiting proc can
+                # be interrupted if target terminates.
                 proc._next_event = (EVT_RESUME, None)
                 target._joiners.append(proc)
+
+            else:
+                # Process has already terminated. Resume as soon as possible.
+                self._schedule(proc, EVT_RESUME, target.result)
 
         elif target is not Event:
             raise ValueError('Invalid yield value: %s' % target)
