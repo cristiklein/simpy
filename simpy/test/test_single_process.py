@@ -84,3 +84,13 @@ def test_hold_not_yielded(sim):
 
     sim.start(pem)
     pytest.raises(RuntimeError, sim.simulate)
+
+
+def test_illegal_yield(sim):
+    """There should be an error if a process neither yields an event
+    nor another process."""
+    def pem(context):
+        yield 'ohai'
+
+    sim.start(pem)
+    pytest.raises(ValueError, sim.simulate)
