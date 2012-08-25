@@ -94,3 +94,20 @@ def test_illegal_yield(sim):
 
     sim.start(pem)
     pytest.raises(ValueError, sim.simulate)
+
+
+def test_get_process_state(sim):
+    """A process is alive until it's generator has not terminated."""
+    def pem_a(context):
+        yield context.hold(3)
+
+    def pem_b(context, pem_a):
+        yield context.hold(1)
+        assert pem_a.is_alive
+
+        yield context.hold(3)
+        assert not pem_a.is_alive
+
+    proc_a = sim.start(pem_a)
+    sim.start(pem_b, proc_a)
+    sim.simulate()
