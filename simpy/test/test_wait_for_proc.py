@@ -175,6 +175,29 @@ def test_interrupt_on(sim):
     sim.simulate()
 
 
+def test_interrupt_on_terminated_proc(sim):
+    """interrupt_on(other) proc should send a singal immediatly if
+    "other" has already terminated.
+
+    """
+    def child(context):
+        yield context.hold(1)
+
+    def parent(context):
+        child_proc = context.start(child)
+        yield context.hold(2)
+        try:
+            context.interrupt_on(child_proc)
+            assert context.now == 2
+            yield context.hold()
+            pytest.fail('Did not get an Interrupt.')
+        except Interrupt:
+            assert context.now == 2
+
+    sim.start(parent)
+    sim.simulate()
+
+
 def test_interrupted_join(sim):
     """Tests that interrupts are raised while the victim is waiting for
     another process.

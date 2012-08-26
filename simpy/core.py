@@ -191,7 +191,15 @@ def interrupt_on(sim, other):
     if other.is_alive:
         other._observers.append(proc)
     else:
-        sim._schedule(proc, EVT_INTERRUPT, Interrupt(other))
+        # We cannot just schedule an interrupt event, because that would
+        # break the following hold(). Since hold() is much more often
+        # used, we fix that problem here  by starting a small helper
+        # process.
+        def interruptor(context, victim):
+            yield context.hold(0)
+            context.interrupt(victim)
+
+        sim.start(interruptor, proc)
 
 
 class Context(object):
