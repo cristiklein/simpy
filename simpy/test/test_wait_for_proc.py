@@ -125,7 +125,7 @@ def test_child_exception(sim):
     """A child catches an exception and sends it to its parent."""
     def child(context):
         try:
-            context.hold(1)
+            yield context.hold(1)
             raise RuntimeError('Onoes!')
         except RuntimeError as err:
             context.exit(err)

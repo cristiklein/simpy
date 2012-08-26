@@ -1,6 +1,6 @@
 from heapq import heappush, heappop
+from inspect import isgeneratorfunction
 from itertools import count
-from types import GeneratorType
 
 
 # Event types
@@ -44,17 +44,20 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'peg', 'name', 'result', 'is_alive',
-                 '_next_event', '_joiners', '_observers', '_interrupts',
-                 '_alive')
+    __slots__ = ('pid', 'name', 'result', 'is_alive', '_peg', '_alive',
+                 '_next_event', '_joiners', '_observers', '_interrupts')
 
     def __init__(self, pid, peg):
         self.pid = pid
-        self.peg = peg
+        """The process ID."""
+
         self.name = peg.__name__
+        """The process name."""
 
         self.result = None
+        """The process' result after it terminated."""
 
+        self._peg = peg
         self._alive = True
         self._next_event = None
 
@@ -81,11 +84,12 @@ def start(sim, pem, *args, **kwargs):
     If ``pem`` is not a generator function, raise a :class`ValueError`.
 
     """
-    peg = pem(sim.context, *args, **kwargs)
-    if type(peg) is not GeneratorType:
+    if not isgeneratorfunction(pem):
         raise ValueError('PEM %s is not a generator function.' % pem)
 
-    proc = Process(next(sim.pid), peg)
+    peg = pem(sim.context, *args, **kwargs)
+
+    proc = Process(next(sim._pid), peg)
     sim._schedule(proc, EVT_INIT)
 
     return proc
@@ -98,7 +102,7 @@ def exit(sim, result=None):
     and can also be obtained via :attr:`Process.result`.
 
     """
-    sim.active_proc.result = result
+    sim._active_proc.result = result
     raise StopIteration()
 
 
@@ -118,7 +122,7 @@ def hold(sim, delta_t=Infinity):
     if delta_t < 0:
         raise ValueError('delta_t=%s must be >= 0.' % delta_t)
 
-    sim._schedule(sim.active_proc, EVT_RESUME, at=(sim._now + delta_t))
+    sim._schedule(sim._active_proc, EVT_RESUME, at=(sim._now + delta_t))
 
     return Event
 
@@ -162,7 +166,7 @@ def suspend(sim):
     scheduled.
 
     """
-    sim._schedule(sim.active_proc, EVT_SUSPEND)
+    sim._schedule(sim._active_proc, EVT_SUSPEND)
 
     return Event
 
@@ -182,7 +186,7 @@ def resume(sim, other):
 
 def interrupt_on(sim, other):
     """Register at ``other`` to receive an interrupt when it terminates."""
-    proc = sim.active_proc
+    proc = sim._active_proc
 
     if other.is_alive:
         other._observers.append(proc)
@@ -208,7 +212,7 @@ class Context(object):
     @property
     def active_process(self):
         """Return the currently active process."""
-        return self._sim.active_proc
+        return self._sim._active_proc
 
     @property
     def now(self):
@@ -219,7 +223,7 @@ class Context(object):
 class Simulation(object):
     """This is SimPy's central class and actually performs a simulation.
 
-    It manages the processes' events and coordinates their execution.
+    It manages the processes' _events and coordinates their execution.
 
     Processes interact with the simulation via a simulation
     :class:`Context` object that is passed to every process when it is
@@ -238,12 +242,11 @@ class Simulation(object):
     simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
-        # FIXME: Make events, pid, eid, active_proc and context private.
-        self.events = []
+        self._events = []
 
-        self.pid = count()
-        self.eid = count()
-        self.active_proc = None
+        self._pid = count()
+        self._eid = count()
+        self._active_proc = None
         self._now = 0
 
         # Instantiate the context and bind it to the simulation.
@@ -262,6 +265,111 @@ class Simulation(object):
     def now(self):
         """Return the current simulation time."""
         return self._now
+
+    def peek(self):
+        """Return the time of the next event or ``inf`` if the event
+        queue is empty.
+
+        """
+        try:
+            while True:
+                # Pop all removed events from the queue
+                # self._events[0][3] is the scheduled event
+                # self._events[0][2] is the corresponding proc
+                if self._events[0][3] is self._events[0][2]._next_event:
+                    break
+                heappop(self._events)
+
+            return self._events[0][0]  # time of first event
+
+        except IndexError:
+            return Infinity
+
+    def step(self):
+        """Get and process the next event.
+
+        Raise an :class:`IndexError` if no valid event is on the heap.
+
+        """
+        if self._active_proc:
+            raise RuntimeError('step() was called from within step().'
+                               'Something went horribly wrong.')
+
+        # Get the next valid event from the heap
+        while True:
+            self._now, eid, proc, evt = heappop(self._events)
+
+            # Break from the loop if we find a valid event.
+            if evt is proc._next_event:
+                break
+
+        self._active_proc = proc
+
+        evt_type, value = evt
+        proc._next_event = None
+        interrupts = proc._interrupts
+
+        # Get next event from process
+        try:
+            if evt_type is EVT_INTERRUPT:
+                target = proc._peg.throw(value)
+            else:
+                target = proc._peg.send(value)
+
+        # self._active_proc has terminated
+        except StopIteration:
+            self._join(proc)
+            self._active_proc = None
+
+            return  # Don't need to check a new event
+
+        # Check what was yielded
+        if type(target) is Process:
+            if proc._next_event:
+                proc._peg.throw(RuntimeError('%s already has an event '
+                        'scheduled. Did you forget to yield?' % proc))
+
+            if target.is_alive:
+                # Schedule a hold(Infinity) so that the waiting proc can
+                # be interrupted if target terminates.
+                proc._next_event = (EVT_RESUME, None)
+                target._joiners.append(proc)
+
+            else:
+                # Process has already terminated. Resume as soon as possible.
+                self._schedule(proc, EVT_RESUME, target.result)
+
+        elif target is not Event:
+            raise ValueError('Invalid yield value: %s' % target)
+
+        # else: target is event
+
+        # Schedule concurrent interrupts.
+        if interrupts:
+            proc._next_event = None
+            self._schedule(proc, EVT_INTERRUPT, interrupts.pop(0))
+
+        self._active_proc = None
+
+    def step_dt(self, delta_t=1):
+        """Execute all events that occur within the next *delta_t*
+        units of simulation time.
+
+        """
+        if delta_t <= 0:
+            raise ValueError('delta_t(=%s) should be a number > 0.' % delta_t)
+
+        until = self._now + delta_t
+        while self.peek() < until:
+            self.step()
+
+    def simulate(self, until=Infinity):
+        """Shortcut for ``while sim.peek() < until: sim.step()``."""
+        if until <= 0:
+            raise ValueError('until(=%s) should be a number > 0.' % until)
+
+        while self.peek() < until:
+            self.step()
 
     def _schedule(self, proc, evt_type, value=None, at=None):
         """Schedule a new event for process ``proc``.
@@ -297,7 +405,7 @@ class Simulation(object):
         if at is None:
             at = self._now
 
-        heappush(self.events, (at, next(self.eid), proc, proc._next_event))
+        heappush(self._events, (at, next(self._eid), proc, proc._next_event))
 
     def _join(self, proc):
         """Notify all registered processes that the process ``proc``
@@ -320,108 +428,3 @@ class Simulation(object):
                 continue
             observer._next_event = None
             self._schedule(observer, EVT_INTERRUPT, Interrupt(proc))
-
-    def peek(self):
-        """Return the time of the next event or ``inf`` if the event
-        queue is empty.
-
-        """
-        try:
-            while True:
-                # Pop all removed events from the queue
-                # self.events[0][3] is the scheduled event
-                # self.events[0][2] is the corresponding proc
-                if self.events[0][3] is self.events[0][2]._next_event:
-                    break
-                heappop(self.events)
-
-            return self.events[0][0]  # time of first event
-
-        except IndexError:
-            return Infinity
-
-    def step(self):
-        """Get and process the next event.
-
-        Raise an :class:`IndexError` if no valid event is on the heap.
-
-        """
-        if self.active_proc:
-            raise RuntimeError('step() was called from within step().'
-                               'Something went horribly wrong.')
-
-        # Get the next valid event from the heap
-        while True:
-            self._now, eid, proc, evt = heappop(self.events)
-
-            # Break from the loop if we find a valid event.
-            if evt is proc._next_event:
-                break
-
-        self.active_proc = proc
-
-        evt_type, value = evt
-        proc._next_event = None
-        interrupts = proc._interrupts
-
-        # Get next event from process
-        try:
-            if evt_type is EVT_INTERRUPT:
-                target = proc.peg.throw(value)
-            else:
-                target = proc.peg.send(value)
-
-        # self.active_proc has terminated
-        except StopIteration:
-            self._join(proc)
-            self.active_proc = None
-
-            return  # Don't need to check a new event
-
-        # Check what was yielded
-        if type(target) is Process:
-            if proc._next_event:
-                proc.peg.throw(RuntimeError('%s already has an event '
-                        'scheduled. Did you forget to yield?' % proc))
-
-            if target.is_alive:
-                # Schedule a hold(Infinity) so that the waiting proc can
-                # be interrupted if target terminates.
-                proc._next_event = (EVT_RESUME, None)
-                target._joiners.append(proc)
-
-            else:
-                # Process has already terminated. Resume as soon as possible.
-                self._schedule(proc, EVT_RESUME, target.result)
-
-        elif target is not Event:
-            raise ValueError('Invalid yield value: %s' % target)
-
-        # else: target is event
-
-        # Schedule concurrent interrupts.
-        if interrupts:
-            proc._next_event = None
-            self._schedule(proc, EVT_INTERRUPT, interrupts.pop(0))
-
-        self.active_proc = None
-
-    def step_dt(self, delta_t=1):
-        """Execute all events that occur within the next *delta_t*
-        units of simulation time.
-
-        """
-        if delta_t <= 0:
-            raise ValueError('delta_t(=%s) should be a number > 0.' % delta_t)
-
-        until = self._now + delta_t
-        while self.peek() < until:
-            self.step()
-
-    def simulate(self, until=Infinity):
-        """Shortcut for ``while sim.peek() < until: sim.step()``."""
-        if until <= 0:
-            raise ValueError('until(=%s) should be a number > 0.' % until)
-
-        while self.peek() < until:
-            self.step()
