@@ -127,3 +127,27 @@ def test_get_process_state(sim):
     proc_a = sim.start(pem_a)
     sim.start(pem_b, proc_a)
     sim.simulate()
+
+
+def test_step_dt(sim):
+    """Tests for :meth:`Simulation.step_dt`."""
+    def pem(context):
+        while True:
+            yield context.hold(1)
+
+        sim.start(pem)
+        assert sim.now == 0
+        sim.step_dt(5)
+        assert sim.now == 5
+        sim.step_dt(3)
+        assert sim.now == 3
+
+
+def test_step_dt_negative_dt(sim):
+    """Test passing a negative dt to step_dt."""
+    pytest.raises(ValueError, sim.step_dt, -3)
+
+
+def test_simulate_negative_until(sim):
+    """TEst passing a negative time to simulate."""
+    pytest.raises(ValueError, sim.simulate, -3)
