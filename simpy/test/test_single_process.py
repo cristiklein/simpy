@@ -7,7 +7,7 @@ resources).
 # Pytest gets the parameters "sim" and "log" from the *conftest.py* file
 import pytest
 
-# from simpy.util import at, delayed
+from simpy.util import at, delayed
 
 
 def test_discrete_time_steps(sim, log):
@@ -36,7 +36,6 @@ def test_stop_self(sim, log):
     assert log == [0, 1]
 
 
-@pytest.mark.xfail
 def test_start_delayed(sim):
     """The *start* method starts a process at the current time. However,
     there is a helper that lets you delay the start of a process.
@@ -46,11 +45,10 @@ def test_start_delayed(sim):
         assert context.now == 5
         yield context.hold(1)
 
-    sim.start(delayed(delta_t=5), pem)
+    sim.start(delayed(dt=5), pem)
     sim.simulate()
 
 
-@pytest.mark.xfail
 def test_start_at(sim):
     """The *start* method starts a process at the current time. However,
     there is a helper that lets you start a process at a certain point
@@ -96,8 +94,6 @@ def test_hold_not_yielded(sim):
         context.hold(1)
         yield context.hold(1)
 
-        assert context.now == 1
-
     sim.start(pem)
     pytest.raises(RuntimeError, sim.simulate)
 
@@ -127,25 +123,6 @@ def test_get_process_state(sim):
     proc_a = sim.start(pem_a)
     sim.start(pem_b, proc_a)
     sim.simulate()
-
-
-def test_step_dt(sim):
-    """Tests for :meth:`Simulation.step_dt`."""
-    def pem(context):
-        while True:
-            yield context.hold(1)
-
-        sim.start(pem)
-        assert sim.now == 0
-        sim.step_dt(5)
-        assert sim.now == 5
-        sim.step_dt(3)
-        assert sim.now == 3
-
-
-def test_step_dt_negative_dt(sim):
-    """Test passing a negative dt to step_dt."""
-    pytest.raises(ValueError, sim.step_dt, -3)
 
 
 def test_simulate_negative_until(sim):

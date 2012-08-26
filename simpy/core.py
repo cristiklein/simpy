@@ -359,18 +359,6 @@ class Simulation(object):
 
         self._active_proc = None
 
-    def step_dt(self, delta_t=1):
-        """Execute all events that occur within the next *delta_t*
-        units of simulation time.
-
-        """
-        if delta_t <= 0:
-            raise ValueError('delta_t(=%s) should be a number > 0.' % delta_t)
-
-        until = self._now + delta_t
-        while self.peek() < until:
-            self.step()
-
     def simulate(self, until=Infinity):
         """Shortcut for ``while sim.peek() < until: sim.step()``."""
         if until <= 0:
