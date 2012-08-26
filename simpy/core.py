@@ -45,7 +45,7 @@ class Process(object):
 
     """
     __slots__ = ('pid', 'peg', 'name', 'result', 'is_alive',
-                 '_next_event', '_joiners', '_signallers', '_interrupts',
+                 '_next_event', '_joiners', '_observers', '_interrupts',
                  '_alive')
 
     def __init__(self, pid, peg):
@@ -55,12 +55,12 @@ class Process(object):
 
         self.result = None
 
-        self._next_event = None
-        self._joiners = []
-        self._signallers = []  # FIXME: Rename to _observers?
-        self._interrupts = []
-
         self._alive = True
+        self._next_event = None
+
+        self._joiners = []  # Procs that wait for this one
+        self._observers = []  # Procs that want to get interrupted
+        self._interrupts = []  # Pending interrupts for this proc
 
     @property
     def is_alive(self):
@@ -142,13 +142,14 @@ def interrupt(sim, other, cause=None):
                             other)
 
     interrupts = other._interrupts
+    interrupt = Interrupt(cause)
 
-    # This is the first interrupt, so schedule it.
-    if not interrupts:
+    # If it is the first interrupt, schedule it. Else, just append it.
+    if other._next_event[0] is not EVT_INTERRUPT:
         other._next_event = None
-        sim._schedule(other, EVT_INTERRUPT)
-
-    interrupts.append(cause)
+        sim._schedule(other, EVT_INTERRUPT, interrupt)
+    else:
+        interrupts.append(interrupt)
 
 
 def suspend(sim):
@@ -179,15 +180,14 @@ def resume(sim, other):
     sim._schedule(other, EVT_RESUME)
 
 
-def signal(sim, other):
+def interrupt_on(sim, other):
     """Register at ``other`` to receive an interrupt when it terminates."""
-    # FIXME: Rename to "monitor" or "observe"?
     proc = sim.active_proc
 
-    if not other.is_alive:
-        sim._schedule(proc, EVT_INTERRUPT, Interrupt(other))
+    if other.is_alive:
+        other._observers.append(proc)
     else:
-        other._signallers.append(proc)
+        sim._schedule(proc, EVT_INTERRUPT, Interrupt(other))
 
 
 class Context(object):
@@ -233,7 +233,8 @@ class Simulation(object):
     # Context and some are exclusively for the Context, they are defined
     # as module level Functions to keep the Simulation and Context APIs
     # clean.
-    context_funcs = (start, exit, hold, interrupt, suspend, resume, signal)
+    context_funcs = (start, exit, hold, interrupt, suspend, resume,
+                     interrupt_on)
     simulation_funcs = (start, interrupt, resume)
 
     def __init__(self):
@@ -304,7 +305,7 @@ class Simulation(object):
 
         """
         joiners = proc._joiners
-        signallers = proc._signallers
+        observers = proc._observers
 
         proc._alive = False
 
@@ -314,11 +315,11 @@ class Simulation(object):
             joiner._next_event = None
             self._schedule(joiner, EVT_RESUME, proc.result)
 
-        for signaller in signallers:
-            if not signaller.is_alive:
+        for observer in observers:
+            if not observer.is_alive:
                 continue
-            signaller._next_event = None
-            self._schedule(signaller, EVT_INTERRUPT, Interrupt(proc))
+            observer._next_event = None
+            self._schedule(observer, EVT_INTERRUPT, Interrupt(proc))
 
     def peek(self):
         """Return the time of the next event or ``inf`` if the event
@@ -366,8 +367,7 @@ class Simulation(object):
         # Get next event from process
         try:
             if evt_type is EVT_INTERRUPT:
-                cause = interrupts.pop(0)
-                target = proc.peg.throw(Interrupt(cause))
+                target = proc.peg.throw(value)
             else:
                 target = proc.peg.send(value)
 
@@ -402,7 +402,7 @@ class Simulation(object):
         # Schedule concurrent interrupts.
         if interrupts:
             proc._next_event = None
-            self._schedule(proc, EVT_INTERRUPT)
+            self._schedule(proc, EVT_INTERRUPT, interrupts.pop(0))
 
         self.active_proc = None
 
