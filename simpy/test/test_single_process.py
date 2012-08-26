@@ -73,6 +73,14 @@ def test_start_non_process(sim):
     pytest.raises(ValueError, sim.start, foo)
 
 
+def test_negative_hold(sim):
+    def pem(context):
+        yield context.hold(-1)
+
+    sim.start(pem)
+    pytest.raises(ValueError, sim.simulate)
+
+
 def test_yield_none_forbidden(sim):
     """A process may not yield ``None``."""
     def pem(context):
