@@ -5,6 +5,7 @@ Tests for waiting for a process to finish.
 import pytest
 
 from simpy import Interrupt
+from simpy.util import wait_for_all, wait_for_any
 
 
 def test_wait_for_proc(sim):
@@ -244,7 +245,6 @@ def test_interrupt_on_with_join(sim):
     sim.simulate()
 
 
-@pytest.mark.xfail
 def test_join_all_shortcut(sim):
     """Test the shortcut function to wait until a number of procs finish."""
     def child(context, i):
@@ -254,7 +254,7 @@ def test_join_all_shortcut(sim):
     def parent(context):
         processes = [context.start(child, i) for i in range(10)]
 
-        results = yield wait_for_all(processes)
+        results = yield context.start(wait_for_all(processes))
 
         assert results == list(range(10))
         assert context.now == 9
@@ -263,7 +263,6 @@ def test_join_all_shortcut(sim):
     sim.simulate()
 
 
-@pytest.mark.xfail
 def test_join_any_shortcut(sim):
     """Test the shortcut function to wait for any of a number of procs."""
     def child(context, i):
@@ -274,9 +273,9 @@ def test_join_any_shortcut(sim):
         processes = [context.start(child, i) for i in [4, 1, 2, 0, 3]]
 
         for i in range(5):
-            result, processes = yield wait_for_any(processes)
-            assert result == i
-            assert len(processes) == (5 - i)
+            finished, processes = yield context.start(wait_for_any(processes))
+            assert finished.result == i
+            assert len(processes) == (5 - i - 1)
             assert context.now == i
 
     sim.start(parent)

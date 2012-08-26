@@ -63,6 +63,23 @@ def test_start_at(sim):
     sim.simulate()
 
 
+def test_start_at_error(sim):
+    """Check if an error is thrown if the PEM is not started in future."""
+    def pem(context):
+        yield context.hold(1)
+
+    sim.start(pem)
+    sim.simulate(2)
+    sim.start(at(1), pem)
+    pytest.raises(ValueError, sim.simulate)
+
+
+def test_start_delayed_error(sim):
+    """Check if delayed() raises an error if you pass a negative dt."""
+    pytest.raises(ValueError, delayed, 0)
+    pytest.raises(ValueError, delayed, -1)
+
+
 def test_start_non_process(sim):
     """Check that you cannot start a normal function."""
     def foo():
@@ -72,6 +89,7 @@ def test_start_non_process(sim):
 
 
 def test_negative_hold(sim):
+    """Don't allow negative hold times."""
     def pem(context):
         yield context.hold(-1)
 
