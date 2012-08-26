@@ -117,8 +117,8 @@ def test_join_any(sim):
             assert first_dead.result == 0
             assert context.now == 0
 
-        sim.start(parent)
-        sim.simulate()
+    sim.start(parent)
+    sim.simulate()
 
 
 def test_child_exception(sim):
