@@ -348,7 +348,7 @@ class Simulation(object):
                 self._schedule(proc, EVT_RESUME, target.result)
 
         elif target is not Event:
-            raise ValueError('Invalid yield value: %s' % target)
+            proc._peg.throw(ValueError('Invalid yield value: %s' % target))
 
         # else: target is event
 
