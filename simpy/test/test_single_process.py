@@ -65,6 +65,14 @@ def test_start_at(sim):
     sim.simulate()
 
 
+def test_start_non_process(sim):
+    """Check that you cannot start a normal function."""
+    def foo():
+        pass
+
+    pytest.raises(ValueError, sim.start, foo)
+
+
 def test_yield_none_forbidden(sim):
     """A process may not yield ``None``."""
     def pem(context):
