@@ -34,6 +34,25 @@ def test_resource(sim, log):
 
 
 @pytest.mark.xfail
+def test_resource_slots(sim, log):
+    def pem(context, name, resource, log):
+        yield resource.request()
+        log.append((name, context.now))
+        yield context.hold(1)
+        resource.release()
+
+    resource = simpy.Resource(slots=3)
+    for i in range(9):
+        sim.start(pem, i, resource, log)
+    sim.simulate()
+
+    assert log == [('0', 0), ('1', 0), ('2', 0),
+            ('3', 1), ('4', 1), ('5', 1),
+            ('6', 2), ('7', 2), ('8', 2),
+    ]
+
+
+@pytest.mark.xfail
 def test_container(sim, log):
     """A *container* is a resource (of optinally limited capacity) where
     you can put in our take out a discrete or continuous amount of
