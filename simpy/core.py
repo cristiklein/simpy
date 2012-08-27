@@ -72,7 +72,8 @@ def now(ctx):
 
 def start(sim, pem, *args, **kwargs):
     process = pem(sim.context, *args, **kwargs)
-    assert type(process) is GeneratorType, (
+    if type(process) is not GeneratorType:
+        raise RuntimeError(
             'Process function %s is did not return a generator' % pem)
     proc = Process(next(sim.pid), process)
 
@@ -90,7 +91,9 @@ def exit(sim, result=None):
 
 
 def wait(sim, delta_t):
-    assert delta_t >= 0
+    if delta_t < 0:
+        raise RuntimeError('Invalid wait duration %.2f' % float(delta_t))
+
     proc = sim.active_proc
     if proc.next_event is not None:
         raise RuntimeError('Next event already scheduled')
@@ -219,7 +222,8 @@ class Simulation(object):
         return self.events[0][0] if self.events else Infinity
 
     def step(self):
-        assert self.active_proc is None
+        if self.active_proc is not None:
+            raise RuntimeError('There is still an active process')
 
         while True:
             self._now, eid, proc, evt = heappop(self.events)
