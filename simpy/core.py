@@ -15,31 +15,21 @@ Infinity = float('inf')
 
 
 class Process(object):
-    __slots__ = ('id', 'pem', 'next_event', 'state', 'result', 'generator',
-            'joiners', 'signallers', 'interrupts')
+    __slots__ = ('id', 'generator', 'next_event', 'state', 'result',
+            'joiners', 'subscribers', 'interrupts')
 
-    def __init__(self, id, pem, generator):
+    def __init__(self, id, generator):
         self.id = id
-        self.pem = pem
+        self.generator = generator
         self.state = None
         self.next_event = None
         self.result = None
-        self.generator = generator
         self.joiners = []
-        self.signallers = []
+        self.subscribers = []
         self.interrupts = []
 
-    def __str__(self):
-        if hasattr(self.pem, '__name__'):
-            return self.pem.__name__
-        else:
-            return str(self.pem)
-
     def __repr__(self):
-        if hasattr(self.pem, '__name__'):
-            return self.pem.__name__
-        else:
-            return str(self.pem)
+        return self.generator.__name__
 
 
 def process(ctx):
@@ -54,7 +44,7 @@ def start(sim, pem, *args, **kwargs):
     process = pem(sim.context, *args, **kwargs)
     assert type(process) is GeneratorType, (
             'Process function %s is did not return a generator' % pem)
-    proc = Process(next(sim.pid), pem, process)
+    proc = Process(next(sim.pid), process)
 
     prev, sim.active_proc = sim.active_proc, proc
     # Schedule start of the process.
@@ -112,7 +102,7 @@ def signal(sim, other):
         sim._schedule(proc, Failed, Interrupt(other))
         sim.active_proc = prev
     else:
-        other.signallers.append(proc)
+        other.subscribers.append(proc)
 
 
 Ignore = object()
@@ -165,7 +155,7 @@ class Simulation(object):
 
     def _join(self, proc):
         joiners = proc.joiners
-        signallers = proc.signallers
+        subscribers = proc.subscribers
         interrupts = proc.interrupts
 
         proc.generator = None
@@ -176,7 +166,7 @@ class Simulation(object):
             # process to handle this crash. Something like this must certainely
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
-            if not joiners and not signallers:
+            if not joiners and not subscribers:
                 raise proc.result.__cause__
 
         if joiners:
@@ -184,10 +174,10 @@ class Simulation(object):
                 if joiner.generator is None: continue
                 self._schedule(joiner, proc.state, proc.result)
 
-        if signallers:
-            for signaller in signallers:
-                if signaller.generator is None: continue
-                self._schedule(signaller, Failed, Interrupt(proc))
+        if subscribers:
+            for subscriber in subscribers:
+                if subscriber.generator is None: continue
+                self._schedule(subscriber, Failed, Interrupt(proc))
 
     def peek(self):
         """Return the time of the next event or ``inf`` if no more
