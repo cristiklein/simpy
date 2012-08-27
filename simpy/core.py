@@ -131,7 +131,7 @@ def subscribe(sim, other):
     if other.generator is None:
         # FIXME This context switching is ugly.
         prev, sim.active_proc = sim.active_proc, other
-        sim._schedule(proc, Failed, Interrupt(other))
+        proc.interrupts.append(other)
         sim.active_proc = prev
     else:
         other.subscribers.append(proc)
