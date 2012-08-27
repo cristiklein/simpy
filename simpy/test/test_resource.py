@@ -8,12 +8,12 @@ def test_resource(sim, log):
         def child(ctx, name, resource, log):
             yield resource.request()
             log.append((name, ctx.now))
-            yield ctx.hold(1)
+            yield ctx.wait(1)
             resource.release()
 
         ctx.start(child, 'a', resource, log)
         ctx.start(child, 'b', resource, log)
-        yield
+        yield ctx.suspend()
 
     sim.start(root, log)
     sim.simulate(4)
@@ -28,12 +28,12 @@ def test_resource_capacity(sim, log):
         def child(ctx, name, resource, log):
             yield resource.request()
             log.append((name, ctx.now))
-            yield ctx.hold(1)
+            yield ctx.wait(1)
             resource.release()
 
         for id in range(9):
             ctx.start(child, '%d' % id, resource, log)
-        yield
+        yield ctx.suspend()
 
     sim.start(root, log)
     sim.simulate(4)

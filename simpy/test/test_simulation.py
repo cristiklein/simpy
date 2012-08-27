@@ -7,7 +7,7 @@ pytest_plugins = ['simpy.test.support']
 def test_join(sim):
     def root(ctx):
         def pem(ctx):
-            yield ctx.hold(10)
+            yield ctx.wait(10)
 
         yield ctx.start(pem)
         assert ctx.now == 10
@@ -19,7 +19,7 @@ def test_join(sim):
 def test_join_log(sim):
     def root(ctx):
         def pem(ctx):
-            yield ctx.hold(10)
+            yield ctx.wait(10)
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
@@ -33,12 +33,12 @@ def test_join_log(sim):
 def test_join_after_terminate(sim):
     def root(ctx):
         def pem(ctx):
-            yield ctx.hold(10)
+            yield ctx.wait(10)
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
         child = ctx.start(pem)
-        yield ctx.hold(15)
+        yield ctx.wait(15)
         log = yield child
         assert log == 'oh noes, i am dead x_x'
 
@@ -49,14 +49,14 @@ def test_join_after_terminate(sim):
 def test_join_all(sim):
     def root(ctx):
         def pem(ctx, i):
-            yield ctx.hold(i)
+            yield ctx.wait(i)
             ctx.exit(i)
 
-        # start many child processes and let them hold for a while. The first
-        # child holds the longest time.
+        # start many child processes and let them wait for a while. The first
+        # child waits the longest time.
         processes = [ctx.start(pem, i) for i in reversed(range(10))]
 
-        # hold until all children have been terminated.
+        # wait until all children have been terminated.
         results = []
         for process in processes:
             results.append((yield process))
@@ -72,23 +72,21 @@ def test_join_all(sim):
 def test_join_any(sim):
     def root(ctx):
         def pem(ctx, i):
-            yield ctx.hold(i)
+            yield ctx.wait(i)
             ctx.exit(i)
 
-        # start many child processes and let them hold for a while. The first
-        # child holds the longest time.
+        # start many child processes and let them wait for a while. The first
+        # child waits the longest time.
         processes = [ctx.start(pem, i) for i in reversed(range(10))]
 
         def join_any(ctx, processes):
             for process in processes:
-                ctx.signal(process)
-            try:
-                yield
-                assert False, 'There should have been an interrupt'
-            except Interrupt as e:
-                ctx.exit(e.cause)
+                ctx.subscribe(process)
 
-        # hold until the a child has terminated.
+            first_dead = yield ctx.suspend()
+            ctx.exit(first_dead)
+
+        # wait until the a child has terminated.
         first_dead = yield ctx.start(join_any, processes)
         # Confirm that the child created at last has terminated as first.
         assert ctx.now == 0
@@ -101,7 +99,7 @@ def test_join_any(sim):
 
 def test_crashing_process(sim):
     def root(ctx):
-        yield ctx.hold(1)
+        yield ctx.wait(1)
         raise RuntimeError("That's it, I'm done")
 
     try:
@@ -115,7 +113,7 @@ def test_crashing_process(sim):
 def test_crashing_child_process(sim):
     def root(ctx):
         def panic(ctx):
-            yield ctx.hold(1)
+            yield ctx.wait(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
@@ -133,7 +131,7 @@ def test_crashing_child_process(sim):
 def test_crashing_child_traceback(sim):
     def root(ctx):
         def panic(ctx):
-            yield ctx.hold(1)
+            yield ctx.wait(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
@@ -155,47 +153,47 @@ def test_crashing_child_traceback(sim):
 
 def test_illegal_suspend(sim):
     def root(ctx):
-        ctx.hold(1)
-        yield
+        ctx.wait(1)
+        yield ctx.suspend()
 
     try:
         sim.start(root)
         sim.simulate(20)
         assert False, 'Expected an exception.'
-    except AssertionError as exc:
-        assert exc.args[0].startswith('Next event already scheduled!')
+    except RuntimeError as exc:
+        assert exc.args[0].startswith('Next event already scheduled')
 
 
 def test_illegal_interrupt(sim):
     def root(ctx):
         def child(ctx):
-            yield
+            yield ctx.suspend()
 
         child = ctx.start(child)
         try:
             ctx.interrupt(child)
-        except AssertionError as exc:
+        except RuntimeError as exc:
             assert exc.args[0] == 'Process child is not initialized'
-        yield
+        yield ctx.suspend()
 
     sim.start(root)
     sim.simulate(20)
 
 
-def test_illegal_hold_followed_by_join(sim):
+def test_illegal_wait_followed_by_join(sim):
     def root(ctx):
         def child(ctx):
-            yield ctx.hold(1)
+            yield ctx.wait(1)
 
-        ctx.hold(1)
+        ctx.wait(1)
         yield ctx.start(child)
 
     try:
         sim.start(root)
         sim.simulate(20)
         assert False, 'Expected an exception.'
-    except AssertionError as exc:
-        assert exc.args[0].startswith('Next event already scheduled!')
+    except RuntimeError as exc:
+        assert exc.args[0].startswith('Next event already scheduled')
 
 
 def test_invalid_schedule(sim):
@@ -206,41 +204,40 @@ def test_invalid_schedule(sim):
         sim.start(root)
         sim.simulate(20)
         assert False, 'Expected an exception.'
-    except AssertionError as exc:
+    except RuntimeError as exc:
         assert exc.args[0] == 'Invalid yield value "this will not work"'
 
 
-def test_resume_before_start(sim):
+def test_interrupt_before_start(sim):
     """A process must be started before any there can be any interaction.
 
-    As a consequence you can't resume or interrupt a just started process as
+    As a consequence you can't interrupt a just started process as
     shown in this test. See :func:`test_immediate_resume` for the correct way
-    to immediately resume a started process.
+    to immediately interrupt a started process.
     """
     def root(ctx):
         def child(ctx):
-            yield ctx.hold(1)
+            yield ctx.wait(1)
 
         c = ctx.start(child)
-        ctx.resume(c)
-        yield ctx.exit()
+        ctx.interrupt(c)
 
     try:
         sim.start(root)
         sim.simulate(20)
         assert False, 'This must fail'
-    except AssertionError as exc:
+    except RuntimeError as exc:
         assert exc.args[0] == 'Process child is not initialized'
 
 
-def test_immediate_resume(sim, log):
+def test_immediate_interrupt(sim, log):
     def root(ctx, log):
         def child(ctx, log):
-            yield
+            yield ctx.suspend()
             log.append(ctx.now)
 
         def resumer(ctx, other):
-            ctx.resume(other)
+            ctx.interrupt(other)
             yield ctx.exit()
 
         c = ctx.start(child, log)
@@ -253,11 +250,11 @@ def test_immediate_resume(sim, log):
     assert log == [0]
 
 
-def test_signal(sim):
-    """Only the most recently scheduled signal of multiple concurrent ones is
+def test_subscribe(sim):
+    """Only the most recently scheduled subscribe of multiple concurrent ones is
     used.
 
-    *root* wants to be signalled if any of its three children terminate.
+    *root* wants to be subscribed if any of its three children terminate.
     Because each *child* terminates at the same time, there will be only one
     interrupt.
 
@@ -269,10 +266,10 @@ def test_signal(sim):
 
         children = [ctx.start(child) for i in range(3)]
         for child in children:
-            ctx.signal(child)
+            ctx.subscribe(child)
 
         try:
-            yield
+            yield ctx.suspend()
         except Interrupt as exc:
             assert exc.cause == children[-1]
 
@@ -286,11 +283,11 @@ def test_interrupt_chain(ctx):
     # Interruptor processes will wait for one timestep and than interrupt the
     # given process.
     def interruptor(ctx, process, id):
-        yield ctx.hold(1)
+        yield ctx.wait(1)
         ctx.interrupt(process, id)
 
     def child(ctx):
-        yield ctx.hold(2)
+        yield ctx.wait(2)
         ctx.exit('i am done')
 
     # Start ten processes which will interrupt ourselves after one timestep.
@@ -319,12 +316,12 @@ def test_suspend_interrupt(ctx):
 
     def child(ctx):
         # Suspend this process.
-        value = yield
+        value = yield ctx.suspend()
         ctx.exit(value)
 
     child_proc = ctx.start(child)
     # Wait until child has started.
-    yield ctx.hold(0)
+    yield ctx.wait(0)
     # Interrupt child_proc and use 'cake' as the cause.
     ctx.interrupt(child_proc, 'cake')
     result = yield child_proc
@@ -337,7 +334,7 @@ def test_interrupt_chain_suspend(ctx):
     """
 
     def interruptor(ctx, process, id):
-        yield ctx.hold(1)
+        yield ctx.wait(1)
         ctx.interrupt(process, id)
 
     # Start ten processes which will interrupt ourselves after one timestep.
@@ -348,7 +345,7 @@ def test_interrupt_chain_suspend(ctx):
     # interrupt cause is passed directly into this process.
     log = []
     for i in range(10):
-        value = yield
+        value = yield ctx.suspend()
         log.append(value)
 
     assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
@@ -359,11 +356,11 @@ def test_interrupted_join(ctx):
     process."""
 
     def interruptor(ctx, process):
-        yield ctx.hold(1)
+        yield ctx.wait(1)
         ctx.interrupt(process)
 
     def child(ctx):
-        yield ctx.hold(2)
+        yield ctx.wait(2)
 
     ctx.start(interruptor, ctx.process)
     try:

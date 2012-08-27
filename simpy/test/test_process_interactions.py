@@ -17,14 +17,14 @@ def test_interruption(sim):
     """
     def interruptee(context):
         try:
-            yield context.hold(10)
+            yield context.wait(10)
             pytest.fail('Expected an interrupt')
         except simpy.Interrupt as interrupt:
             assert interrupt.cause == 'interrupt!'
 
     def interruptor(context):
         child_process = context.start(interruptee)
-        yield context.hold(5)
+        yield context.wait(5)
         context.interrupt(child_process, 'interrupt!')
 
     sim.start(interruptor)
@@ -37,13 +37,13 @@ def test_concurrent_interrupts(sim, log):
     def fox(context, log):
         while True:
             try:
-                yield context.hold(10)
+                yield context.wait(10)
             except simpy.Interrupt as interrupt:
                 log.append(interrupt.cause)
 
     def farmer(context, name, fox):
         context.interrupt(fox, name)
-        yield context.hold(1)
+        yield context.wait(1)
 
     fantastic_mr_fox = sim.start(fox, log)
     for name in ('boggis', 'bunce', 'beans'):
@@ -65,7 +65,7 @@ def test_suspend_resume(sim):
         assert context.now == 10
 
     def alarm(context, sleeper):
-        yield context.hold(10)
+        yield context.wait(10)
         context.resume(sleeper)
 
     sleeper = sim.start(sleeper)
@@ -76,7 +76,7 @@ def test_suspend_resume(sim):
 def test_wait_for_proc(sim):
     """A process can wait until another process finishes."""
     def finisher(context):
-        yield context.hold(5)
+        yield context.wait(5)
 
     def waiter(context, finisher):
         proc = context.start(finisher)
@@ -95,13 +95,13 @@ def test_get_process_state(sim):
 
     """
     def pem_a(context):
-        yield context.hold(3)
+        yield context.wait(3)
 
     def pem_b(context, pem_a):
-        yield context.hold(1)
+        yield context.wait(1)
         assert pem_a.is_alive
 
-        yield context.hold(3)
+        yield context.wait(3)
         assert not pem_a.is_alive
 
     proc_a = sim.start(pem_a)
@@ -115,7 +115,7 @@ def test_return_value(sim):
 
     """
     def child(context):
-        yield context.hold(1)
+        yield context.wait(1)
         context.exit(context.now)
 
     def parent(context):
