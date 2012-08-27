@@ -30,20 +30,29 @@ def test_join_log(sim):
     sim.simulate(20)
 
 
-def test_join_after_terminate(sim):
-    def root(ctx):
-        def pem(ctx):
-            yield ctx.wait(10)
-            ctx.exit('oh noes, i am dead x_x')
-            assert False, 'Hey, i am alive? How is that possible?'
+def test_join_after_terminate(ctx):
+    def pem(ctx):
+        yield ctx.wait(10)
+        ctx.exit('oh noes, i am dead x_x')
+        assert False, 'Hey, i am alive? How is that possible?'
 
-        child = ctx.start(pem)
-        yield ctx.wait(15)
-        log = yield child
-        assert log == 'oh noes, i am dead x_x'
+    child = ctx.start(pem)
+    yield ctx.wait(15)
+    log = yield child
+    assert log == 'oh noes, i am dead x_x'
 
-    sim.start(root)
-    sim.simulate(20)
+
+def test_subscribe_after_terminate(ctx):
+    def pem(ctx):
+        yield ctx.wait(10)
+        ctx.exit('oh noes, i am dead x_x')
+        assert False, 'Hey, i am alive? How is that possible?'
+
+    child = ctx.start(pem)
+    yield ctx.wait(15)
+    ctx.subscribe(child)
+    done = yield ctx.suspend()
+    assert done.result == 'oh noes, i am dead x_x'
 
 
 def test_join_all(sim):
@@ -250,31 +259,19 @@ def test_immediate_interrupt(sim, log):
     assert log == [0]
 
 
-def test_subscribe(sim):
-    """Only the most recently scheduled subscribe of multiple concurrent ones is
-    used.
+def test_concurrent_subscriptions(ctx):
+    """Concurrent subscriptions are handled like interrupts."""
 
-    *root* wants to be subscribed if any of its three children terminate.
-    Because each *child* terminates at the same time, there will be only one
-    interrupt.
+    def child(ctx):
+        yield ctx.exit()
 
-    # FIXME Figure out if this is good or bad...
-    """
-    def root(ctx):
-        def child(ctx):
-            yield ctx.exit()
+    children = [ctx.start(child) for i in range(3)]
+    for child in children:
+        ctx.subscribe(child)
 
-        children = [ctx.start(child) for i in range(3)]
-        for child in children:
-            ctx.subscribe(child)
-
-        try:
-            yield ctx.suspend()
-        except Interrupt as exc:
-            assert exc.cause == children[-1]
-
-    sim.start(root)
-    sim.simulate(20)
+    for child in children:
+        dead = yield ctx.suspend()
+        assert dead == child
 
 
 def test_interrupt_chain(ctx):
