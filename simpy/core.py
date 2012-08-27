@@ -15,12 +15,13 @@ Infinity = float('inf')
 
 
 class Process(object):
-    __slots__ = ('id', 'generator', 'next_event', 'state', 'result',
+    __slots__ = ('id', 'generator', 'name', 'next_event', 'state', 'result',
             'joiners', 'subscribers', 'interrupts')
 
     def __init__(self, id, generator):
         self.id = id
         self.generator = generator
+        self.name = self.generator.__name__
         self.state = None
         self.next_event = None
         self.result = None
@@ -29,7 +30,7 @@ class Process(object):
         self.interrupts = []
 
     def __repr__(self):
-        return self.generator.__name__
+        return self.name
 
 
 def process(ctx):
@@ -59,28 +60,27 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-def hold(sim, delta_t):
+def wait(sim, delta_t):
     assert delta_t >= 0
     proc = sim.active_proc
-    assert proc.next_event is None
+    if proc.next_event is not None:
+        raise RuntimeError('Next event already scheduled')
 
     sim._schedule(proc, Success, None, sim._now + delta_t)
     return Ignore
 
 
-def resume(sim, other, value=None):
-    if other.next_event is not None:
-        assert other.next_event[0] != Init, (
-                'Process %s is not initialized' % other)
-    # TODO Isn't this dangerous? If other has already been resumed, this
-    # call will silently drop the previous result.
-    sim._schedule(other, Success, value)
+def suspend(sim):
+    proc = sim.active_proc
+    if proc.next_event is not None:
+        raise RuntimeError('Next event already scheduled')
+    proc.next_event = (Suspended, None)
     return Ignore
 
 
 def interrupt(sim, other, cause=None):
-    assert other.next_event[0] != Init, (
-            'Process %s is not initialized' % other)
+    if other.next_event[0] == Init:
+        raise RuntimeError('Process %s is not initialized' % other)
 
     interrupts = other.interrupts
     if not interrupts:
@@ -92,7 +92,7 @@ def interrupt(sim, other, cause=None):
     interrupts.append(cause)
 
 
-def signal(sim, other):
+def subscribe(sim, other):
     """Interrupt this process, if the target terminates."""
     proc = sim.active_proc
 
@@ -109,9 +109,9 @@ Ignore = object()
 
 
 class Simulation(object):
-    context_funcs = (start, exit, interrupt, hold, resume, signal)
+    context_funcs = (start, exit, wait, suspend, interrupt, subscribe)
     context_props = (now, process)
-    simulation_funcs = (start, interrupt, resume)
+    simulation_funcs = (start, interrupt)
 
     def __init__(self):
         self.events = []
@@ -177,7 +177,7 @@ class Simulation(object):
         if subscribers:
             for subscriber in subscribers:
                 if subscriber.generator is None: continue
-                self._schedule(subscriber, Failed, Interrupt(proc))
+                self.context.interrupt(subscriber, proc)
 
     def peek(self):
         """Return the time of the next event or ``inf`` if no more
@@ -234,33 +234,29 @@ class Simulation(object):
             self.active_proc = None
             return
 
-        if target is not None:
-            if target is not Ignore:
-                # TODO Improve this error message.
-                assert type(target) is Process, 'Invalid yield value "%s"' % target
-                # TODO The stacktrace won't show the position in the pem where this
-                # exception occured. Maybe throw the assertion error into the pem?
-                assert proc.next_event is None, 'Next event already scheduled!'
+        if target is not Ignore:
+            # TODO Improve this error message.
+            if type(target) is not Process:
+                proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
+                        target))
+            if proc.next_event is not None:
+                proc.generator.throw(RuntimeError(
+                        'Next event already scheduled'))
 
-                # Add this process to the list of waiters.
-                if target.generator is None:
-                    # FIXME This context switching is ugly.
-                    prev, self.active_proc = self.active_proc, target
-                    # Process has already terminated. Resume as soon as possible.
-                    self._schedule(proc, target.state, target.result)
-                    self.active_proc = prev
-                else:
-                    # FIXME This is a bit ugly. Because next_event cannot be
-                    # None this stub event is used. It will never be executed
-                    # because it isn't scheduled. This is necessary for
-                    # interrupt handling.
-                    proc.next_event = (Success, None)
-                    target.joiners.append(proc)
+            # Add this process to the list of waiters.
+            if target.generator is None:
+                # FIXME This context switching is ugly.
+                prev, self.active_proc = self.active_proc, target
+                # Process has already terminated. Resume as soon as possible.
+                self._schedule(proc, target.state, target.result)
+                self.active_proc = prev
             else:
-                assert proc.next_event is not None
-        else:
-            assert proc.next_event is None, 'Next event already scheduled!'
-            proc.next_event = (Suspended, None)
+                # FIXME This is a bit ugly. Because next_event cannot be
+                # None this stub event is used. It will never be executed
+                # because it isn't scheduled. This is necessary for
+                # interrupt handling.
+                proc.next_event = (Success, None)
+                target.joiners.append(proc)
 
         # Schedule concurrent interrupts.
         if interrupts:

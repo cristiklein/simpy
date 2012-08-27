@@ -8,12 +8,13 @@ class Resource(object):
     def request(self):
         if self.capacity > 0:
             self.capacity -= 1
-            return self.ctx.resume(self.ctx.process)
+            return self.ctx.wait(0)
         else:
             self.waiters.append(self.ctx.process)
+            return self.ctx.suspend()
 
     def release(self):
         if self.waiters:
-            self.ctx.resume(self.waiters.pop(0), None)
+            self.ctx.interrupt(self.waiters.pop(0))
         else:
             self.capacity += 1

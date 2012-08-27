@@ -15,7 +15,7 @@ def test_discrete_time_steps(sim, log):
     def pem(context, log):
         while True:
             log.append(context.now)
-            yield context.hold(delta_t=1)
+            yield context.wait(1)
 
     sim.start(pem, log)
     sim.simulate(until=3)
@@ -28,7 +28,7 @@ def test_stop_self(sim, log):
     def pem(context, log):
         while context.now < 2:
             log.append(context.now)
-            yield context.hold(1)
+            yield context.wait(1)
 
     sim.start(pem, log)
     sim.simulate(10)
@@ -44,7 +44,7 @@ def test_start_delayed(sim):
     """
     def pem(context):
         assert context.now == 5
-        yield context.hold(1)
+        yield context.wait(1)
 
     sim.start(delayed(delta_t=5), pem)
     sim.simulate()
@@ -59,7 +59,7 @@ def test_start_at(sim):
     """
     def pem(context):
         assert context.now == 5
-        yield context.hold(1)
+        yield context.wait(1)
 
     sim.start(at(t=5), pem)
     sim.simulate()
