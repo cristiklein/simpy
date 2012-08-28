@@ -115,11 +115,11 @@ def interrupt(sim, other, cause=None):
         raise RuntimeError('Process %s is not initialized' % other)
 
     interrupts = other.interrupts
+    # Reschedule the current event, if this is the first interrupt.
     if not interrupts:
-        # This is the first interrupt, so schedule it.
-        sim._schedule(other,
-                Success if other.next_event[0] == Suspended else Failed,
-                None, sim.now)
+        # Keep the type of the next event in order to decide how the
+        # interrupt should be send into the process.
+        sim._schedule(other, other.next_event[0], None, sim.now)
 
     interrupts.append(cause)
 
@@ -237,7 +237,18 @@ class Simulation(object):
         interrupts = proc.interrupts
         if interrupts:
             cause = interrupts.pop(0)
-            value = cause if evt_type else Interrupt(cause)
+            if evt_type == Suspended:
+                # Only interrupts may trigger the continuation of a suspended
+                # process. The cause of the interrupt is directly send (or
+                # thrown in case of an exception) into the process.  Using an
+                # Interrupt exception would be redundant.
+                value = cause
+                evt_type = not isinstance(cause, BaseException)
+            else:
+                # In all other cases an interrupt exception is thrown into the
+                # process.
+                value = Interrupt(cause)
+                evt_type = Failed
 
         try:
             if evt_type:
@@ -287,10 +298,7 @@ class Simulation(object):
 
         # Schedule concurrent interrupts.
         if interrupts:
-            self._schedule(proc,
-                    Success if proc.next_event[0] == Suspended else Failed,
-                    None,
-                    self.now)
+            self._schedule(proc, proc.next_event[0], None, self.now)
 
         self.active_proc = None
 

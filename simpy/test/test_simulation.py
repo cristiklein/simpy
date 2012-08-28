@@ -348,6 +348,27 @@ def test_interrupt_chain_suspend(ctx):
     assert log == [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 
 
+def test_suspend_interrupt_exception(ctx):
+    """An exception of an interrupt must be thrown into a suspended process."""
+
+    def child(ctx):
+        # Suspend this process.
+        try:
+            value = yield ctx.suspend()
+            assert False, 'Where is my exception?'
+        except RuntimeError as e:
+            ctx.exit(e.args[0])
+
+    child_proc = ctx.start(child)
+    # Wait until child has started.
+    yield ctx.wait(0)
+    # Interrupt child_proc and use 'cake' as the cause.
+    ctx.interrupt(child_proc, RuntimeError('eggseptuhn!'))
+    result = yield child_proc
+
+    assert result == 'eggseptuhn!'
+
+
 def test_interrupted_join(ctx):
     """Tests that interrupts are raised while the victim is waiting for another
     process."""
