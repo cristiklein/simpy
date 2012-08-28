@@ -79,7 +79,7 @@ def start(sim, pem, *args, **kwargs):
 
     prev, sim.active_proc = sim.active_proc, proc
     # Schedule start of the process.
-    sim._schedule(proc, Init, None)
+    sim._schedule(proc, Init, None, sim.now)
     sim.active_proc = prev
 
     return proc
@@ -98,7 +98,7 @@ def wait(sim, delta_t):
     if proc.next_event is not None:
         raise RuntimeError('Next event already scheduled')
 
-    sim._schedule(proc, Success, None, sim._now + delta_t)
+    sim._schedule(proc, Success, None, sim.now + delta_t)
     return Ignore
 
 
@@ -119,7 +119,7 @@ def interrupt(sim, other, cause=None):
         # This is the first interrupt, so schedule it.
         sim._schedule(other,
                 Success if other.next_event[0] == Suspended else Failed,
-                None)
+                None, sim.now)
 
     interrupts.append(cause)
 
@@ -178,10 +178,7 @@ class Simulation(object):
     def now(self):
         return self._now
 
-    def _schedule(self, proc, evt_type, value, at=None):
-        if at is None:
-            at = self._now
-
+    def _schedule(self, proc, evt_type, value, at):
         proc.next_event = (evt_type, value)
         heappush(self.events, (at, next(self.eid), proc, proc.next_event))
 
@@ -204,7 +201,7 @@ class Simulation(object):
         if joiners:
             for joiner in joiners:
                 if joiner.generator is None: continue
-                self._schedule(joiner, proc.state, proc.result)
+                self._schedule(joiner, proc.state, proc.result, self.now)
 
         if subscribers:
             for subscriber in subscribers:
@@ -278,7 +275,7 @@ class Simulation(object):
                 # FIXME This context switching is ugly.
                 prev, self.active_proc = self.active_proc, target
                 # Process has already terminated. Resume as soon as possible.
-                self._schedule(proc, target.state, target.result)
+                self._schedule(proc, target.state, target.result, self.now)
                 self.active_proc = prev
             else:
                 # FIXME This is a bit ugly. Because next_event cannot be
@@ -292,7 +289,8 @@ class Simulation(object):
         if interrupts:
             self._schedule(proc,
                     Success if proc.next_event[0] == Suspended else Failed,
-                    None)
+                    None,
+                    self.now)
 
         self.active_proc = None
 
