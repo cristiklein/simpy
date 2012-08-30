@@ -90,7 +90,7 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-def wait(sim, delta_t):
+def wait(sim, delta_t, value=None):
     if delta_t < 0:
         raise RuntimeError('Invalid wait duration %.2f' % float(delta_t))
 
@@ -98,7 +98,7 @@ def wait(sim, delta_t):
     if proc.next_event is not None:
         raise RuntimeError('Next event already scheduled')
 
-    sim._schedule(proc, Success, None, sim.now + delta_t)
+    sim._schedule(proc, Success, value, sim.now + delta_t)
     return Ignore
 
 
