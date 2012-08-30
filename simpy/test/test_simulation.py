@@ -386,3 +386,8 @@ def test_interrupted_join(ctx):
         assert False, 'Excepted an interrupt'
     except Interrupt as interrupt:
         pass
+
+
+def test_wait_value(ctx):
+    value = yield ctx.wait(0, 'spam')
+    assert value == 'spam'
