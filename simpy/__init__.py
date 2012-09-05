@@ -4,9 +4,12 @@ With SimPy, simulating is fun again!
 
 """
 from simpy.core import Simulation, Interrupt
+from simpy.queues import FIFO, LIFO, Priority
+from simpy.resources import Resource, Container, Store
 
 
-__all__ = ['Simulation', 'Interrupt', 'Failure', 'test']
+__all__ = ['Simulation', 'Interrupt', 'test', 'FIFO', 'LIFO', 'Priority',
+           'Resource', 'Container', 'Store']
 __version__ = '3.0a1'
 
 
