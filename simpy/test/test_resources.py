@@ -9,7 +9,6 @@ import pytest
 import simpy
 
 
-@pytest.mark.xfail
 def test_resource(sim, log):
     """A *resource* is something with a limited numer of slots that need
     to be requested before and released after the usage (e.g., gas pumps
@@ -17,15 +16,15 @@ def test_resource(sim, log):
 
     """
     def pem(context, name, resource, log):
-        yield resource.request(context)
+        yield resource.request()
 
         yield context.hold(1)
-        resource.release(context)
+        resource.release()
 
         log.append((name, context.now))
 
     # *queue* parameter is optional, default: queue=FIFO()
-    resource = simpy.Resource(slots=1, queue=simpy.FIFO())
+    resource = simpy.Resource(sim.context, capacity=1, queue=simpy.FIFO())
     sim.start(pem, 'a', resource, log)
     sim.start(pem, 'b', resource, log)
     sim.simulate()
@@ -33,7 +32,6 @@ def test_resource(sim, log):
     assert log == [('a', 1), ('b',  2)]
 
 
-@pytest.mark.xfail
 def test_resource_slots(sim, log):
     def pem(context, name, resource, log):
         yield resource.request()
@@ -41,9 +39,9 @@ def test_resource_slots(sim, log):
         yield context.hold(1)
         resource.release()
 
-    resource = simpy.Resource(slots=3)
+    resource = simpy.Resource(sim.context, capacity=3)
     for i in range(9):
-        sim.start(pem, i, resource, log)
+        sim.start(pem, str(i), resource, log)
     sim.simulate()
 
     assert log == [('0', 0), ('1', 0), ('2', 0),
