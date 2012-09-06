@@ -24,7 +24,7 @@ def test_resource(sim, log):
         log.append((name, context.now))
 
     # *queue* parameter is optional, default: queue=FIFO()
-    resource = simpy.Resource(sim.context, capacity=1, queue=simpy.FIFO())
+    resource = simpy.Resource(sim, capacity=1, queue=simpy.FIFO())
     sim.start(pem, 'a', resource, log)
     sim.start(pem, 'b', resource, log)
     sim.simulate()
@@ -39,7 +39,7 @@ def test_resource_slots(sim, log):
         yield context.hold(1)
         resource.release()
 
-    resource = simpy.Resource(sim.context, capacity=3)
+    resource = simpy.Resource(sim, capacity=3)
     for i in range(9):
         sim.start(pem, str(i), resource, log)
     sim.simulate()

@@ -15,6 +15,9 @@ This modules contains Simpy's resource types:
 from simpy.queues import FIFO
 
 
+Infinity = float('inf')
+
+
 class Resource(object):
     """A resource has a limited number of slots that can be requested
     by a process.
@@ -23,19 +26,28 @@ class Resource(object):
     a queue. If a process releases a slot, the next process is popped
     from the queue and gets one slot.
 
-    The *capacity* defines the number of slots and must be a positive
-    integer.  The *queue* must provide a ``pop()`` method to get one
-    item from it and a ``push(item)`` method to append an item. SimPy
-    comes with a :class:`FIFO`, :class:`LIFO` and a :class:`Priority`
-    queue.
+    For example, a gas station has a limited number of fuel pumps
+    that can be used by refueling vehicles. If all fuel pumps are
+    occupied, incoming vehicles have to wait until one gets free.
+
+    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
+    resource is bound to.
+
+    The ``capacity`` defines the number of slots and must be a positive
+    integer.
+
+    The ``queue`` must provide a ``pop()`` method to get one item from
+    it and a ``push(item)`` method to append an item. SimPy comes with
+    a :class:`FIFO` (which is used as a default), :class:`LIFO` and
+    a :class:`Priority` queue.
 
     You can get the list of users via the :attr:`users` attribute and
     the queue of waiting processes via :attr:`queue`. You should not
     change these, though.
 
     """
-    def __init__(self, context, capacity, queue=None):
-        self._context = context
+    def __init__(self, sim, capacity, queue=None):
+        self._context = sim.context
 
         self.capacity = capacity
         """The resource's maximum capacity."""
@@ -94,12 +106,94 @@ class Resource(object):
 
 
 class Container(object):
-    """This is something where you add and remove items. If the level is
-    empty, you can't remove any more items and are pushed to a quque ot
-    wait for more items to be inserted. The same applies if you want to
-    add items to the level.
+    """Models the production and consumption of a homogeneous,
+    undifferentiated bulk. It may either be continuous (like water) or
+    discrete (like apples).
+
+    For example, a gasoline station stores gas (petrol) in large tanks.
+    Tankers increase, and refuelled cars decrease, the amount of gas in
+    the station's storage tanks.
+
+    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
+    container is bound to.
+
+    The ``capacity`` defines the size of the container and must be
+    a positive number (> 0). By default, a container is of unlimited
+    size.  You can specify the initial level of the container via
+    ``init``. It must be >= 0 and is 0 by default. A :class:`ValueError`
+    is raised if one of these values is negative.
+
+    A container has two queues: ``put_q`` is used for processes that
+    want to put something into the container, ``get_q`` is for those
+    that want to get something out. The default for both is
+    :class:`FIFO``.
 
     """
+    def __init__(self, sim, capacity=None, init=0, put_q=None, get_q=None):
+        self._context = sim.context
+
+        if capacity <= 0:
+            raise ValueError('capacity(=%s) must be > 0.' % capacity)
+        if init < 0:
+            raise ValueError('init(=%s) must be >= 0.' % init)
+
+        self.capacity = capacity or Infinity
+        """The maximum capacity of the container. You should not change
+        its value."""
+        self._level = init
+
+        self.put_q = put_q or FIFO()
+        """The queue for processes that want to put something in. Read only."""
+        self.get_q = get_q or FIFO()
+        """The queue for processes that want to get something out. Read only.
+        """
+
+    @property
+    def level(self):
+        """The current level of the container (a number between ``0``
+        and ``capacity``). Read only.
+
+        """
+        return self._level
+
+    def put(self, amount):
+        """Put ``amount`` into the resource if possible or wait until it
+        is.
+
+        Raise a :class:`ValueError` if ``amount <= 0``.
+
+        """
+        if amount <= 0:
+            raise ValueError('amount(=%s) must be > 0.' % amount)
+
+        new_level = self._level + amount
+        if new_level <= self.capacity:
+            self._level = new_level
+            # TODO: Get process from get_q if put would be successful.
+            return self._context.hold(0)
+        else:
+            self.put_q.push(self._context.active_process)
+            return self._context.suspend()
+
+    def get(self, amount):
+        """Get ``amount`` from the container if possible or wait until
+        it is available.
+
+        Raise a :class:`ValueError` if ``amount <= 0``.
+
+        """
+        if amount <= 0:
+            raise ValueError('amount(=%s) must be > 0.' % amount)
+
+        new_level = self._level - amount
+        if new_level >= 0:
+            self._level = new_level
+            # TODO: Get process from put_q if put would be successful.
+            return self._context.hold(0)
+        else:
+            self.get_q.push(self._context.active_process)
+            return self.suspend()
+
 
 class Store(object):
     """
