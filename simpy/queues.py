@@ -27,6 +27,15 @@ class FIFO(deque):
         """Append *item* to the right side of the queue."""
         return super(FIFO, self).append(item)
 
+    def peek(self):
+        """Return, but don't remove, an element from the left side of
+        the queue.
+
+        Raise an :class:`IndexError` if no elements are present.
+
+        """
+        return self[0]
+
 
 class LIFO(deque):
     """Simple "Last In, First Out" queue.
@@ -46,6 +55,15 @@ class LIFO(deque):
     def push(self, item):
         """Append *item* to the right side of the queue."""
         return super(LIFO, self).append(item)
+
+    def peek(self):
+        """Return, but don't remove, an element from the right side of
+        the queue.
+
+        Raise an :class:`IndexError` if no elements are present.
+
+        """
+        return self[-1]
 
 
 class Priority(list):
@@ -69,3 +87,11 @@ class Priority(list):
 
         """
         heappush(self, (priority, item))
+
+    def peek(self):
+        """Return, but don't remove, the smallest element from the queue.
+
+        Raise an :class:`IndexError` if no elements are present.
+
+        """
+        return self[0]
