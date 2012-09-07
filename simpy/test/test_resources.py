@@ -50,7 +50,6 @@ def test_resource_slots(sim, log):
     ]
 
 
-@pytest.mark.xfail
 def test_container(sim, log):
     """A *container* is a resource (of optinally limited capacity) where
     you can put in our take out a discrete or continuous amount of
@@ -65,6 +64,7 @@ def test_container(sim, log):
         while True:
             yield buf.put(2)
             log.append(('p', context.now))
+            yield context.hold(1)
 
     def getter(context, buf, log):
         yield buf.get(1)
@@ -76,12 +76,12 @@ def test_container(sim, log):
 
     # All parameters are optional, default: init=0, capacity=inf,
     #                                       put_q=FIFO(), get_q=FIFO()
-    buf = simpy.Buffer(init=0, capacity=2)
+    buf = simpy.Container(sim, init=0, capacity=2)
     sim.start(putter, buf, log)
     sim.start(getter, buf, log)
     sim.simulate(until=5)
 
-    assert log == [('p', 1), ('g', 1), ('g', 2), ('p', 2)]
+    assert log == [('g', 1), ('p', 1), ('g', 2), ('p', 2)]
 
 
 @pytest.mark.xfail

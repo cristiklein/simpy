@@ -169,10 +169,25 @@ class Container(object):
         new_level = self._level + amount
         if new_level <= self.capacity:
             self._level = new_level
-            # TODO: Get process from get_q if put would be successful.
+
+            # Pop processes from the "get_q".
+            try:
+                while True:
+                    proc, amount = self.get_q.peek()
+                    if self._level >= amount:
+                        self.get_q.pop()
+                        self._level -= amount
+                        self._context.resume(proc)
+                    else:
+                        break
+            except IndexError:
+                pass
+
             return self._context.hold(0)
+
+        # Process has to wait.
         else:
-            self.put_q.push(self._context.active_process)
+            self.put_q.push((self._context.active_process, amount))
             return self._context.suspend()
 
     def get(self, amount):
@@ -185,14 +200,29 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
-        new_level = self._level - amount
-        if new_level >= 0:
-            self._level = new_level
-            # TODO: Get process from put_q if put would be successful.
+        if self._level >= amount:
+            self._level -= amount
+
+            # Pop processes from the "put_q".
+            try:
+                while True:
+                    proc, amout = self.put_q.peek()
+                    new_level = self._level + amount
+                    if new_level <= self.capacity:
+                        self.put_q.pop()
+                        self._level = new_level
+                        self._context.resume(proc)
+                    else:
+                        break
+            except IndexError:
+                pass
+
             return self._context.hold(0)
+
+        # Process has to wait.
         else:
-            self.get_q.push(self._context.active_process)
-            return self.suspend()
+            self.get_q.push((self._context.active_process, amount))
+            return self._context.suspend()
 
 
 class Store(object):
