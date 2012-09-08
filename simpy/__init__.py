@@ -3,6 +3,9 @@
 With SimPy, simulating is fun again!
 
 """
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
 from simpy.core import Simulation, Interrupt, Failure
 
 
