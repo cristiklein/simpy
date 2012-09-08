@@ -1,4 +1,4 @@
-from simpy import Interrupt, Failure
+from simpy import Process, Interrupt, Failure
 
 
 pytest_plugins = ['simpy.test.support']
@@ -391,3 +391,79 @@ def test_interrupted_join(ctx):
 def test_wait_value(ctx):
     value = yield ctx.wait(0, 'spam')
     assert value == 'spam'
+
+
+def test_interrupted_join(ctx):
+    """Joins can be interrupted."""
+    def child(ctx):
+        yield ctx.wait(5)
+
+    def interrupter(ctx, victim):
+        ctx.interrupt(victim)
+        yield ctx.exit()
+
+    child_proc = ctx.start(child)
+    ctx.start(interrupter, ctx.process)
+    try:
+        yield child_proc
+        assert False, 'Expected an interrupt'
+    except Interrupt as e:
+        pass
+
+
+def test_join_and_subscribe(ctx):
+    """Subscription to a process are ignored on joins and don't cause an
+    interrupt."""
+    def child(ctx):
+        yield ctx.wait(5)
+        ctx.exit('spam')
+
+    child_proc = ctx.start(child)
+    ctx.subscribe(child_proc)
+    result = yield child_proc
+    assert result == 'spam'
+
+
+def test_join_interrupted_subscribe(ctx):
+    """Joins can be interrupted by subscriptions."""
+    def child(ctx, duration):
+        yield ctx.wait(duration)
+
+    child1 = ctx.start(child, 1)
+    child2 = ctx.start(child, 2)
+    ctx.subscribe(child1)
+    try:
+        yield child2
+        assert False, 'Expected an interrupt'
+    except Interrupt as e:
+        assert e.cause == child1
+
+
+def test_multiple_subscriptions(ctx):
+    """Multiple subscriptions to the same process are ignored."""
+    def child(ctx, duration):
+        yield ctx.wait(duration)
+
+    child1 = ctx.start(child, 1)
+    ctx.subscribe(child1)
+    ctx.subscribe(child1)
+    ctx.subscribe(child1)
+
+    child2 = ctx.start(child, 2)
+
+    try:
+        yield child2
+        assert False, 'Expected an interrupt'
+    except Interrupt as e:
+        assert e.cause == child1
+
+    yield child2
+
+
+def test_exit_with_process(ctx):
+    def child(ctx):
+        yield ctx.exit(ctx.start(child))
+
+    result = yield ctx.start(child)
+
+    assert type(result) is Process
