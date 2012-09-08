@@ -45,7 +45,7 @@ class Failure(Exception):
 
 class Process(object):
     __slots__ = ('id', 'generator', 'name', 'next_event', 'state', 'result',
-            'joiners', 'subscribers', 'interrupts')
+            'joiners', 'interrupts')
 
     def __init__(self, id, generator):
         self.id = id
@@ -55,7 +55,6 @@ class Process(object):
         self.next_event = None
         self.result = None
         self.joiners = []
-        self.subscribers = []
         self.interrupts = []
 
     def __repr__(self):
@@ -119,7 +118,7 @@ def interrupt(sim, other, cause=None):
     if not interrupts:
         # Keep the type of the next event in order to decide how the
         # interrupt should be send into the process.
-        sim._schedule(other, other.next_event[0], None, sim.now)
+        sim._schedule(other, other.next_event[0], other.next_event[1], sim.now)
 
     interrupts.append(cause)
 
@@ -128,13 +127,15 @@ def subscribe(sim, other):
     """Interrupt this process, if the target terminates."""
     proc = sim.active_proc
 
+    if proc in other.joiners: return
+
     if other.generator is None:
         # FIXME This context switching is ugly.
         prev, sim.active_proc = sim.active_proc, other
         proc.interrupts.append(other)
         sim.active_proc = prev
     else:
-        other.subscribers.append(proc)
+        other.joiners.append(proc)
 
 
 Ignore = object()
@@ -184,7 +185,6 @@ class Simulation(object):
 
     def _join(self, proc):
         joiners = proc.joiners
-        subscribers = proc.subscribers
         interrupts = proc.interrupts
 
         proc.generator = None
@@ -195,18 +195,12 @@ class Simulation(object):
             # process to handle this crash. Something like this must certainely
             # be done, because exception should never ever be silently ignored.
             # Still, a check like this looks fishy to me.
-            if not joiners and not subscribers:
+            if not joiners:
                 raise proc.result.__cause__
 
-        if joiners:
-            for joiner in joiners:
-                if joiner.generator is None: continue
-                self._schedule(joiner, proc.state, proc.result, self.now)
-
-        if subscribers:
-            for subscriber in subscribers:
-                if subscriber.generator is None: continue
-                self.context.interrupt(subscriber, proc)
+        for joiner in joiners:
+            if joiner.generator is None: continue
+            self.context.interrupt(joiner, proc)
 
     def peek(self):
         """Return the time of the next event or ``inf`` if no more
@@ -237,13 +231,13 @@ class Simulation(object):
         interrupts = proc.interrupts
         if interrupts:
             cause = interrupts.pop(0)
-            if evt_type == Suspended:
+            if evt_type == Suspended and (value is None or value is cause):
                 # Only interrupts may trigger the continuation of a suspended
                 # process. The cause of the interrupt is directly send (or
                 # thrown in case of an exception) into the process.  Using an
                 # Interrupt exception would be redundant.
-                value = cause
-                evt_type = not isinstance(cause, BaseException)
+                value = cause if value is None else cause.result
+                evt_type = not isinstance(value, BaseException)
             else:
                 # In all other cases an interrupt exception is thrown into the
                 # process.
@@ -293,12 +287,13 @@ class Simulation(object):
                 # None this stub event is used. It will never be executed
                 # because it isn't scheduled. This is necessary for
                 # interrupt handling.
-                proc.next_event = (Success, None)
+                proc.next_event = (Suspended, target)
                 target.joiners.append(proc)
 
         # Schedule concurrent interrupts.
         if interrupts:
-            self._schedule(proc, proc.next_event[0], None, self.now)
+            self._schedule(proc, proc.next_event[0], proc.next_event[1],
+                    self.now)
 
         self.active_proc = None
 
