@@ -44,7 +44,7 @@ class Process(object):
     interruptions.
 
     """
-    __slots__ = ('pid', 'name', 'result', 'is_alive', '_peg', '_alive',
+    __slots__ = ('pid', 'name', 'result', '_peg', '_alive',
                  '_next_event', '_joiners', '_observers', '_interrupts')
 
     def __init__(self, pid, peg):
