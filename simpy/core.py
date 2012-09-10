@@ -106,7 +106,8 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-def hold(sim, delta_t=Infinity):
+# TODO: Update docstring and test.
+def hold(sim, delta_t=Infinity, value=None):
     """Schedule a new event in ``delta_t`` time units.
 
     If ``delta_t`` is omitted, schedule an event at *infinity*. This is
@@ -122,7 +123,8 @@ def hold(sim, delta_t=Infinity):
     if delta_t < 0:
         raise ValueError('delta_t=%s must be >= 0.' % delta_t)
 
-    sim._schedule(sim._active_proc, EVT_RESUME, at=(sim._now + delta_t))
+    sim._schedule(sim._active_proc, EVT_RESUME, value=value,
+                  at=(sim._now + delta_t))
 
     return Event
 
@@ -171,7 +173,8 @@ def suspend(sim):
     return Event
 
 
-def resume(sim, other):
+# TODO: Update docstring and test
+def resume(sim, other, value=None):
     """Resume the suspended process ``other``.
 
     Raise a :class:`RuntimeError` if ``other`` is not suspended.
@@ -181,7 +184,7 @@ def resume(sim, other):
         raise RuntimeError('%s is not suspended.' % other)
 
     other._next_event = None
-    sim._schedule(other, EVT_RESUME)
+    sim._schedule(other, EVT_RESUME, value=value)
 
 
 def interrupt_on(sim, other):
