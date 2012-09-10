@@ -45,7 +45,12 @@ def test_queues(Queue, seq):
 
     for action, item in seq:
         if item is IndexError:
-            pytest.raises(IndexError, q.pop)
+            try:
+                q.pop()
+                pytest.fail('Onoes')
+            except IndexError:
+                pass
+            # pytest.raises(IndexError, q.pop)
 
         elif action is IN:
             if isinstance(q, Priority):

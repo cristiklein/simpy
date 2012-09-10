@@ -66,27 +66,33 @@ class LIFO(deque):
         return self[-1]
 
 
-class Priority(list):
+class Priority(object):
     """Simple priority queue.
 
     It's based on a heap queue (:mod:`heapq`); :meth:`pop` removes the
     smallest item, :meth:`push` always maintains the heap properties.
 
     """
+    def __init__(self):
+        self._heap = []
+
+    def __len__(self):
+        return len(self._heap)
+
     def pop(self):
         """Remove and return the smallest element from the queue.
 
         Raise an :class:`IndexError` if no elements are present.
 
         """
-        return heappop(self)[1]
+        return heappop(self._heap)[1]
 
     def push(self, item, priority):
         """Push *item* with *priority* onto the heap, maintain the heap
         invariant.
 
         """
-        heappush(self, (priority, item))
+        heappush(self._heap, (priority, item))
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
@@ -94,4 +100,4 @@ class Priority(list):
         Raise an :class:`IndexError` if no elements are present.
 
         """
-        return self[0]
+        return self._heap[0]
