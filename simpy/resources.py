@@ -129,7 +129,7 @@ class Container(object):
     :class:`FIFO``.
 
     """
-    def __init__(self, sim, capacity=None, init=0, put_q=None, get_q=None):
+    def __init__(self, sim, capacity=Infinity, init=0, put_q=None, get_q=None):
         self._context = sim.context
 
         if capacity <= 0:
@@ -137,7 +137,7 @@ class Container(object):
         if init < 0:
             raise ValueError('init(=%s) must be >= 0.' % init)
 
-        self.capacity = capacity or Infinity
+        self.capacity = capacity
         """The maximum capacity of the container. You should not change
         its value."""
         self._level = init
@@ -157,8 +157,8 @@ class Container(object):
         return self._level
 
     def put(self, amount):
-        """Put ``amount`` into the resource if possible or wait until it
-        is.
+        """Put ``amount`` into the Container if possible or wait until
+        it is.
 
         Raise a :class:`ValueError` if ``amount <= 0``.
 
@@ -171,17 +171,14 @@ class Container(object):
             self._level = new_level
 
             # Pop processes from the "get_q".
-            try:
-                while True:
-                    proc, amount = self.get_q.peek()
-                    if self._level >= amount:
-                        self.get_q.pop()
-                        self._level -= amount
-                        self._context.resume(proc)
-                    else:
-                        break
-            except IndexError:
-                pass
+            while len(self.get_q):
+                proc, amount = self.get_q.peek()
+                if self._level >= amount:
+                    self.get_q.pop()
+                    self._level -= amount
+                    self._context.resume(proc)
+                else:
+                    break
 
             return self._context.hold(0)
 
@@ -204,18 +201,15 @@ class Container(object):
             self._level -= amount
 
             # Pop processes from the "put_q".
-            try:
-                while True:
-                    proc, amout = self.put_q.peek()
-                    new_level = self._level + amount
-                    if new_level <= self.capacity:
-                        self.put_q.pop()
-                        self._level = new_level
-                        self._context.resume(proc)
-                    else:
-                        break
-            except IndexError:
-                pass
+            while len(self.put_q):
+                proc, amout = self.put_q.peek()
+                new_level = self._level + amount
+                if new_level <= self.capacity:
+                    self.put_q.pop()
+                    self._level = new_level
+                    self._context.resume(proc)
+                else:
+                    break
 
             return self._context.hold(0)
 
@@ -226,6 +220,85 @@ class Container(object):
 
 
 class Store(object):
-    """
+    """Models the production and consumption of concrete Python objects.
+
+    The type of items you can put into or get from the store is not
+    defined. You can use normal Python objects, Simpy processes or
+    other resources. You can even mix them as you want.
+
+    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
+    container is bound to.
+
+    The ``capacity`` defines the size of the Store and must be
+    a positive number (> 0). By default, a Store is of unlimited size.
+    A :class:`ValueError` is raised if the value is negative.
+
+    A container has three queues: ``put_q`` is used for processes that
+    want to put something into the Store, ``get_q`` is for those that
+    want to get something out. The ``item_q`` is used to store and
+    retrieve the actual items. The default for all of them is
+    :class:`FIFO``.
 
     """
+    def __init__(self, sim, capacity=Infinity, put_q=None, get_q=None,
+                 item_q=None):
+        self._context = sim.context
+
+        if capacity <= 0:
+            raise ValueError('capacity(=%s) must be > 0.' % capacity)
+
+        self.capacity = capacity
+        """The maximum capacity of the Store. You should not change its
+        value."""
+
+        self.put_q = put_q or FIFO()
+        """The queue for processes that want to put something in. Read only."""
+        self.get_q = get_q or FIFO()
+        """The queue for processes that want to get something out. Read only.
+        """
+        self.item_q = item_q or FIFO()
+        """The queue that stores the items of the store. Read only."""
+
+    @property
+    def count(self):
+        """The number of items in the Store (a number between ``0`` and
+        ``capacity``). Read only.
+
+        """
+        return len(self.item_q)
+
+    def put(self, item):
+        """Put ``item`` into the Store if possible or wait until it is."""
+        if len(self.item_q) < self.capacity:
+            self.item_q.push(item)
+
+            # Pop processes from the "get_q".
+            while len(self.get_q) and len(self.item_q):
+                proc = self.get_q.pop()
+                get_item = self.item_q.pop()
+                self._context.resume(proc, get_item)
+
+            return self._context.hold(0)
+
+        # Process has to wait.
+        else:
+            self.put_q.push((self._context.active_process, item))
+            return self._context.suspend()
+
+    def get(self):
+        """Get an item from the Store or wait until one is available."""
+        if len(self.item_q):
+            item = self.item_q.pop()
+
+            # Pop processes from the "push_q"
+            while len(self.put_q) and (len(self.item_q) < self.capacity):
+                proc, put_item = self.put_q.pop()
+                self.item_q.push(put_item)
+                self._context.resume(proc)
+
+            return self._context.hold(0, item)
+
+        # Process has to wait
+        else:
+            self.get_q.push(self._context.active_process)
+            return self._context.suspend()

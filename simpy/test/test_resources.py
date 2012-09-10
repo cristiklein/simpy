@@ -4,8 +4,6 @@ Theses test cases demonstrate the API for shared resources.
 
 """
 # Pytest gets the parameters "sim" and "log" from the *conftest.py* file
-import pytest
-
 import simpy
 
 
@@ -84,27 +82,26 @@ def test_container(sim, log):
     assert log == [('g', 1), ('p', 1), ('g', 2), ('p', 2)]
 
 
-@pytest.mark.xfail
 def test_store(sim):
-    """A store offers items of various types (e.g., apples and pears).
-    You put concrete objects into a store and will get a concrete object
-    (in contrast to buffers, where you only now if the *put* or *get*
-    operations were successfull but don’t get concrete objects).
+    """A store models the production and consumption of concrete python
+    objects (in contrast to containers, where you only now if the *put*
+    or *get* operations were successfull but don’t get concrete
+    objects).
 
     """
     def putter(context, store, item):
         yield store.put(item)
 
-    def getter(context, store, itype, orig_item):
-        item = yield store.get(itype)
+    def getter(context, store, orig_item):
+        item = yield store.get()
         assert item is orig_item
 
     # All parameters are optinal, default: capacity=inf, put_q=FIFO(),
-    #                                      get_q=FIFO()
-    store = simpy.Store(capacity=2)
+    #                                      get_q=FIFO(), item_q=FIFO()
+    store = simpy.Store(sim, capacity=2)
     item = object()
 
     # NOTE: Does the start order matter? Need to test this.
     sim.start(putter, store, item)
-    sim.start(getter, store, object, item)
+    sim.start(getter, store, item)
     sim.simulate()

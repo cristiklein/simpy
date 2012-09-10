@@ -11,7 +11,7 @@ from heapq import heappop, heappush
 class FIFO(deque):
     """Simple "First In, First Out" queue.
 
-    It’s based on :class:`deque`; :meth:`pop` removes from the left
+    It's based on :class:`deque`; :meth:`pop` removes from the left
     side, :meth:`push` appends to the right side.
 
     """
@@ -40,7 +40,7 @@ class FIFO(deque):
 class LIFO(deque):
     """Simple "Last In, First Out" queue.
 
-    It’s based on :class:`deque`; :meth:`pop` removes from the right
+    It's based on :class:`deque`; :meth:`pop` removes from the right
     side, :meth:`push` appends to the right side.
 
     """
@@ -69,7 +69,7 @@ class LIFO(deque):
 class Priority(list):
     """Simple priority queue.
 
-    It’s based on a heap queue (:mod:`heapq`); :meth:`pop` removes the
+    It's based on a heap queue (:mod:`heapq`); :meth:`pop` removes the
     smallest item, :meth:`push` always maintains the heap properties.
 
     """
