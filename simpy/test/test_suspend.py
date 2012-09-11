@@ -73,3 +73,24 @@ def test_immediate_resume(sim, log):
     sim.simulate()
 
     assert log == [0]
+
+
+def test_resume_value(sim):
+    """You can pass an additional *value* to *resume* which will be
+    yielded back into the PEM of the resumed process. This is useful to
+    implement some kinds of resources or other additions.
+
+    See :class:`simpy.resources.Store` for an example.
+
+    """
+    def child(context, expected):
+        value = yield context.suspend()
+        assert value == expected
+
+    def parent(context, value):
+        child_proc = context.start(child, value)
+        yield context.hold(1)
+        context.resume(child_proc, value)
+
+    sim.start(parent, 'ohai')
+    sim.simulate()

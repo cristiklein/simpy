@@ -146,3 +146,19 @@ def test_get_process_state(sim):
 def test_simulate_negative_until(sim):
     """TEst passing a negative time to simulate."""
     pytest.raises(ValueError, sim.simulate, -3)
+
+
+def test_hold_value(sim):
+    """You can pass an additional *value* to *hold* which will be
+    directly yielded back into the PEM. This is useful to implement some
+    kinds of resources or other additions.
+
+    See :class:`simpy.resources.Store` for an example.
+
+    """
+    def pem(context):
+        val = yield context.hold(1, 'ohai')
+        assert val == 'ohai'
+
+    sim.start(pem)
+    sim.simulate()
