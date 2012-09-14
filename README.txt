@@ -1,15 +1,14 @@
 SimPy
 =====
 
-SimPy is a process-based discrete-event simulation language based on standard
+SimPy is a process-based discrete-event simulation framework based on standard
 Python and released under the GNU LGPL.
 
 It provides the modeller with components of a simulation model. These include
 processes for active components like customers, messages and vehicles as well
 as  resources for passive components that form limited capacity congestion
 points (like servers, checkout counters and tunnels). It also provides monitor
-variables to aid in gathering statistics. SimPy comes with extensive plotting
-capabilities.
+variables to aid in gathering statistics.
 
 The distribution contains in-depth documentation, tutorials, and a large number
 of simulation models.
@@ -20,14 +19,15 @@ mailing list: http://lists.sourceforge.net/lists/listinfo/simpy-users
 
 Software developers are also encouraged to interface SimPy with other Python-
 accessible packages, such as GUI, database or mapping and to share these new
-capabilities with the community under the GNU LGPL.
+capabilities with the community.
 
 
 A Simple Example
 ----------------
 
-This is the simplest possible for a Simpy simulation. A *clock* process prints
-the current simulation time each step::
+One of SimPy's main goals is to be easy to use. Here is an example for a simple
+SimPy simulation: a *clock* process that prints the current simulation time at
+each step::
 
     >>> import simpy
     >>>
@@ -37,7 +37,8 @@ the current simulation time each step::
     ...         yield context.hold(1)
     ...
     >>> sim = simpy.Simulation()
-    >>> sim.activate(clock)
+    >>> sim.start(clock)
+    Process(0, clock)
     >>> sim.simulate(3)
     0
     1
