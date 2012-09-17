@@ -22,11 +22,13 @@ Contents:
 .. toctree::
    :maxdepth: 1
 
-   simpy_intro
-   topical_guides
-   examples
-   api_reference
-   about
+   api_reference/index
+
+..   simpy_intro
+..   topical_guides
+..   examples
+..   api_reference
+..   about
 
 
 Indices and tables

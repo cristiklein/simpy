@@ -10,7 +10,9 @@ components.
 .. toctree::
 
     simpy
-    simpy.core
-    simpy.monitoring
-    simpy.resources
-    simpy.util
+
+
+.. simpy.core
+.. simpy.monitoring
+.. simpy.resources
+.. simpy.util
