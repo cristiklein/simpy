@@ -1,0 +1,39 @@
+==========================================
+``simpy.core`` --- SimPy's Core Components
+==========================================
+
+
+.. automodule:: simpy.core
+
+.. autoclass:: Simulation
+
+   .. attribute:: context
+
+      The simulations's :class:`Context` instance.
+
+   .. autoattribute:: now
+   .. automethod:: peek
+   .. automethod:: step
+   .. automethod:: simulate
+   .. autofunction:: start(pem, *args, **kwargs)
+
+
+.. autoclass:: Context
+
+   .. autoattribute:: now
+   .. autoattribute:: active_process
+   .. autofunction:: start(pem, *args, **kwargs)
+   .. autofunction:: exit(result=None)
+   .. autofunction:: hold(delta_t=inf, value=None)
+   .. autofunction:: interrupt(other, cause=None)
+   .. autofunction:: suspend()
+   .. autofunction:: resume(other, value=None)
+   .. autofunction:: interrupt_on(other)
+
+
+.. autoclass:: Process
+   :members: pid, name, result, is_alive
+
+
+.. autoclass:: Interrupt
+   :members: cause

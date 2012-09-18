@@ -14,7 +14,7 @@ from simpy.core import Interrupt
 def at(t):
     """Return a helper PEM to start another PEM at time ``t``.
 
-    :meth:`~simpy.Simulation.start` starts a PEM at the current
+    :meth:`~simpy.core.Simulation.start` starts a PEM at the current
     simulation time. This helper allows you to start a PEM at a defined
     point in the future.
 
@@ -47,7 +47,7 @@ def at(t):
 def delayed(dt):
     """Return a helper PEM to start another PEM after a delay of ``dt``.
 
-    :meth:`~simpy.Simulation.start` starts a PEM at the current
+    :meth:`~simpy.core.Simulation.start` starts a PEM at the current
     simulation time. This helper allows you to start a PEM after a delay
     of ``dt`` simulation time units.
 
