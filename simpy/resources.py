@@ -30,16 +30,17 @@ class Resource(object):
     that can be used by refueling vehicles. If all fuel pumps are
     occupied, incoming vehicles have to wait until one gets free.
 
-    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
-    resource is bound to.
+    The ``sim`` parameter is the :class:`~simpy.core.Simulation`
+    instance the resource is bound to.
 
     The ``capacity`` defines the number of slots and must be a positive
     integer.
 
     The ``queue`` must provide a ``pop()`` method to get one item from
     it and a ``push(item)`` method to append an item. SimPy comes with
-    a :class:`FIFO` (which is used as a default), :class:`LIFO` and
-    a :class:`Priority` queue.
+    a :class:`~simpy.queues.FIFO` (which is used as a default),
+    :class:`~simpy.queues.LIFO` and a :class:`~simpy.queues.Priority`
+    queue.
 
     You can get the list of users via the :attr:`users` attribute and
     the queue of waiting processes via :attr:`queue`. You should not
@@ -114,8 +115,8 @@ class Container(object):
     Tankers increase, and refuelled cars decrease, the amount of gas in
     the station's storage tanks.
 
-    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
-    container is bound to.
+    The ``sim`` parameter is the :class:`~simpy.core.Simulation`
+    instance the container is bound to.
 
     The ``capacity`` defines the size of the container and must be
     a positive number (> 0). By default, a container is of unlimited
@@ -126,7 +127,7 @@ class Container(object):
     A container has two queues: ``put_q`` is used for processes that
     want to put something into the container, ``get_q`` is for those
     that want to get something out. The default for both is
-    :class:`FIFO``.
+    :class:`~simpy.queues.FIFO`.
 
     """
     def __init__(self, sim, capacity=Infinity, init=0, put_q=None, get_q=None):
@@ -226,8 +227,8 @@ class Store(object):
     defined. You can use normal Python objects, Simpy processes or
     other resources. You can even mix them as you want.
 
-    The ``sim`` parameter is the :class:`simpy.Simulation` instance the
-    container is bound to.
+    The ``sim`` parameter is the :class:`~simpy.core.Simulation`
+    instance the container is bound to.
 
     The ``capacity`` defines the size of the Store and must be
     a positive number (> 0). By default, a Store is of unlimited size.
@@ -237,7 +238,7 @@ class Store(object):
     want to put something into the Store, ``get_q`` is for those that
     want to get something out. The ``item_q`` is used to store and
     retrieve the actual items. The default for all of them is
-    :class:`FIFO``.
+    :class:`~simpy.queues.FIFO`.
 
     """
     def __init__(self, sim, capacity=Infinity, put_q=None, get_q=None,

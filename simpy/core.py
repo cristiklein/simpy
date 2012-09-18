@@ -1,3 +1,25 @@
+"""
+This module contains the implementation of SimPy's core classes. Not
+all of them are intended for direct use and are thus not importable
+directly via ``from simpy import ...``.
+
+* :class:`~simpy.core.Simulation`: SimPy's central class that starts
+  the processes and performs the simulation.
+
+* :class:`~simpy.core.Interrupt`: This exception is thrown into
+  a process if it gets interrupted by another one.
+
+The following classes should not be imported directly:
+
+* :class:`~simpy.core.Context`: An instance of that class is created by
+  :class:`~simpy.core.Simulation` and passed to every PEM that is
+  started.
+
+* :class:`~simpy.core.Process`: An instance of that class is returned by
+  :meth:`simpy.core.Simulation.start` and
+  :meth:`simpy.core.Context.start`.
+
+"""
 from heapq import heappush, heappop
 from inspect import isgeneratorfunction
 from itertools import count
@@ -22,7 +44,10 @@ Event = object()
 
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
-    another process.
+    another process (see :func:`Context.interrupt()`).
+
+    ``cause`` may be none of no cause was explicitly passed to
+    :func:`Context.interrupt()`.
 
     """
     def __init__(self, cause):
@@ -30,18 +55,21 @@ class Interrupt(Exception):
 
     @property
     def cause(self):
+        """Property that returns the cause of an interrupt or ``None``
+        if no cause was passed."""
         return self.args[0]
 
 
 class Process(object):
     """A *Process* is a wrapper for instantiated PEMs.
 
-    A Processes needs a unique process ID (*pid*) and a process event
-    generator (*peg* -- the generator that the PEM returns).
+    A Processes has a unique process ID (``pid``) and a process event
+    generator (``peg`` -- the generator that the PEM returns). It also
+    contains internal and external status information. It is also used
+    for process interaction, e.g., for interruptions.
 
-    The *Process* class contains internal and external status
-    information. It is also used for process interaction, e.g., for
-    interruptions.
+    An instance of this class is returned by :func:`Context.start()`
+    and :func:`Simulation.start()`.
 
     """
     __slots__ = ('pid', 'name', 'result', '_peg', '_alive',
@@ -78,10 +106,10 @@ class Process(object):
 def start(sim, pem, *args, **kwargs):
     """Start a new process for ``pem``.
 
-    Pass *simulation context* and, optionally, ``*args`` and
+    Pass the simulation :class:`Context` and, optionally, ``*args`` and
     ``**kwargs`` to the PEM.
 
-    If ``pem`` is not a generator function, raise a :class`ValueError`.
+    Raise a :exc:`ValueError` if ``pem`` is not a generator function.
 
     """
     if not isgeneratorfunction(pem):
@@ -106,7 +134,6 @@ def exit(sim, result=None):
     raise StopIteration()
 
 
-# TODO: Update docstring and test.
 def hold(sim, delta_t=Infinity, value=None):
     """Schedule a new event in ``delta_t`` time units.
 
@@ -114,10 +141,15 @@ def hold(sim, delta_t=Infinity, value=None):
     a week suspend. A process holding until *infinity* can only become
     active again if it gets interrupted.
 
-    Raise a :class:`ValueError` if ``delta_t < 0``.
+    Raise a :exc:`ValueError` if ``delta_t < 0``.
 
-    Raise a :class:`RuntimeError` if this (or another event-generating)
-    method was previously called without yielding its result.
+    You can optionally pass a ``value`` which will be sent back to the
+    PEM when it continues. This might be helpful to e.g. implement
+    resources (:class:`simpy.resources.Store` uses this feature).
+
+    The result of that method must be ``yield``\ ed. Raise
+    a :exc:`RuntimeError` if this (or another event-generating) method
+    was previously called without yielding its result.
 
     """
     if delta_t < 0:
@@ -134,7 +166,7 @@ def interrupt(sim, other, cause=None):
 
     Another process cannot be interrupted if it is suspend (and has no
     event scheduled) or if it was just initialized and could not issue
-    a *hold* yet. Raise a :class:`RuntimeError` in both cases.
+    a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
 
     """
     if not other._next_event:
@@ -162,10 +194,11 @@ def suspend(sim):
     """Suspend the current process by deleting all future events.
 
     A suspended process needs to be resumed (see
-    :class:`Context.resume`) by another process to get active again.
+    :class:`Context.resume()`) by another process to get active again.
 
-    Raise a :class:`RuntimeError` if the process has already an event
-    scheduled.
+    As with :func:`~Context.hold()`, the result of that method must be
+    ``yield``\ ed. Raise a :exc:`RuntimeError` if the process has
+    already an event scheduled.
 
     """
     sim._schedule(sim._active_proc, EVT_SUSPEND)
@@ -173,11 +206,15 @@ def suspend(sim):
     return Event
 
 
-# TODO: Update docstring and test
 def resume(sim, other, value=None):
     """Resume the suspended process ``other``.
 
-    Raise a :class:`RuntimeError` if ``other`` is not suspended.
+    You can optionally pass a ``value`` which will be sent to the
+    resumed PEM when it continues. This might be helpful to e.g.
+    implement resources (:class:`simpy.resources.Store` uses this
+    feature).
+
+    Raise a :exc:`RuntimeError` if ``other`` is not suspended.
 
     """
     if other._next_event[0] is not EVT_SUSPEND:
@@ -214,25 +251,26 @@ class Context(object):
 
     @property
     def active_process(self):
-        """Return the currently active process."""
+        """Property that returns the currently active process."""
         return self._sim._active_proc
 
     @property
     def now(self):
-        """Return the current simulation time."""
+        """Property that returns the current simulation time."""
         return self._sim._now
 
 
 class Simulation(object):
     """This is SimPy's central class and actually performs a simulation.
 
-    It manages the processes' _events and coordinates their execution.
+    It manages the processes' events and coordinates their execution.
 
     Processes interact with the simulation via a simulation
     :class:`Context` object that is passed to every process when it is
     started.
 
     """
+    """"""
     # The following functions are all bound to a Simulation instance and
     # are later set as attributes to the Context and Simulation
     # instances.
@@ -242,7 +280,7 @@ class Simulation(object):
     # clean.
     context_funcs = (start, exit, hold, interrupt, suspend, resume,
                      interrupt_on)
-    simulation_funcs = (start, interrupt, resume)
+    simulation_funcs = (start,)
 
     def __init__(self):
         self._events = []
@@ -252,7 +290,6 @@ class Simulation(object):
         self._active_proc = None
         self._now = 0
 
-        # Instantiate the context and bind it to the simulation.
         self.context = Context(self)
 
         # Attach context function and bind them to the simulation.
@@ -266,7 +303,7 @@ class Simulation(object):
 
     @property
     def now(self):
-        """Return the current simulation time."""
+        """Property that returns the current simulation time."""
         return self._now
 
     def peek(self):
@@ -291,7 +328,7 @@ class Simulation(object):
     def step(self):
         """Get and process the next event.
 
-        Raise an :class:`IndexError` if no valid event is on the heap.
+        Raise an :exc:`IndexError` if no valid event is on the heap.
 
         """
         if self._active_proc:
@@ -355,7 +392,14 @@ class Simulation(object):
         self._active_proc = None
 
     def simulate(self, until=Infinity):
-        """Shortcut for ``while sim.peek() < until: sim.step()``."""
+        """Shortcut for ``while sim.peek() < until: sim.step()``.
+
+        The parameter ``until`` specifies when the simulation ends.
+        By default it is set to *infinity*, which means SimPy tries to
+        simulate all events, which might take infinite time if your
+        processes don't terminate on their own.
+
+        """
         if until <= 0:
             raise ValueError('until(=%s) should be a number > 0.' % until)
 
@@ -374,7 +418,7 @@ class Simulation(object):
         The event will be scheduled at the simulation time ``at`` or at
         the current time if no value is provided.
 
-        Raise a :class:`RuntimeError` if ``proc`` already has an event
+        Raise a :exc:`RuntimeError` if ``proc`` already has an event
         scheduled.
 
         """
