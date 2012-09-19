@@ -2,3 +2,93 @@
 Defense of Design
 =================
 
+Changes in SimPy 3
+==================
+
+One of the major design goals for SimPy 3 was provide a modular core, which
+provides basic building blocks for complex entities. This goal was not
+achievable by remaining compatible to SimPy 2, which means that code written
+for SimPy 2 will not run with SimPy 3.
+
+This guide shows the major differences between SimPy 3 and SimPy 2 and tries to
+explain the reason behind each change.
+
+Processes and Contexts
+----------------------
+
+The basic entity in an event-based discrete simulation framework is a process.
+A process describes a temporal sequence of actions.
+
+In SimPy 2 a process was implemented in a subclass of ``Process``. The instance
+of such a subclass carried a lot of simulation internal information, which
+wasn't of any use to the process itself. The sequence of actions of the process
+was specified in a method of the subclass, called the `process execution
+method` (or PEM in short).
+
+Because of this, it was necessary to first instantiate the subclass before the
+PEM could be started. The following code fragment shows how a simple process
+had to be instantiated in SimPy 2:
+
+.. code-block:: python
+
+    from SimPy import Simulation, Process, hold
+
+    class MyProcess(Process):
+        def pem(self, repeat):
+            for i in range(repeat):
+                yield hold, self, 1
+
+    sim = Simulation()
+    proc = MyProcess(sim=sim)
+    sim.activate(proc, proc.pem(3))
+    sim.simulate(until=10)
+
+There is a lot of boilerplate code in this fragment. The sequence of actions is
+specified in the three lines of the ``pem`` method. Furthermore, each action
+was defined in a separate keyword (in this example ``hold``). Each of these
+keywords had to be imported, thereby increasing the amount of boilerplate.
+
+In SimPy 3 reduces the boilerplate code by focusing on the important part of an
+event-based discrete simulation: the PEM. It is now possible to use any
+function as a PEM, which obsoletes the ``Process`` class and simplifies the
+process instantiation. Furthermore, we introduced a ``Context`` object which
+contains all possible actions a process may execute. This obsoletes the need to
+import separate keywords for each action. The following fragment shows an
+identical example in SimPy 3:
+
+.. code-block:: python
+
+    from SimPy import Simulation
+
+    def pem(ctx, repeat):
+        for i in range(repeat):
+            yield ctx.hold(1)
+
+    sim = Simulation()
+    sim.start(pem, repeat)
+    sim.simulate(until=10)
+
+As you can see, the amount of boilerplate code has been greatly reduced. Lets
+look at the changes individually:
+
+* Only ``Simulation`` needs to be imported from SimPy.
+
+* No sub-classing is required. PEMs can be simple functions.
+
+* To execute actions, a ``Context`` object is passed into the PEM.
+
+* ``activate`` was renamed to ``start``.
+
+Probably the biggest change is the way process are started. Instead of calling
+the PEM directly as in SimPy 2, you must now tell SimPy how to start the
+process for you. This is allows the ``Simulation`` to pass the ``Context``
+object into your PEM for your convenience.
+
+.. note::
+
+    Furthermore it illustrates that processes are only scheduled to start. This
+    is a technical detail of the generator function used for PEMs.
+    In fact if you call a generator function, not a single statement of the
+    function is executed. Instead a generator is returned, which can be used to
+    step to each yield statement of the generator function. Because of this
+    there is no difference in starting a process between SimPy 2 and 3.
