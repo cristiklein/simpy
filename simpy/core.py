@@ -110,12 +110,13 @@ def suspend(sim):
 
 
 def interrupt(sim, other, cause=None):
-    if other.next_event[0] == Init:
-        raise RuntimeError('Process %s is not initialized' % other)
+    if other.generator is None:
+        # Interrupts on dead process have no effect.
+        return
 
     interrupts = other.interrupts
     # Reschedule the current event, if this is the first interrupt.
-    if not interrupts:
+    if not interrupts and other.next_event[0] != Init:
         # Keep the type of the next event in order to decide how the
         # interrupt should be send into the process.
         sim._schedule(other, other.next_event[0], other.next_event[1], sim.now)

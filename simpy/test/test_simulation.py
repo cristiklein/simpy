@@ -173,22 +173,6 @@ def test_illegal_suspend(sim):
         assert exc.args[0].startswith('Next event already scheduled')
 
 
-def test_illegal_interrupt(sim):
-    def root(ctx):
-        def child(ctx):
-            yield ctx.suspend()
-
-        child = ctx.start(child)
-        try:
-            ctx.interrupt(child)
-        except RuntimeError as exc:
-            assert exc.args[0] == 'Process child is not initialized'
-        yield ctx.suspend()
-
-    sim.start(root)
-    sim.simulate(20)
-
-
 def test_illegal_wait_followed_by_join(sim):
     def root(ctx):
         def child(ctx):
@@ -215,28 +199,6 @@ def test_invalid_schedule(sim):
         assert False, 'Expected an exception.'
     except RuntimeError as exc:
         assert exc.args[0] == 'Invalid yield value "this will not work"'
-
-
-def test_interrupt_before_start(sim):
-    """A process must be started before any there can be any interaction.
-
-    As a consequence you can't interrupt a just started process as
-    shown in this test. See :func:`test_immediate_resume` for the correct way
-    to immediately interrupt a started process.
-    """
-    def root(ctx):
-        def child(ctx):
-            yield ctx.wait(1)
-
-        c = ctx.start(child)
-        ctx.interrupt(c)
-
-    try:
-        sim.start(root)
-        sim.simulate(20)
-        assert False, 'This must fail'
-    except RuntimeError as exc:
-        assert exc.args[0] == 'Process child is not initialized'
 
 
 def test_immediate_interrupt(sim, log):
