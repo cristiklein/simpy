@@ -12,10 +12,10 @@
       The simulations's :class:`Context` instance.
 
    .. autoattribute:: now
+   .. automethod:: start
    .. automethod:: peek
    .. automethod:: step
    .. automethod:: simulate
-   .. autofunction:: start(pem, *args, **kwargs)
 
 
 .. autoclass:: Context
