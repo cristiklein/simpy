@@ -10,29 +10,28 @@ import pytest
 # from simpy.util import at, delayed
 
 
-def test_discrete_time_steps(sim, log):
+def test_discrete_time_steps(ctx):
     """Simple simulation with discrete time steps."""
-    def pem(context, log):
+    def pem(ctx, log):
         while True:
-            log.append(context.now)
-            yield context.wait(1)
+            log.append(ctx.now)
+            yield ctx.wait(1)
 
-    sim.start(pem, log)
-    sim.simulate(until=3)
-
+    log = []
+    ctx.start(pem(ctx, log))
+    yield ctx.wait(3)
     assert log == [0, 1, 2]
 
 
-def test_stop_self(sim, log):
+def test_stop_self(ctx):
     """Process stops itself."""
-    def pem(context, log):
-        while context.now < 2:
-            log.append(context.now)
-            yield context.wait(1)
+    def pem(ctx, log):
+        while ctx.now < 2:
+            log.append(ctx.now)
+            yield ctx.wait(1)
 
-    sim.start(pem, log)
-    sim.simulate(10)
-
+    log = []
+    yield ctx.start(pem(ctx, log))
     assert log == [0, 1]
 
 
@@ -42,9 +41,9 @@ def test_start_delayed(sim):
     there is a helper that lets you delay the start of a process.
 
     """
-    def pem(context):
-        assert context.now == 5
-        yield context.wait(1)
+    def pem(ctx):
+        assert ctx.now == 5
+        yield ctx.wait(1)
 
     sim.start(delayed(delta_t=5), pem)
     sim.simulate()
@@ -57,9 +56,9 @@ def test_start_at(sim):
     in future.
 
     """
-    def pem(context):
-        assert context.now == 5
-        yield context.wait(1)
+    def pem(ctx):
+        assert ctx.now == 5
+        yield ctx.wait(1)
 
     sim.start(at(t=5), pem)
     sim.simulate()
@@ -68,7 +67,7 @@ def test_start_at(sim):
 @pytest.mark.xfail
 def test_yield_none_forbidden(sim):
     """A process may not yield ``None``."""
-    def pem(context):
+    def pem(ctx):
         yield
 
     sim.start(pem)

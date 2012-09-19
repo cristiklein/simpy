@@ -2,7 +2,7 @@ import inspect
 
 import _pytest.python
 
-from simpy.core import Simulation, Infinity
+from simpy.core import Context, Infinity, step, peek
 
 
 def pytest_pycollect_makeitem(collector, name, obj):
@@ -18,23 +18,17 @@ def pytest_pyfunc_call(pyfuncitem):
     funcargs = pyfuncitem.funcargs
     if 'ctx' not in funcargs: return
 
-    # The context object is just a place holder and will be correctly set by
-    # the simulation.start().
-    del funcargs['ctx']
-
-    simulation = Simulation()
+    ctx = funcargs['ctx']
 
     if inspect.isgeneratorfunction(testfunction):
-        process = simulation.start(testfunction, **funcargs)
+        process = ctx.start(testfunction(**funcargs))
 
-        while process.generator is not None and simulation.peek() != Infinity:
-            simulation.step()
+        while process.generator is not None and peek(ctx) != Infinity:
+            step(ctx)
     else:
         testfunction(**funcargs)
 
     return True
 
 def pytest_funcarg__ctx(request):
-    # This is a no-op. The context will be set later by the simulation (see
-    # pytest_pyfunc_call).
-    return None
+    return Context()
