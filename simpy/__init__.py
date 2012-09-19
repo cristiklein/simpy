@@ -18,7 +18,6 @@ The following classes should not be imported directly:
   started.
 
 * :class:`~simpy.core.Process`: An instance of that class is returned by
-  :meth:`simpy.core.Simulation.start` and
   :meth:`simpy.core.Context.start`.
 
 

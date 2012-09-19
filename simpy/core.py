@@ -16,7 +16,6 @@ The following classes should not be imported directly:
   started.
 
 * :class:`~simpy.core.Process`: An instance of that class is returned by
-  :meth:`simpy.core.Simulation.start` and
   :meth:`simpy.core.Context.start`.
 
 """
@@ -68,8 +67,7 @@ class Process(object):
     contains internal and external status information. It is also used
     for process interaction, e.g., for interruptions.
 
-    An instance of this class is returned by :func:`Context.start()`
-    and :func:`Simulation.start()`.
+    An instance of this class is returned by :func:`Context.start()`.
 
     """
     __slots__ = ('pid', 'name', 'result', '_peg', '_alive',
@@ -242,12 +240,17 @@ class Context(object):
     associated with it. It is passed to every PEM when it is called.
 
     """
-    # All methods (like hold or interrupt) are added to the context
-    # instance by the Simulation and they are all bound to the
-    # Simulation instance.
+    # The following functions will be bound to the Simulation intance that
+    # creates the context, so that they can acces the Simulation internals
+    # more easily
+    _funcs = (start, exit, hold, interrupt, suspend, resume,
+                     interrupt_on)
 
     def __init__(self, sim):
         self._sim = sim
+        # Attach context function and bind them to the simulation.
+        for func in Context._funcs:
+            setattr(self, func.__name__, func.__get__(sim, Simulation))
 
     @property
     def active_process(self):
@@ -270,18 +273,6 @@ class Simulation(object):
     started.
 
     """
-    """"""
-    # The following functions are all bound to a Simulation instance and
-    # are later set as attributes to the Context and Simulation
-    # instances.
-    # Since some of these methods are shared between the Simulation and
-    # Context and some are exclusively for the Context, they are defined
-    # as module level Functions to keep the Simulation and Context APIs
-    # clean.
-    context_funcs = (start, exit, hold, interrupt, suspend, resume,
-                     interrupt_on)
-    simulation_funcs = (start,)
-
     def __init__(self):
         self._events = []
 
@@ -292,19 +283,14 @@ class Simulation(object):
 
         self.context = Context(self)
 
-        # Attach context function and bind them to the simulation.
-        for func in self.context_funcs:
-            setattr(self.context, func.__name__,
-                    func.__get__(self, Simulation))
-
-        # Attach public simulation functions to this instance.
-        for func in self.simulation_funcs:
-            setattr(self, func.__name__, func.__get__(self, Simulation))
-
     @property
     def now(self):
         """Property that returns the current simulation time."""
         return self._now
+
+    def start(self, pem, *args, **kwargs):
+        """Alias to :func:`Context.start()`."""
+        return self.context.start(pem, *args, **kwargs)
 
     def peek(self):
         """Return the time of the next event or ``inf`` if the event
