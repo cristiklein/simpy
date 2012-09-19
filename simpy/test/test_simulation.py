@@ -1,33 +1,37 @@
-from simpy import Process, Interrupt, Failure
+from simpy import Context, Process, Interrupt, Failure, simulate
 
 
 pytest_plugins = ['simpy.test.support']
 
 
-def test_join(sim):
+def test_join():
+    ctx = Context()
+
     def root(ctx):
         def pem(ctx):
             yield ctx.wait(10)
 
-        yield ctx.start(pem)
+        yield ctx.start(pem(ctx))
         assert ctx.now == 10
 
-    sim.start(root)
-    sim.simulate(20)
+    ctx.start(root(ctx))
+    simulate(ctx, 20)
 
 
-def test_join_log(sim):
+def test_join_log():
+    ctx = Context()
+
     def root(ctx):
         def pem(ctx):
             yield ctx.wait(10)
             ctx.exit('oh noes, i am dead x_x')
             assert False, 'Hey, i am alive? How is that possible?'
 
-        log = yield ctx.start(pem)
+        log = yield ctx.start(pem(ctx))
         assert log == 'oh noes, i am dead x_x'
 
-    sim.start(root)
-    sim.simulate(20)
+    ctx.start(root(ctx))
+    simulate(ctx, 20)
 
 
 def test_join_after_terminate(ctx):
@@ -36,7 +40,7 @@ def test_join_after_terminate(ctx):
         ctx.exit('oh noes, i am dead x_x')
         assert False, 'Hey, i am alive? How is that possible?'
 
-    child = ctx.start(pem)
+    child = ctx.start(pem(ctx))
     yield ctx.wait(15)
     log = yield child
     assert log == 'oh noes, i am dead x_x'
@@ -48,103 +52,97 @@ def test_subscribe_after_terminate(ctx):
         ctx.exit('oh noes, i am dead x_x')
         assert False, 'Hey, i am alive? How is that possible?'
 
-    child = ctx.start(pem)
+    child = ctx.start(pem(ctx))
     yield ctx.wait(15)
     ctx.subscribe(child)
     done = yield ctx.suspend()
     assert done.result == 'oh noes, i am dead x_x'
 
 
-def test_join_all(sim):
-    def root(ctx):
-        def pem(ctx, i):
-            yield ctx.wait(i)
-            ctx.exit(i)
+def test_join_all(ctx):
+    def pem(ctx, i):
+        yield ctx.wait(i)
+        ctx.exit(i)
 
-        # start many child processes and let them wait for a while. The first
-        # child waits the longest time.
-        processes = [ctx.start(pem, i) for i in reversed(range(10))]
+    # start many child processes and let them wait for a while. The first
+    # child waits the longest time.
+    processes = [ctx.start(pem(ctx, i)) for i in reversed(range(10))]
 
-        # wait until all children have been terminated.
-        results = []
+    # wait until all children have been terminated.
+    results = []
+    for process in processes:
+        results.append((yield process))
+    assert results == list(reversed(range(10)))
+
+    # The first child should have terminated at timestep 9. Confirm!
+    assert ctx.now == 9
+
+
+def test_join_any(ctx):
+    def pem(ctx, i):
+        yield ctx.wait(i)
+        ctx.exit(i)
+
+    # start many child processes and let them wait for a while. The first
+    # child waits the longest time.
+    processes = [ctx.start(pem(ctx, i)) for i in reversed(range(10))]
+
+    def join_any(ctx, processes):
         for process in processes:
-            results.append((yield process))
-        assert results == list(reversed(range(10)))
+            ctx.subscribe(process)
 
-        # The first child should have terminated at timestep 9. Confirm!
-        assert ctx.now == 9
+        first_dead = yield ctx.suspend()
+        ctx.exit(first_dead)
 
-    sim.start(root)
-    sim.simulate(20)
-
-
-def test_join_any(sim):
-    def root(ctx):
-        def pem(ctx, i):
-            yield ctx.wait(i)
-            ctx.exit(i)
-
-        # start many child processes and let them wait for a while. The first
-        # child waits the longest time.
-        processes = [ctx.start(pem, i) for i in reversed(range(10))]
-
-        def join_any(ctx, processes):
-            for process in processes:
-                ctx.subscribe(process)
-
-            first_dead = yield ctx.suspend()
-            ctx.exit(first_dead)
-
-        # wait until the a child has terminated.
-        first_dead = yield ctx.start(join_any, processes)
-        # Confirm that the child created at last has terminated as first.
-        assert ctx.now == 0
-        assert first_dead == processes[-1]
-        assert first_dead.result == 0
-
-    sim.start(root)
-    sim.simulate(20)
+    # wait until the a child has terminated.
+    first_dead = yield ctx.start(join_any(ctx, processes))
+    # Confirm that the child created at last has terminated as first.
+    assert ctx.now == 0
+    assert first_dead == processes[-1]
+    assert first_dead.result == 0
 
 
-def test_crashing_process(sim):
+def test_crashing_process():
     def root(ctx):
         yield ctx.wait(1)
         raise RuntimeError("That's it, I'm done")
 
     try:
-        sim.start(root)
-        sim.simulate(20)
+        ctx = Context()
+        ctx.start(root(ctx))
+        simulate(ctx, 20)
         assert False, 'Fishy!! This is not supposed to happen!'
     except RuntimeError as exc:
         assert exc.args[0] == "That's it, I'm done"
 
 
-def test_crashing_child_process(sim):
+def test_crashing_child_process():
     def root(ctx):
         def panic(ctx):
             yield ctx.wait(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.start(panic)
+            yield ctx.start(panic(ctx))
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             cause = exc.__cause__
             assert type(cause) == RuntimeError
             assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
-    sim.start(root)
-    sim.simulate(20)
+    ctx = Context()
+    ctx.start(root(ctx))
+    simulate(ctx, 20)
 
 
-def test_crashing_child_traceback(sim):
+def test_crashing_child_traceback():
     def root(ctx):
         def panic(ctx):
             yield ctx.wait(1)
             raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
 
         try:
-            yield ctx.start(panic)
+            yield ctx.start(panic(ctx))
             assert False, "Hey, where's the roflcopter?"
         except Failure as exc:
             import traceback
@@ -154,69 +152,70 @@ def test_crashing_child_traceback(sim):
             assert type(exc.__cause__) is RuntimeError
             # ...as well as the current frame must be visible in the
             # stacktrace.
-            assert 'yield ctx.start(panic)' in stacktrace
+            assert 'yield ctx.start(panic(ctx))' in stacktrace
 
-    sim.start(root)
-    sim.simulate(20)
+    ctx = Context()
+    ctx.start(root(ctx))
+    simulate(ctx, 20)
 
 
-def test_illegal_suspend(sim):
+def test_illegal_suspend():
     def root(ctx):
         ctx.wait(1)
         yield ctx.suspend()
 
     try:
-        sim.start(root)
-        sim.simulate(20)
+        ctx = Context()
+        ctx.start(root(ctx))
+        simulate(ctx, 20)
         assert False, 'Expected an exception.'
     except RuntimeError as exc:
         assert exc.args[0].startswith('Next event already scheduled')
 
 
-def test_illegal_wait_followed_by_join(sim):
+def test_illegal_wait_followed_by_join():
     def root(ctx):
         def child(ctx):
             yield ctx.wait(1)
 
         ctx.wait(1)
-        yield ctx.start(child)
+        yield ctx.start(child(ctx))
 
     try:
-        sim.start(root)
-        sim.simulate(20)
+        ctx = Context()
+        ctx.start(root(ctx))
+        simulate(ctx, 20)
         assert False, 'Expected an exception.'
     except RuntimeError as exc:
         assert exc.args[0].startswith('Next event already scheduled')
 
 
-def test_invalid_schedule(sim):
+def test_invalid_schedule():
     def root(ctx):
         yield 'this will not work'
 
     try:
-        sim.start(root)
-        sim.simulate(20)
+        ctx = Context()
+        ctx.start(root(ctx))
+        simulate(ctx, 20)
         assert False, 'Expected an exception.'
     except RuntimeError as exc:
         assert exc.args[0] == 'Invalid yield value "this will not work"'
 
 
-def test_immediate_interrupt(sim, log):
-    def root(ctx, log):
-        def child(ctx, log):
-            yield ctx.suspend()
-            log.append(ctx.now)
+def test_immediate_interrupt(ctx):
+    def child(ctx, log):
+        yield ctx.suspend()
+        log.append(ctx.now)
 
-        def resumer(ctx, other):
-            ctx.interrupt(other)
-            yield ctx.exit()
-
-        c = ctx.start(child, log)
-        ctx.start(resumer, c)
+    def resumer(ctx, other):
+        ctx.interrupt(other)
         yield ctx.exit()
 
-    sim.start(root, log)
-    sim.simulate(20)
+    log = []
+    c = ctx.start(child(ctx, log))
+    yield ctx.start(resumer(ctx, c))
+
     # Confirm that child has been interrupted immediately at timestep 0.
     assert log == [0]
 
@@ -227,7 +226,7 @@ def test_concurrent_subscriptions(ctx):
     def child(ctx):
         yield ctx.exit()
 
-    children = [ctx.start(child) for i in range(3)]
+    children = [ctx.start(child(ctx)) for i in range(3)]
     for child in children:
         ctx.subscribe(child)
 
@@ -251,9 +250,9 @@ def test_interrupt_chain(ctx):
 
     # Start ten processes which will interrupt ourselves after one timestep.
     for i in range(10):
-        ctx.start(interruptor, ctx.process, i)
+        ctx.start(interruptor(ctx, ctx.process, i))
 
-    child_proc = ctx.start(child)
+    child_proc = ctx.start(child(ctx))
 
     # Check that we are interrupted ten times while waiting for child_proc to
     # complete.
@@ -278,7 +277,7 @@ def test_suspend_interrupt(ctx):
         value = yield ctx.suspend()
         ctx.exit(value)
 
-    child_proc = ctx.start(child)
+    child_proc = ctx.start(child(ctx))
     # Wait until child has started.
     yield ctx.wait(0)
     # Interrupt child_proc and use 'cake' as the cause.
@@ -298,7 +297,7 @@ def test_interrupt_chain_suspend(ctx):
 
     # Start ten processes which will interrupt ourselves after one timestep.
     for i in range(10):
-        ctx.start(interruptor, ctx.process, i)
+        ctx.start(interruptor(ctx, ctx.process, i))
 
     # Check that no interrupts are raised if we are suspended. Instead the
     # interrupt cause is passed directly into this process.
@@ -321,7 +320,7 @@ def test_suspend_interrupt_exception(ctx):
         except RuntimeError as e:
             ctx.exit(e.args[0])
 
-    child_proc = ctx.start(child)
+    child_proc = ctx.start(child(ctx))
     # Wait until child has started.
     yield ctx.wait(0)
     # Interrupt child_proc and use 'cake' as the cause.
@@ -342,9 +341,9 @@ def test_interrupted_join(ctx):
     def child(ctx):
         yield ctx.wait(2)
 
-    ctx.start(interruptor, ctx.process)
+    ctx.start(interruptor(ctx, ctx.process))
     try:
-        yield ctx.start(child)
+        yield ctx.start(child(ctx))
         assert False, 'Excepted an interrupt'
     except Interrupt as interrupt:
         pass
@@ -364,8 +363,8 @@ def test_interrupted_join(ctx):
         ctx.interrupt(victim)
         yield ctx.exit()
 
-    child_proc = ctx.start(child)
-    ctx.start(interrupter, ctx.process)
+    child_proc = ctx.start(child(ctx))
+    ctx.start(interrupter(ctx, ctx.process))
     try:
         yield child_proc
         assert False, 'Expected an interrupt'
@@ -380,7 +379,7 @@ def test_join_and_subscribe(ctx):
         yield ctx.wait(5)
         ctx.exit('spam')
 
-    child_proc = ctx.start(child)
+    child_proc = ctx.start(child(ctx))
     ctx.subscribe(child_proc)
     result = yield child_proc
     assert result == 'spam'
@@ -391,8 +390,8 @@ def test_join_interrupted_subscribe(ctx):
     def child(ctx, duration):
         yield ctx.wait(duration)
 
-    child1 = ctx.start(child, 1)
-    child2 = ctx.start(child, 2)
+    child1 = ctx.start(child(ctx, 1))
+    child2 = ctx.start(child(ctx, 2))
     ctx.subscribe(child1)
     try:
         yield child2
@@ -406,12 +405,12 @@ def test_multiple_subscriptions(ctx):
     def child(ctx, duration):
         yield ctx.wait(duration)
 
-    child1 = ctx.start(child, 1)
+    child1 = ctx.start(child(ctx, 1))
     ctx.subscribe(child1)
     ctx.subscribe(child1)
     ctx.subscribe(child1)
 
-    child2 = ctx.start(child, 2)
+    child2 = ctx.start(child(ctx, 2))
 
     try:
         yield child2
@@ -424,8 +423,8 @@ def test_multiple_subscriptions(ctx):
 
 def test_exit_with_process(ctx):
     def child(ctx):
-        yield ctx.exit(ctx.start(child))
+        yield ctx.exit(ctx.start(child(ctx)))
 
-    result = yield ctx.start(child)
+    result = yield ctx.start(child(ctx))
 
     assert type(result) is Process
