@@ -44,10 +44,11 @@ class Failure(Exception):
 
 
 class Process(object):
-    __slots__ = ('id', 'generator', 'name', 'next_event', 'state', 'result',
-            'joiners', 'interrupts')
+    __slots__ = ('ctx', 'id', 'generator', 'name', 'next_event', 'state',
+            'result', 'joiners', 'interrupts')
 
-    def __init__(self, id, generator):
+    def __init__(self, ctx, id, generator):
+        self.ctx = ctx
         self.id = id
         self.generator = generator
         self.name = self.generator.__name__
@@ -63,6 +64,32 @@ class Process(object):
     @property
     def is_alive(self):
         return self.generator is not None
+
+    def interrupt(self, cause=None):
+        if self.generator is None:
+            # Interrupts on dead process have no effect.
+            return
+
+        interrupts = self.interrupts
+        # Reschedule the current event, if this is the first interrupt.
+        if not interrupts and self.next_event[0] != Init:
+            # Keep the type of the next event in order to decide how the
+            # interrupt should be send into the process.
+            self.ctx._schedule(self, self.next_event[0], self.next_event[1],
+                    self.ctx.now)
+
+        interrupts.append(cause)
+
+    def subscribe(self):
+        """Interrupt the currently active process, if the target terminates."""
+        proc = self.ctx._active_proc
+
+        if proc in self.joiners: return
+
+        if self.generator is None:
+            proc.interrupts.append(self)
+        else:
+            self.joiners.append(proc)
 
 
 class Context(object):
@@ -85,7 +112,7 @@ class Context(object):
         if type(pem) is not GeneratorType:
             raise RuntimeError(
                 'Process function %s is not a generator' % pem)
-        proc = Process(next(self._pid), pem)
+        proc = Process(self, next(self._pid), pem)
 
         # Schedule start of the process.
         self._schedule(proc, Init, None, self._now)
@@ -114,32 +141,6 @@ class Context(object):
         proc.next_event = (Suspended, None)
         return Ignore
 
-    def interrupt(self, other, cause=None):
-        if other.generator is None:
-            # Interrupts on dead process have no effect.
-            return
-
-        interrupts = other.interrupts
-        # Reschedule the current event, if this is the first interrupt.
-        if not interrupts and other.next_event[0] != Init:
-            # Keep the type of the next event in order to decide how the
-            # interrupt should be send into the process.
-            self._schedule(other, other.next_event[0], other.next_event[1],
-                    self.now)
-
-        interrupts.append(cause)
-
-    def subscribe(self, other):
-        """Interrupt this process, if the target terminates."""
-        proc = self._active_proc
-
-        if proc in other.joiners: return
-
-        if other.generator is None:
-            proc.interrupts.append(other)
-        else:
-            other.joiners.append(proc)
-
     def _schedule(self, proc, evt_type, value, at):
         proc.next_event = (evt_type, value)
         heappush(self._events, (at, next(self._eid), proc, proc.next_event))
@@ -161,8 +162,7 @@ class Context(object):
 
         for joiner in joiners:
             if joiner.generator is None: continue
-            self.interrupt(joiner, proc)
-
+            joiner.interrupt(proc)
 
 
 Ignore = object()

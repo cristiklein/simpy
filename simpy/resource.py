@@ -15,6 +15,6 @@ class Resource(object):
 
     def release(self):
         if self.waiters:
-            self.ctx.interrupt(self.waiters.pop(0))
+            self.waiters.pop(0).interrupt()
         else:
             self.capacity += 1
