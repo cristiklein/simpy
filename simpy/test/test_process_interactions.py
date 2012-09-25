@@ -27,7 +27,7 @@ def test_interruption(ctx):
 
     child_process = ctx.start(interruptee(ctx))
     yield ctx.wait(5)
-    ctx.interrupt(child_process, 'interrupt!')
+    child_process.interrupt('interrupt!')
 
 
 def test_concurrent_interrupts(ctx):
@@ -41,7 +41,7 @@ def test_concurrent_interrupts(ctx):
                 log.append(interrupt.cause)
 
     def farmer(ctx, name, fox):
-        ctx.interrupt(fox, name)
+        fox.interrupt(name)
         yield ctx.wait(1)
 
     log = []
@@ -66,7 +66,7 @@ def test_suspend_interrupt(ctx):
 
     sleeper = ctx.start(sleeper(ctx))
     yield ctx.wait(10)
-    ctx.interrupt(sleeper)
+    sleeper.interrupt()
 
 
 def test_wait_for_proc(ctx):

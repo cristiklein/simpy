@@ -54,7 +54,7 @@ def test_subscribe_after_terminate(ctx):
 
     child = ctx.start(pem(ctx))
     yield ctx.wait(15)
-    ctx.subscribe(child)
+    child.subscribe()
     done = yield ctx.suspend()
     assert done.result == 'oh noes, i am dead x_x'
 
@@ -89,7 +89,7 @@ def test_join_any(ctx):
 
     def join_any(ctx, processes):
         for process in processes:
-            ctx.subscribe(process)
+            process.subscribe()
 
         first_dead = yield ctx.suspend()
         ctx.exit(first_dead)
@@ -209,7 +209,7 @@ def test_immediate_interrupt(ctx):
         log.append(ctx.now)
 
     def resumer(ctx, other):
-        ctx.interrupt(other)
+        other.interrupt()
         yield ctx.exit()
 
     log = []
@@ -228,7 +228,7 @@ def test_concurrent_subscriptions(ctx):
 
     children = [ctx.start(child(ctx)) for i in range(3)]
     for child in children:
-        ctx.subscribe(child)
+        child.subscribe()
 
     for child in children:
         dead = yield ctx.suspend()
@@ -242,7 +242,7 @@ def test_interrupt_chain(ctx):
     # given process.
     def interruptor(ctx, process, id):
         yield ctx.wait(1)
-        ctx.interrupt(process, id)
+        process.interrupt(id)
 
     def child(ctx):
         yield ctx.wait(2)
@@ -281,7 +281,7 @@ def test_suspend_interrupt(ctx):
     # Wait until child has started.
     yield ctx.wait(0)
     # Interrupt child_proc and use 'cake' as the cause.
-    ctx.interrupt(child_proc, 'cake')
+    child_proc.interrupt('cake')
     result = yield child_proc
 
     assert result == 'cake'
@@ -293,7 +293,7 @@ def test_interrupt_chain_suspend(ctx):
 
     def interruptor(ctx, process, id):
         yield ctx.wait(1)
-        ctx.interrupt(process, id)
+        process.interrupt(id)
 
     # Start ten processes which will interrupt ourselves after one timestep.
     for i in range(10):
@@ -324,7 +324,7 @@ def test_suspend_interrupt_exception(ctx):
     # Wait until child has started.
     yield ctx.wait(0)
     # Interrupt child_proc and use 'cake' as the cause.
-    ctx.interrupt(child_proc, RuntimeError('eggseptuhn!'))
+    child_proc.interrupt(RuntimeError('eggseptuhn!'))
     result = yield child_proc
 
     assert result == 'eggseptuhn!'
@@ -336,7 +336,7 @@ def test_interrupted_join(ctx):
 
     def interruptor(ctx, process):
         yield ctx.wait(1)
-        ctx.interrupt(process)
+        process.interrupt()
 
     def child(ctx):
         yield ctx.wait(2)
@@ -360,7 +360,7 @@ def test_interrupted_join(ctx):
         yield ctx.wait(5)
 
     def interrupter(ctx, victim):
-        ctx.interrupt(victim)
+        victim.interrupt()
         yield ctx.exit()
 
     child_proc = ctx.start(child(ctx))
@@ -380,7 +380,7 @@ def test_join_and_subscribe(ctx):
         ctx.exit('spam')
 
     child_proc = ctx.start(child(ctx))
-    ctx.subscribe(child_proc)
+    child_proc.subscribe()
     result = yield child_proc
     assert result == 'spam'
 
@@ -392,7 +392,7 @@ def test_join_interrupted_subscribe(ctx):
 
     child1 = ctx.start(child(ctx, 1))
     child2 = ctx.start(child(ctx, 2))
-    ctx.subscribe(child1)
+    child1.subscribe()
     try:
         yield child2
         assert False, 'Expected an interrupt'
@@ -406,9 +406,9 @@ def test_multiple_subscriptions(ctx):
         yield ctx.wait(duration)
 
     child1 = ctx.start(child(ctx, 1))
-    ctx.subscribe(child1)
-    ctx.subscribe(child1)
-    ctx.subscribe(child1)
+    child1.subscribe()
+    child1.subscribe()
+    child1.subscribe()
 
     child2 = ctx.start(child(ctx, 2))
 
