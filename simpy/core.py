@@ -143,25 +143,6 @@ class Context(object):
         proc.next_event = (evt_type, value)
         heappush(self._events, (at, next(self._eid), proc, proc.next_event))
 
-    def _join(self, proc):
-        joiners = proc.joiners
-        interrupts = proc.interrupts
-
-        proc.generator = None
-
-        if proc.state == Failed:
-            # TODO Don't know about this one. This check causes the whole
-            # simulation to crash if there is a crashed process and no other
-            # process to handle this crash. Something like this must certainely
-            # be done, because exception should never ever be silently ignored.
-            # Still, a check like this looks fishy to me.
-            if not joiners:
-                raise proc.result.__cause__
-
-        for joiner in joiners:
-            if joiner.generator is None: continue
-            joiner.interrupt(proc)
-
 
 Ignore = object()
 
@@ -217,49 +198,61 @@ def step(ctx):
         else:
             # An "unsuccessful" event.
             target = proc.generator.throw(value)
+
+        if target is not Ignore:
+            # TODO Improve this error message.
+            if type(target) is not Process:
+                proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
+                        target))
+            if proc.next_event is not None:
+                proc.generator.throw(RuntimeError(
+                        'Next event already scheduled'))
+
+            # Add this process to the list of waiters.
+            if target.generator is None:
+                # FIXME This context switching is ugly.
+                prev, ctx._active_proc = ctx._active_proc, target
+                # Process has already terminated. Resume as soon as possible.
+                ctx._schedule(proc, target.state, target.result, ctx.now)
+                ctx._active_proc = prev
+            else:
+                # FIXME This is a bit ugly. Because next_event cannot be
+                # None this stub event is used. It will never be executed
+                # because it isn't scheduled. This is necessary for
+                # interrupt handling.
+                proc.next_event = (Suspended, target)
+                target.joiners.append(proc)
+
+        # Schedule concurrent interrupts.
+        if interrupts:
+            ctx._schedule(proc, proc.next_event[0], proc.next_event[1],
+                    ctx.now)
+
+        ctx._active_proc = None
+        return
     except StopIteration:
         # Process has terminated.
         proc.state = Success
-        ctx._join(proc)
-        ctx._active_proc = None
-        return
     except BaseException as e:
         # Process has failed.
         proc.state = Failed
         proc.result = Failure()
         proc.result.__cause__ = e
-        ctx._join(proc)
-        ctx._active_proc = None
-        return
 
-    if target is not Ignore:
-        # TODO Improve this error message.
-        if type(target) is not Process:
-            proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
-                    target))
-        if proc.next_event is not None:
-            proc.generator.throw(RuntimeError(
-                    'Next event already scheduled'))
+    # The process has terminated, interrupt joiners.
+    proc.generator = None
 
-        # Add this process to the list of waiters.
-        if target.generator is None:
-            # FIXME This context switching is ugly.
-            prev, ctx._active_proc = ctx._active_proc, target
-            # Process has already terminated. Resume as soon as possible.
-            ctx._schedule(proc, target.state, target.result, ctx.now)
-            ctx._active_proc = prev
-        else:
-            # FIXME This is a bit ugly. Because next_event cannot be
-            # None this stub event is used. It will never be executed
-            # because it isn't scheduled. This is necessary for
-            # interrupt handling.
-            proc.next_event = (Suspended, target)
-            target.joiners.append(proc)
+    if proc.state == Failed and not proc.joiners:
+        # TODO Don't know about this one. This check causes the whole
+        # simulation to crash if there is a crashed process and no other
+        # process to handle this crash. Something like this must certainely
+        # be done, because exception should never ever be silently ignored.
+        # Still, a check like this looks fishy to me.
+        raise proc.result.__cause__
 
-    # Schedule concurrent interrupts.
-    if interrupts:
-        ctx._schedule(proc, proc.next_event[0], proc.next_event[1],
-                ctx.now)
+    for joiner in proc.joiners:
+        if joiner.generator is None: continue
+        joiner.interrupt(proc)
 
     ctx._active_proc = None
 
