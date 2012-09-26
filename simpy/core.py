@@ -44,12 +44,11 @@ class Failure(Exception):
 
 
 class Process(object):
-    __slots__ = ('ctx', 'id', 'generator', 'name', 'next_event', 'state',
+    __slots__ = ('ctx', 'generator', 'next_event', 'name', 'state',
             'result', 'joiners', 'interrupts')
 
-    def __init__(self, ctx, id, generator):
+    def __init__(self, ctx, generator):
         self.ctx = ctx
-        self.id = id
         self.generator = generator
         self.name = self.generator.__name__
         self.state = None
@@ -96,7 +95,6 @@ class Context(object):
     def __init__(self, initial_time=0):
         self._now = initial_time
         self._events = []
-        self._pid = count()
         self._eid = count()
         self._active_proc = None
 
@@ -112,7 +110,7 @@ class Context(object):
         if type(pem) is not GeneratorType:
             raise RuntimeError(
                 'Process function %s is not a generator' % pem)
-        proc = Process(self, next(self._pid), pem)
+        proc = Process(self, pem)
 
         # Schedule start of the process.
         self._schedule(proc, Init, None, self._now)
