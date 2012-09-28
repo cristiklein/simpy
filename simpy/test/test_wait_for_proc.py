@@ -206,7 +206,7 @@ def test_interrupted_join(sim):
     """
     def interruptor(context, process):
         yield context.hold(1)
-        context.interrupt(process)
+        process.interrupt()
 
     def child(context):
         yield context.hold(2)
