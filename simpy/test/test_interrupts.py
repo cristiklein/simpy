@@ -24,7 +24,7 @@ def test_interruption(sim):
     def interruptor(context):
         child_process = context.start(interruptee)
         yield context.hold(5)
-        context.interrupt(child_process, 'interrupt!')
+        child_process.interrupt('interrupt!')
 
     sim.start(interruptor)
     sim.simulate(until=30)
@@ -43,7 +43,7 @@ def test_concurrent_interrupts(sim, log):
                 log.append((context.now, interrupt.cause))
 
     def farmer(context, name, fox):
-        context.interrupt(fox, name)
+        fox.interrupt(name)
         yield context.hold(1)
 
     fantastic_mr_fox = sim.start(fox, log)
@@ -61,7 +61,7 @@ def test_illegal_interrupt(sim):
 
     def root(context):
         child_proc = context.start(child)
-        ei = pytest.raises(RuntimeError, context.interrupt, child_proc)
+        ei = pytest.raises(RuntimeError, child_proc.interrupt)
         assert ei.value.args[0] == ('Process(1, child) was just initialized '
                                     'and cannot yet be interrupted.')
 
@@ -80,7 +80,7 @@ def test_interrupt_terminated_process(sim):
         child_proc = context.start(child)
 
         yield context.hold(2)
-        ei = pytest.raises(RuntimeError, context.interrupt, child_proc)
+        ei = pytest.raises(RuntimeError, child_proc.interrupt)
         assert ei.value.args[0] == ('Process(1, child) has no event scheduled '
                                     'and cannot be interrupted.')
 
@@ -99,7 +99,7 @@ def test_interrupt_suspended_proces(sim):
         child_proc = context.start(child)
 
         yield context.hold(1)
-        ei = pytest.raises(RuntimeError, context.interrupt, child_proc)
+        ei = pytest.raises(RuntimeError, child_proc.interrupt)
         assert ei.value.args[0] == ('Process(1, child) is suspended and '
                                     'cannot be interrupted.')
 

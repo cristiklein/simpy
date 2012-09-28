@@ -43,10 +43,10 @@ Event = object()
 
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
-    another process (see :func:`Context.interrupt()`).
+    another process (see :func:`Process.interrupt()`).
 
     ``cause`` may be none of no cause was explicitly passed to
-    :func:`Context.interrupt()`.
+    :func:`Process.interrupt()`.
 
     """
     def __init__(self, cause):
@@ -70,10 +70,10 @@ class Process(object):
     An instance of this class is returned by :func:`Context.start()`.
 
     """
-    __slots__ = ('pid', 'name', 'result', '_peg', '_alive',
+    __slots__ = ('pid', 'name', 'result', '_peg', '_context', '_alive',
                  '_next_event', '_joiners', '_observers', '_interrupts')
 
-    def __init__(self, pid, peg):
+    def __init__(self, pid, peg, context):
         self.pid = pid
         """The process ID."""
 
@@ -84,6 +84,7 @@ class Process(object):
         """The process' result after it terminated."""
 
         self._peg = peg
+        self._context = context
         self._alive = True
         self._next_event = None
 
@@ -100,6 +101,34 @@ class Process(object):
         """Return a string "Process(pid, pem_name)"."""
         return '%s(%s, %s)' % (self.__class__.__name__, self.pid, self.name)
 
+    def interrupt(self, cause=None):
+        """Interupt ``other`` process optionally providing a ``cause``.
+
+        Another process cannot be interrupted if it is suspend (and has no
+        event scheduled) or if it was just initialized and could not issue
+        a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
+
+        """
+        if not self._next_event:
+            raise RuntimeError('%s has no event scheduled and cannot be '
+                            'interrupted.' % self)
+        if self._next_event[0] is EVT_INIT:
+            raise RuntimeError('%s was just initialized and cannot yet be '
+                            'interrupted.' % self)
+        if self._next_event[0] is EVT_SUSPEND:
+            raise RuntimeError('%s is suspended and cannot be interrupted.' %
+                                self)
+
+        interrupts = self._interrupts
+        interrupt = Interrupt(cause)
+
+        # If it is the first interrupt, schedule it. Else, just append it.
+        if self._next_event[0] is not EVT_INTERRUPT:
+            self._next_event = None
+            self._context._sim._schedule(self, EVT_INTERRUPT, interrupt)
+        else:
+            interrupts.append(interrupt)
+
 
 def start(sim, pem, *args, **kwargs):
     """Start a new process for ``pem``.
@@ -115,7 +144,7 @@ def start(sim, pem, *args, **kwargs):
 
     peg = pem(sim.context, *args, **kwargs)
 
-    proc = Process(next(sim._pid), peg)
+    proc = Process(next(sim._pid), peg, sim.context)
     sim._schedule(proc, EVT_INIT)
 
     return proc
@@ -157,35 +186,6 @@ def hold(sim, delta_t=Infinity, value=None):
                   at=(sim._now + delta_t))
 
     return Event
-
-
-def interrupt(sim, other, cause=None):
-    """Interupt ``other`` process optionally providing a ``cause``.
-
-    Another process cannot be interrupted if it is suspend (and has no
-    event scheduled) or if it was just initialized and could not issue
-    a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
-
-    """
-    if not other._next_event:
-        raise RuntimeError('%s has no event scheduled and cannot be '
-                           'interrupted.' % other)
-    if other._next_event[0] is EVT_INIT:
-        raise RuntimeError('%s was just initialized and cannot yet be '
-                           'interrupted.' % other)
-    if other._next_event[0] is EVT_SUSPEND:
-        raise RuntimeError('%s is suspended and cannot be interrupted.' %
-                            other)
-
-    interrupts = other._interrupts
-    interrupt = Interrupt(cause)
-
-    # If it is the first interrupt, schedule it. Else, just append it.
-    if other._next_event[0] is not EVT_INTERRUPT:
-        other._next_event = None
-        sim._schedule(other, EVT_INTERRUPT, interrupt)
-    else:
-        interrupts.append(interrupt)
 
 
 def suspend(sim):
@@ -243,8 +243,7 @@ class Context(object):
     # The following functions will be bound to the Simulation intance that
     # creates the context, so that they can acces the Simulation internals
     # more easily
-    _funcs = (start, exit, hold, interrupt, suspend, resume,
-                     interrupt_on)
+    _funcs = (start, exit, hold, suspend, resume, interrupt_on)
 
     def __init__(self, sim):
         self._sim = sim
@@ -447,4 +446,4 @@ class Simulation(object):
         for observer in observers:
             if not observer.is_alive:
                 continue
-            self.context.interrupt(observer, proc)
+            observer.interrupt(proc)
