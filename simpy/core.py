@@ -20,7 +20,7 @@ The following classes should not be imported directly:
 
 """
 from heapq import heappush, heappop
-from inspect import isgeneratorfunction
+from inspect import isgenerator
 from itertools import count
 
 
@@ -147,22 +147,36 @@ class Process(object):
         self._context._sim._schedule(self, EVT_RESUME, value=value)
 
 
-def start(sim, pem, *args, **kwargs):
-    """Start a new process for ``pem``.
+def start(sim, peg, at=None, delay=None):
+    """Start a new process for ``peg``.
 
-    Pass the simulation :class:`Context` and, optionally, ``*args`` and
-    ``**kwargs`` to the PEM.
+    *PEG* is the *Process Execution Generator*, which is the generator
+    returned by *PEM*.
 
-    Raise a :exc:`ValueError` if ``pem`` is not a generator function.
+    The process is started a the current simulation time, but you can
+    alternatively specify a start time via ``at`` or a delayed start
+    via ``delay``. ``delay`` takes precedence over ``at`` if both are
+    specified.
+
+    Raise a :exc:`ValueError` if ``peg`` is not a generator, if ``at``
+    is smaller than the current simulation time or if ``delay`` is
+    negative.
 
     """
-    if not isgeneratorfunction(pem):
-        raise ValueError('PEM %s is not a generator function.' % pem)
+    if not isgenerator(peg):
+        raise ValueError('PEG %s is not a generator.' % peg)
 
-    peg = pem(sim.context, *args, **kwargs)
+    if at and at < sim._now:
+        raise ValueError('at(=%s) must be > %s' % (at, sim._now))
+
+    if delay:
+        if delay < 0:
+            raise ValueError('delay(=%s) must be > 0' % delay)
+
+        at = sim._now + delay
 
     proc = Process(next(sim._pid), peg, sim.context)
-    sim._schedule(proc, EVT_INIT)
+    sim._schedule(proc, EVT_INIT, at=at)
 
     return proc
 
