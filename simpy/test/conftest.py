@@ -5,5 +5,5 @@ def pytest_funcarg__log(request):
     return []
 
 
-def pytest_funcarg__sim(request):
-    return simpy.Simulation()
+def pytest_funcarg__env(request):
+    return simpy.Environment()
