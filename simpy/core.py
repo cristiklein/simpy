@@ -129,6 +129,23 @@ class Process(object):
         else:
             interrupts.append(interrupt)
 
+    def resume(self, value=None):
+        """Resume this process.
+
+        You can optionally pass a ``value`` which will be sent to the
+        resumed PEM when it continues. This might be helpful to e.g.
+        implement resources (:class:`simpy.resources.Store` uses this
+        feature).
+
+        Raise a :exc:`RuntimeError` if the process is not suspended.
+
+        """
+        if self._next_event[0] is not EVT_SUSPEND:
+            raise RuntimeError('%s is not suspended.' % self)
+
+        self._next_event = None
+        self._context._sim._schedule(self, EVT_RESUME, value=value)
+
 
 def start(sim, pem, *args, **kwargs):
     """Start a new process for ``pem``.
@@ -204,24 +221,6 @@ def suspend(sim):
     return Event
 
 
-def resume(sim, other, value=None):
-    """Resume the suspended process ``other``.
-
-    You can optionally pass a ``value`` which will be sent to the
-    resumed PEM when it continues. This might be helpful to e.g.
-    implement resources (:class:`simpy.resources.Store` uses this
-    feature).
-
-    Raise a :exc:`RuntimeError` if ``other`` is not suspended.
-
-    """
-    if other._next_event[0] is not EVT_SUSPEND:
-        raise RuntimeError('%s is not suspended.' % other)
-
-    other._next_event = None
-    sim._schedule(other, EVT_RESUME, value=value)
-
-
 def interrupt_on(sim, other):
     """Register at ``other`` to receive an interrupt when it terminates."""
     proc = sim._active_proc
@@ -243,7 +242,7 @@ class Context(object):
     # The following functions will be bound to the Simulation intance that
     # creates the context, so that they can acces the Simulation internals
     # more easily
-    _funcs = (start, exit, hold, suspend, resume, interrupt_on)
+    _funcs = (start, exit, hold, suspend, interrupt_on)
 
     def __init__(self, sim):
         self._sim = sim

@@ -17,7 +17,7 @@ def test_suspend_resume(sim):
 
     def alarm(context, sleeper):
         yield context.hold(10)
-        context.resume(sleeper)
+        sleeper.resume()
 
     sleeper = sim.start(sleeper)
     sim.start(alarm, sleeper)
@@ -47,7 +47,7 @@ def test_resume_before_start(sim):
 
     def root(ctx):
         c = ctx.start(child)
-        ctx.resume(c)
+        c.resume()
         yield ctx.hold(1)
 
     try:
@@ -65,7 +65,7 @@ def test_immediate_resume(sim, log):
         log.append(context.now)
 
     def waker(context, sleeper_proc):
-        context.resume(sleeper_proc)
+        sleeper_proc.resume()
         yield context.hold()
 
     sleeper_proc = sim.start(sleeper, log)
@@ -90,7 +90,7 @@ def test_resume_value(sim):
     def parent(context, value):
         child_proc = context.start(child, value)
         yield context.hold(1)
-        context.resume(child_proc, value)
+        child_proc.resume(value)
 
     sim.start(parent, 'ohai')
     sim.simulate()
