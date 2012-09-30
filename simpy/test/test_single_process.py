@@ -7,8 +7,6 @@ resources).
 # Pytest gets the parameters "sim" and "log" from the *conftest.py* file
 import pytest
 
-from simpy.util import at, delayed
-
 
 def test_discrete_time_steps(sim, log):
     """Simple simulation with discrete time steps."""
@@ -36,48 +34,49 @@ def test_stop_self(sim, log):
     assert log == [0, 1]
 
 
-def test_start_delayed(sim):
-    """The *start* method starts a process at the current time. However,
-    there is a helper that lets you delay the start of a process.
-
-    """
-    def pem(context):
-        assert context.now == 5
-        yield context.hold(1)
-
-    sim.start(delayed(dt=5), pem)
-    sim.simulate()
-
-
 def test_start_at(sim):
-    """The *start* method starts a process at the current time. However,
-    there is a helper that lets you start a process at a certain point
-    in future.
-
-    """
     def pem(context):
         assert context.now == 5
         yield context.hold(1)
 
-    sim.start(at(t=5), pem)
+    sim.start(pem(sim.context), at=5)
     sim.simulate()
 
 
 def test_start_at_error(sim):
-    """Check if an error is thrown if the PEM is not started in future."""
     def pem(context):
+        yield context.hold(2)
+
+    sim.start(pem(sim.context))
+    sim.simulate()
+    pytest.raises(ValueError, sim.start, pem(sim.context), at=1)
+
+
+def test_start_delayed(sim):
+    def pem(context):
+        assert context.now == 5
         yield context.hold(1)
 
-    sim.start(pem)
-    sim.simulate(2)
-    sim.start(at(1), pem)
-    pytest.raises(ValueError, sim.simulate)
+    sim.start(pem(sim.context), delay=5)
+    sim.simulate()
 
 
 def test_start_delayed_error(sim):
     """Check if delayed() raises an error if you pass a negative dt."""
-    pytest.raises(ValueError, delayed, 0)
-    pytest.raises(ValueError, delayed, -1)
+    def pem(context):
+        yield context.hold(1)
+
+    pytest.raises(ValueError, sim.start, pem(sim.context), delay=-1)
+
+
+def test_start_at_delay_precedence(sim):
+    """The ``delay`` param shoul take precedence ofer the ``at`` param."""
+    def pem(context):
+        assert context.now == 5
+        yield context.hold(1)
+
+    sim.start(pem(sim.context), at=3, delay=5)
+    sim.simulate()
 
 
 def test_start_non_process(sim):
