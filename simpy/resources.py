@@ -103,7 +103,7 @@ class Resource(object):
             pass
         else:  # Only schedule event if someone was waiting ...
             self.users.append(next_user)
-            self._context.resume(next_user)
+            next_user.resume()
 
 
 class Container(object):
@@ -177,7 +177,7 @@ class Container(object):
                 if self._level >= amount:
                     self.get_q.pop()
                     self._level -= amount
-                    self._context.resume(proc)
+                    proc.resume()
                 else:
                     break
 
@@ -208,7 +208,7 @@ class Container(object):
                 if new_level <= self.capacity:
                     self.put_q.pop()
                     self._level = new_level
-                    self._context.resume(proc)
+                    proc.resume()
                 else:
                     break
 
@@ -277,7 +277,7 @@ class Store(object):
             while len(self.get_q) and len(self.item_q):
                 proc = self.get_q.pop()
                 get_item = self.item_q.pop()
-                self._context.resume(proc, get_item)
+                proc.resume(get_item)
 
             return self._context.hold(0)
 
@@ -295,7 +295,7 @@ class Store(object):
             while len(self.put_q) and (len(self.item_q) < self.capacity):
                 proc, put_item = self.put_q.pop()
                 self.item_q.push(put_item)
-                self._context.resume(proc)
+                proc.resume()
 
             return self._context.hold(0, item)
 
