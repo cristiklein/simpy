@@ -67,13 +67,13 @@ class Process(object):
     contains internal and external status information. It is also used
     for process interaction, e.g., for interruptions.
 
-    An instance of this class is returned by :func:`Context.start()`.
+    An instance of this class is returned by :func:`Environment.start()`.
 
     """
-    __slots__ = ('pid', 'name', 'result', '_peg', '_context', '_alive',
+    __slots__ = ('pid', 'name', 'result', '_peg', '_env', '_alive',
                  '_next_event', '_joiners', '_observers', '_interrupts')
 
-    def __init__(self, pid, peg, context):
+    def __init__(self, pid, peg, env):
         self.pid = pid
         """The process ID."""
 
@@ -84,7 +84,7 @@ class Process(object):
         """The process' result after it terminated."""
 
         self._peg = peg
-        self._context = context
+        self._env = env
         self._alive = True
         self._next_event = None
 
@@ -125,7 +125,7 @@ class Process(object):
         # If it is the first interrupt, schedule it. Else, just append it.
         if self._next_event[0] is not EVT_INTERRUPT:
             self._next_event = None
-            self._context._sim._schedule(self, EVT_INTERRUPT, interrupt)
+            self._env._schedule(self, EVT_INTERRUPT, interrupt)
         else:
             interrupts.append(interrupt)
 
@@ -144,145 +144,15 @@ class Process(object):
             raise RuntimeError('%s is not suspended.' % self)
 
         self._next_event = None
-        self._context._sim._schedule(self, EVT_RESUME, value=value)
+        self._env._schedule(self, EVT_RESUME, value=value)
 
 
-def start(sim, peg, at=None, delay=None):
-    """Start a new process for ``peg``.
-
-    *PEG* is the *Process Execution Generator*, which is the generator
-    returned by *PEM*.
-
-    The process is started a the current simulation time, but you can
-    alternatively specify a start time via ``at`` or a delayed start
-    via ``delay``. ``delay`` takes precedence over ``at`` if both are
-    specified.
-
-    Raise a :exc:`ValueError` if ``peg`` is not a generator, if ``at``
-    is smaller than the current simulation time or if ``delay`` is
-    negative.
-
-    """
-    if not isgenerator(peg):
-        raise ValueError('PEG %s is not a generator.' % peg)
-
-    if at and at < sim._now:
-        raise ValueError('at(=%s) must be > %s' % (at, sim._now))
-
-    if delay:
-        if delay < 0:
-            raise ValueError('delay(=%s) must be > 0' % delay)
-
-        at = sim._now + delay
-
-    proc = Process(next(sim._pid), peg, sim.context)
-    sim._schedule(proc, EVT_INIT, at=at)
-
-    return proc
-
-
-def exit(sim, result=None):
-    """Stop the current process, optinally providing a ``result``.
-
-    The ``result`` is sent to processes waiting for the current process
-    and can also be obtained via :attr:`Process.result`.
-
-    """
-    sim._active_proc.result = result
-    raise StopIteration()
-
-
-def hold(sim, delta_t=Infinity, value=None):
-    """Schedule a new event in ``delta_t`` time units.
-
-    If ``delta_t`` is omitted, schedule an event at *infinity*. This is
-    a week suspend. A process holding until *infinity* can only become
-    active again if it gets interrupted.
-
-    Raise a :exc:`ValueError` if ``delta_t < 0``.
-
-    You can optionally pass a ``value`` which will be sent back to the
-    PEM when it continues. This might be helpful to e.g. implement
-    resources (:class:`simpy.resources.Store` uses this feature).
-
-    The result of that method must be ``yield``\ ed. Raise
-    a :exc:`RuntimeError` if this (or another event-generating) method
-    was previously called without yielding its result.
-
-    """
-    if delta_t < 0:
-        raise ValueError('delta_t=%s must be >= 0.' % delta_t)
-
-    sim._schedule(sim._active_proc, EVT_RESUME, value=value,
-                  at=(sim._now + delta_t))
-
-    return Event
-
-
-def suspend(sim):
-    """Suspend the current process by deleting all future events.
-
-    A suspended process needs to be resumed (see
-    :class:`Context.resume()`) by another process to get active again.
-
-    As with :func:`~Context.hold()`, the result of that method must be
-    ``yield``\ ed. Raise a :exc:`RuntimeError` if the process has
-    already an event scheduled.
-
-    """
-    sim._schedule(sim._active_proc, EVT_SUSPEND)
-
-    return Event
-
-
-def interrupt_on(sim, other):
-    """Register at ``other`` to receive an interrupt when it terminates."""
-    proc = sim._active_proc
-
-    if other.is_alive:
-        other._observers.append(proc)
-    else:
-        proc._interrupts.append(Interrupt(other))
-
-
-class Context(object):
+class Environment(object):
     """This class provides the API for process to interact with the
     simulation and other processes.
 
     Every instance of :class:`Simulation` has exactly one context
     associated with it. It is passed to every PEM when it is called.
-
-    """
-    # The following functions will be bound to the Simulation intance that
-    # creates the context, so that they can acces the Simulation internals
-    # more easily
-    _funcs = (start, exit, hold, suspend, interrupt_on)
-
-    def __init__(self, sim):
-        self._sim = sim
-        # Attach context function and bind them to the simulation.
-        for func in Context._funcs:
-            setattr(self, func.__name__, func.__get__(sim, Simulation))
-
-    @property
-    def active_process(self):
-        """Property that returns the currently active process."""
-        return self._sim._active_proc
-
-    @property
-    def now(self):
-        """Property that returns the current simulation time."""
-        return self._sim._now
-
-
-class Simulation(object):
-    """This is SimPy's central class and actually performs a simulation.
-
-    It manages the processes' events and coordinates their execution.
-
-    Processes interact with the simulation via a simulation
-    :class:`Context` object that is passed to every process when it is
-    started.
 
     """
     def __init__(self):
@@ -293,170 +163,267 @@ class Simulation(object):
         self._active_proc = None
         self._now = 0
 
-        self.context = Context(self)
+    @property
+    def active_process(self):
+        """Property that returns the currently active process."""
+        return self._active_proc
 
     @property
     def now(self):
         """Property that returns the current simulation time."""
         return self._now
 
-    def start(self, pem, *args, **kwargs):
-        """Alias to :func:`Context.start()`."""
-        return self.context.start(pem, *args, **kwargs)
+    def start(self, peg, at=None, delay=None):
+        """Start a new process for ``peg``.
 
-    def peek(self):
-        """Return the time of the next event or ``inf`` if the event
-        queue is empty.
+        *PEG* is the *Process Execution Generator*, which is the generator
+        returned by *PEM*.
 
-        """
-        try:
-            while True:
-                # Pop all removed events from the queue
-                # self._events[0][3] is the scheduled event
-                # self._events[0][2] is the corresponding proc
-                if self._events[0][3] is self._events[0][2]._next_event:
-                    break
-                heappop(self._events)
+        The process is started a the current selfulation time, but you can
+        alternatively specify a start time via ``at`` or a delayed start
+        via ``delay``. ``delay`` takes precedence over ``at`` if both are
+        specified.
 
-            return self._events[0][0]  # time of first event
-
-        except IndexError:
-            return Infinity
-
-    def step(self):
-        """Get and process the next event.
-
-        Raise an :exc:`IndexError` if no valid event is on the heap.
+        Raise a :exc:`ValueError` if ``peg`` is not a generator, if ``at``
+        is smaller than the current selfulation time or if ``delay`` is
+        negative.
 
         """
-        if self._active_proc:
-            raise RuntimeError('step() was called from within step().'
-                               'Something went horribly wrong.')
+        if not isgenerator(peg):
+            raise ValueError('PEG %s is not a generator.' % peg)
 
-        # Get the next valid event from the heap
+        if at and at < self._now:
+            raise ValueError('at(=%s) must be > %s' % (at, self._now))
+
+        if delay:
+            if delay < 0:
+                raise ValueError('delay(=%s) must be > 0' % delay)
+
+            at = self._now + delay
+
+        proc = Process(next(self._pid), peg, self)
+        _schedule(self, proc, EVT_INIT, at=at)
+
+        return proc
+
+    def exit(self, result=None):
+        """Stop the current process, optinally providing a ``result``.
+
+        The ``result`` is sent to processes waiting for the current process
+        and can also be obtained via :attr:`Process.result`.
+
+        """
+        self._active_proc.result = result
+        raise StopIteration()
+
+    def hold(self, delta_t=Infinity, value=None):
+        """Schedule a new event in ``delta_t`` time units.
+
+        If ``delta_t`` is omitted, schedule an event at *infinity*. This is
+        a week suspend. A process holding until *infinity* can only become
+        active again if it gets interrupted.
+
+        Raise a :exc:`ValueError` if ``delta_t < 0``.
+
+        You can optionally pass a ``value`` which will be sent back to the
+        PEM when it continues. This might be helpful to e.g. implement
+        resources (:class:`selfpy.resources.Store` uses this feature).
+
+        The result of that method must be ``yield``\ ed. Raise
+        a :exc:`RuntimeError` if this (or another event-generating) method
+        was previously called without yielding its result.
+
+        """
+        if delta_t < 0:
+            raise ValueError('delta_t=%s must be >= 0.' % delta_t)
+
+        _schedule(self, self._active_proc, EVT_RESUME, value=value,
+                    at=(self._now + delta_t))
+
+        return Event
+
+    def suspend(self):
+        """Suspend the current process by deleting all future events.
+
+        A suspended process needs to be resumed (see
+        :class:`Environment.resume()`) by another process to get active again.
+
+        As with :func:`~Environment.hold()`, the result of that method must be
+        ``yield``\ ed. Raise a :exc:`RuntimeError` if the process has
+        already an event scheduled.
+
+        """
+        _schedule(self, self._active_proc, EVT_SUSPEND)
+
+        return Event
+
+    def interrupt_on(self, other):
+        """Register at ``other`` to receive an interrupt when it terminates."""
+        proc = self._active_proc
+
+        if other.is_alive:
+            other._observers.append(proc)
+        else:
+            proc._interrupts.append(Interrupt(other))
+
+
+def peek(env):
+    """Return the time of the Environment ``env``'s next event or
+    ``inf`` if the event queue is empty.
+
+    """
+    try:
         while True:
-            self._now, eid, proc, evt = heappop(self._events)
-
-            # Break from the loop if we find a valid event.
-            if evt is proc._next_event:
+            # Pop all removed events from the queue
+            # env._events[0][3] is the scheduled event
+            # env._events[0][2] is the corresponding proc
+            if env._events[0][3] is env._events[0][2]._next_event:
                 break
+            heappop(env._events)
 
-        self._active_proc = proc
+        return env._events[0][0]  # time of first event
 
-        evt_type, value = evt
-        proc._next_event = None
-        interrupts = proc._interrupts
+    except IndexError:
+        return Infinity
 
-        # Get next event from process
-        try:
-            if evt_type is EVT_INTERRUPT:
-                target = proc._peg.throw(value)
-            else:
-                target = proc._peg.send(value)
 
-        # self._active_proc has terminated
-        except StopIteration:
-            self._join(proc)
-            self._active_proc = None
+def step(env):
+    """Get and process the next event for the Environment ``env``.
 
-            return  # Don't need to check a new event
+    Raise an :exc:`IndexError` if no valid event is on the heap.
 
-        # Check what was yielded
-        if type(target) is Process:
-            if proc._next_event:
-                proc._peg.throw(RuntimeError('%s already has an event '
-                        'scheduled. Did you forget to yield?' % proc))
+    """
+    if env._active_proc:
+        raise RuntimeError('step() was called from within step().'
+                            'Something went horribly wrong.')
 
-            if target.is_alive:
-                # Schedule a hold(Infinity) so that the waiting proc can
-                # be interrupted if target terminates.
-                proc._next_event = (EVT_RESUME, None)
-                target._joiners.append(proc)
+    # Get the next valid event from the heap
+    while True:
+        env._now, eid, proc, evt = heappop(env._events)
 
-            else:
-                # Process has already terminated. Resume as soon as possible.
-                self._schedule(proc, EVT_RESUME, target.result)
+        # Break from the loop if we find a valid event.
+        if evt is proc._next_event:
+            break
 
-        elif target is not Event:
-            proc._peg.throw(ValueError('Invalid yield value: %s' % target))
+    env._active_proc = proc
 
-        # else: target is event
+    evt_type, value = evt
+    proc._next_event = None
+    interrupts = proc._interrupts
 
-        # Schedule concurrent interrupts.
-        if interrupts:
-            proc._next_event = None
-            self._schedule(proc, EVT_INTERRUPT, interrupts.pop(0))
+    # Get next event from process
+    try:
+        if evt_type is EVT_INTERRUPT:
+            target = proc._peg.throw(value)
+        else:
+            target = proc._peg.send(value)
 
-        self._active_proc = None
+    # env._active_proc has terminated
+    except StopIteration:
+        _join(env, proc)
+        env._active_proc = None
 
-    def simulate(self, until=Infinity):
-        """Shortcut for ``while sim.peek() < until: sim.step()``.
+        return  # Don't need to check a new event
 
-        The parameter ``until`` specifies when the simulation ends.
-        By default it is set to *infinity*, which means SimPy tries to
-        simulate all events, which might take infinite time if your
-        processes don't terminate on their own.
-
-        """
-        if until <= 0:
-            raise ValueError('until(=%s) should be a number > 0.' % until)
-
-        while self.peek() < until:
-            self.step()
-
-    def _schedule(self, proc, evt_type, value=None, at=None):
-        """Schedule a new event for process ``proc``.
-
-        ``evt_type`` should be one of the ``EVT_*`` constants defined on
-        top of this module.
-
-        The optional ``value`` will be sent into the PEG when the event
-        is processed.
-
-        The event will be scheduled at the simulation time ``at`` or at
-        the current time if no value is provided.
-
-        Raise a :exc:`RuntimeError` if ``proc`` already has an event
-        scheduled.
-
-        """
+    # Check what was yielded
+    if type(target) is Process:
         if proc._next_event:
-            raise RuntimeError('%s already has an event scheduled. Did you '
-                            'forget to yield?' % proc)
+            proc._peg.throw(RuntimeError('%s already has an event '
+                    'scheduled. Did you forget to yield?' % proc))
 
-        proc._next_event = (evt_type, value)
+        if target.is_alive:
+            # Schedule a hold(Infinity) so that the waiting proc can
+            # be interrupted if target terminates.
+            proc._next_event = (EVT_RESUME, None)
+            target._joiners.append(proc)
 
-        # Don't put anything on the heap for a suspended proc.
-        if evt_type is EVT_SUSPEND:
-            return
+        else:
+            # Process has already terminated. Resume as soon as possible.
+            _schedule(env, proc, EVT_RESUME, target.result)
 
-        # Don't put events scheduled for "Infinity" onto the heap,
-        # because the will never be popped.
-        if at is Infinity:
-            return
+    elif target is not Event:
+        proc._peg.throw(ValueError('Invalid yield value: %s' % target))
 
-        if at is None:
-            at = self._now
+    # else: target is event
 
-        heappush(self._events, (at, next(self._eid), proc, proc._next_event))
+    # Schedule concurrent interrupts.
+    if interrupts:
+        proc._next_event = None
+        _schedule(env, proc, EVT_INTERRUPT, interrupts.pop(0))
 
-    def _join(self, proc):
-        """Notify all registered processes that the process ``proc``
-        terminated.
+    env._active_proc = None
 
-        """
-        joiners = proc._joiners
-        observers = proc._observers
 
-        proc._alive = False
+def simulate(env, until=Infinity):
+    """Shortcut for ``while peek(env) < until: step(env)``.
 
-        for joiner in joiners:
-            # A joiner is always alive, since "yield proc" blocks until
-            # "proc" has terminated.
-            joiner._next_event = None
-            self._schedule(joiner, EVT_RESUME, proc.result)
+    The parameter ``until`` specifies when the simulation ends.
+    By default it is set to *infinity*, which means SimPy tries to
+    simulate all events, which might take infinite time if your
+    processes don't terminate on their own.
 
-        for observer in observers:
-            if not observer.is_alive:
-                continue
-            observer.interrupt(proc)
+    """
+    if until <= 0:
+        raise ValueError('until(=%s) should be a number > 0.' % until)
+
+    while peek(env) < until:
+        step(env)
+
+
+def _schedule(env, proc, evt_type, value=None, at=None):
+    """Schedule a new event for process ``proc``.
+
+    ``evt_type`` should be one of the ``EVT_*`` constants defined on
+    top of this module.
+
+    The optional ``value`` will be sent into the PEG when the event
+    is processed.
+
+    The event will be scheduled at the simulation time ``at`` or at
+    the current time if no value is provided.
+
+    Raise a :exc:`RuntimeError` if ``proc`` already has an event
+    scheduled.
+
+    """
+    if proc._next_event:
+        raise RuntimeError('%s already has an event scheduled. Did you '
+                        'forget to yield?' % proc)
+
+    proc._next_event = (evt_type, value)
+
+    # Don't put anything on the heap for a suspended proc.
+    if evt_type is EVT_SUSPEND:
+        return
+
+    # Don't put events scheduled for "Infinity" onto the heap,
+    # because the will never be popped.
+    if at is Infinity:
+        return
+
+    if at is None:
+        at = env._now
+
+    heappush(env._events, (at, next(env._eid), proc, proc._next_event))
+
+
+def _join(env, proc):
+    """Notify all registered processes that the process ``proc``
+    terminated.
+
+    """
+    joiners = proc._joiners
+    observers = proc._observers
+
+    proc._alive = False
+
+    for joiner in joiners:
+        # A joiner is always alive, since "yield proc" blocks until
+        # "proc" has terminated.
+        joiner._next_event = None
+        _schedule(env, joiner, EVT_RESUME, proc.result)
+
+    for observer in observers:
+        if not observer.is_alive:
+            continue
+        observer.interrupt(proc)

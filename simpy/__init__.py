@@ -58,13 +58,17 @@ Other
 .. - :func:`test`: Run the test suite on the installed copy of Simpy.
 
 """
-from simpy.core import Simulation, Interrupt
+from simpy.core import Environment, Interrupt, peek, step, simulate
 from simpy.queues import FIFO, LIFO, Priority
 from simpy.resources import Resource, Container, Store
 
 
-__all__ = ['Simulation', 'Interrupt', 'test', 'FIFO', 'LIFO', 'Priority',
-           'Resource', 'Container', 'Store']
+__all__ = [
+    'test',
+    'Environment', 'Interrupt', 'peek', 'step', 'simulate',
+    'FIFO', 'LIFO', 'Priority',
+    'Resource', 'Container', 'Store',
+]
 __version__ = '3.0a1'
 
 
