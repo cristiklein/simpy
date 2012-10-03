@@ -31,15 +31,15 @@ each step::
 
     >>> import simpy
     >>>
-    >>> def clock(context):
+    >>> def clock(env):
     ...     while True:
-    ...         print(context.now)
-    ...         yield context.hold(1)
+    ...         print(env.now)
+    ...         yield env.hold(1)
     ...
-    >>> sim = simpy.Simulation()
-    >>> sim.start(clock)
+    >>> env = simpy.Environment()
+    >>> env.start(clock(env))
     Process(0, clock)
-    >>> sim.simulate(3)
+    >>> simpy.simulate(env, until=3)
     0
     1
     2
@@ -82,7 +82,7 @@ You can also download and install SimPy manually::
 
 To run SimPy’s test suite on your installation, execute::
 
-    $ python -c "import SimPy; SimPy.test()"
+    $ python -c "import simpy; simpy.test()"
 
 
 Getting started
