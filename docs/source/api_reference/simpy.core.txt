@@ -5,35 +5,15 @@
 
 .. automodule:: simpy.core
 
-.. autoclass:: Simulation
+.. autofunction:: peek
+.. autofunction:: step
+.. autofunction:: simulate
 
-   .. attribute:: context
-
-      The simulations's :class:`Context` instance.
-
-   .. autoattribute:: now
-   .. automethod:: start
-   .. automethod:: peek
-   .. automethod:: step
-   .. automethod:: simulate
-
-
-.. autoclass:: Context
-
-   .. autoattribute:: now
-   .. autoattribute:: active_process
-   .. autofunction:: start(pem, *args, **kwargs)
-   .. autofunction:: exit(result=None)
-   .. autofunction:: hold(delta_t=inf, value=None)
-   .. autofunction:: interrupt(other, cause=None)
-   .. autofunction:: suspend()
-   .. autofunction:: resume(other, value=None)
-   .. autofunction:: interrupt_on(other)
-
+.. autoclass:: Environment
+   :members:
 
 .. autoclass:: Process
-   :members: pid, name, result, is_alive
-
+   :members: pid, name, result, is_alive, interrupt, resume
 
 .. autoclass:: Interrupt
    :members: cause

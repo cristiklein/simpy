@@ -3,20 +3,20 @@ This module contains the implementation of SimPy's core classes. Not
 all of them are intended for direct use and are thus not importable
 directly via ``from simpy import ...``.
 
-* :class:`~simpy.core.Simulation`: SimPy's central class that starts
-  the processes and performs the simulation.
+* :class:`Environment`: SimPy's central class. It contains the
+  simulation's state and lets the PEMs interact with it (i.e., schedule
+  events).
 
-* :class:`~simpy.core.Interrupt`: This exception is thrown into
-  a process if it gets interrupted by another one.
+* :class:`Interrupt`: This exception is thrown into a process if it gets
+  interrupted by another one.
 
 The following classes should not be imported directly:
 
-* :class:`~simpy.core.Context`: An instance of that class is created by
-  :class:`~simpy.core.Simulation` and passed to every PEM that is
-  started.
-
 * :class:`~simpy.core.Process`: An instance of that class is returned by
-  :meth:`simpy.core.Context.start`.
+  :meth:`Environment.start()`.
+
+This module also contains a few functions to simulate an
+:class:`Environment`.
 
 """
 from heapq import heappush, heappop
@@ -67,7 +67,8 @@ class Process(object):
     contains internal and external status information. It is also used
     for process interaction, e.g., for interruptions.
 
-    An instance of this class is returned by :func:`Environment.start()`.
+    An instance of this class is returned by
+    :meth:`Environment.start()`.
 
     """
     __slots__ = ('pid', 'name', 'result', '_peg', '_env', '_alive',
@@ -102,11 +103,11 @@ class Process(object):
         return '%s(%s, %s)' % (self.__class__.__name__, self.pid, self.name)
 
     def interrupt(self, cause=None):
-        """Interupt ``other`` process optionally providing a ``cause``.
+        """Interupt this process optionally providing a ``cause``.
 
-        Another process cannot be interrupted if it is suspend (and has no
-        event scheduled) or if it was just initialized and could not issue
-        a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
+        A process cannot be interrupted if it is suspended (and has no
+        event scheduled) or if it was just initialized and could not
+        issue a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
 
         """
         if not self._next_event:
@@ -148,11 +149,8 @@ class Process(object):
 
 
 class Environment(object):
-    """This class provides the API for process to interact with the
-    simulation and other processes.
-
-    Every instance of :class:`Simulation` has exactly one context
-    associated with it. It is passed to every PEM when it is called.
+    """The *environment* contains the simulation state and provides a
+    basic API for processes to interact with it.
 
     """
     def __init__(self):
@@ -176,17 +174,17 @@ class Environment(object):
     def start(self, peg, at=None, delay=None):
         """Start a new process for ``peg``.
 
-        *PEG* is the *Process Execution Generator*, which is the generator
-        returned by *PEM*.
+        *PEG* is the *Process Execution Generator*, which is the
+        generator returned by *PEM*.
 
-        The process is started a the current selfulation time, but you can
-        alternatively specify a start time via ``at`` or a delayed start
-        via ``delay``. ``delay`` takes precedence over ``at`` if both are
-        specified.
+        The process is started at the current simulation time, but you
+        can alternatively specify a start time via ``at`` or a delayed
+        start via ``delay``. ``delay`` takes precedence over ``at`` if
+        both are specified.
 
-        Raise a :exc:`ValueError` if ``peg`` is not a generator, if ``at``
-        is smaller than the current selfulation time or if ``delay`` is
-        negative.
+        Raise a :exc:`ValueError` if ``peg`` is not a generator, if
+        ``at`` is smaller than the current simulation time or if
+        ``delay`` is negative.
 
         """
         if not isgenerator(peg):
@@ -207,10 +205,10 @@ class Environment(object):
         return proc
 
     def exit(self, result=None):
-        """Stop the current process, optinally providing a ``result``.
+        """Stop the current process, optionally providing a ``result``.
 
-        The ``result`` is sent to processes waiting for the current process
-        and can also be obtained via :attr:`Process.result`.
+        The ``result`` is sent to processes waiting for the current
+        process and can also be obtained via :attr:`Process.result`.
 
         """
         self._active_proc.result = result
@@ -219,19 +217,20 @@ class Environment(object):
     def hold(self, delta_t=Infinity, value=None):
         """Schedule a new event in ``delta_t`` time units.
 
-        If ``delta_t`` is omitted, schedule an event at *infinity*. This is
-        a week suspend. A process holding until *infinity* can only become
-        active again if it gets interrupted.
+        If ``delta_t`` is omitted, schedule an event at *infinity*. This
+        is a week suspend. A process holding until *infinity* can only
+        become active again if it gets interrupted.
 
         Raise a :exc:`ValueError` if ``delta_t < 0``.
 
-        You can optionally pass a ``value`` which will be sent back to the
-        PEM when it continues. This might be helpful to e.g. implement
-        resources (:class:`selfpy.resources.Store` uses this feature).
+        You can optionally pass a ``value`` which will be sent back to
+        the PEM when it continues. This might be helpful to e.g.
+        implement resources (:class:`simpy.resources.Store` uses this
+        feature).
 
         The result of that method must be ``yield``\ ed. Raise
-        a :exc:`RuntimeError` if this (or another event-generating) method
-        was previously called without yielding its result.
+        a :exc:`RuntimeError` if this (or another event-generating)
+        method was previously called without yielding its result.
 
         """
         if delta_t < 0:
@@ -246,11 +245,12 @@ class Environment(object):
         """Suspend the current process by deleting all future events.
 
         A suspended process needs to be resumed (see
-        :class:`Environment.resume()`) by another process to get active again.
+        :meth:`Process.resume()`) by another process to get active
+        again.
 
-        As with :func:`~Environment.hold()`, the result of that method must be
-        ``yield``\ ed. Raise a :exc:`RuntimeError` if the process has
-        already an event scheduled.
+        As with :meth:`~Environment.hold()`, the result of that method
+        must be ``yield``\ ed. Raise a :exc:`RuntimeError` if the
+        process has already an event scheduled.
 
         """
         _schedule(self, self._active_proc, EVT_SUSPEND)
@@ -357,10 +357,10 @@ def step(env):
 def simulate(env, until=Infinity):
     """Shortcut for ``while peek(env) < until: step(env)``.
 
-    The parameter ``until`` specifies when the simulation ends.
-    By default it is set to *infinity*, which means SimPy tries to
-    simulate all events, which might take infinite time if your
-    processes don't terminate on their own.
+    The parameter ``until`` specifies when the simulation ends. By
+    default it is set to *infinity*, which means SimPy tries to simulate
+    all events, which might take infinite time if your processes don't
+    terminate on their own.
 
     """
     if until <= 0:
@@ -376,11 +376,11 @@ def _schedule(env, proc, evt_type, value=None, at=None):
     ``evt_type`` should be one of the ``EVT_*`` constants defined on
     top of this module.
 
-    The optional ``value`` will be sent into the PEG when the event
-    is processed.
+    The optional ``value`` will be sent into the PEG when the event is
+    processed.
 
-    The event will be scheduled at the simulation time ``at`` or at
-    the current time if no value is provided.
+    The event will be scheduled at the simulation time ``at`` or at the
+    current time if no value is provided.
 
     Raise a :exc:`RuntimeError` if ``proc`` already has an event
     scheduled.
@@ -408,10 +408,7 @@ def _schedule(env, proc, evt_type, value=None, at=None):
 
 
 def _join(env, proc):
-    """Notify all registered processes that the process ``proc``
-    terminated.
-
-    """
+    """Notify all registered processes that the process ``proc`` terminated."""
     joiners = proc._joiners
     observers = proc._observers
 
