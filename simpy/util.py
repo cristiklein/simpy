@@ -15,7 +15,7 @@ def wait_for_all(env, procs):
     The result of the helper process will be a list with the results
     of ``procs`` in their respective order.
 
-    Raise a :class:`ValueError` if no processes are passed.
+    Raise a :exc:`ValueError` if no processes are passed.
 
     """
     if not procs:
@@ -38,7 +38,7 @@ def wait_for_any(env, procs):
     remaining_procs)``. You can pass the list of remaining procs to
     another call to this method to wait for the next of them.
 
-    Raise a :class:`ValueError` if no processes are passed.
+    Raise a :exc:`ValueError` if no processes are passed.
 
     """
     if not procs:

@@ -5,20 +5,12 @@ aggregates Simpy's various classes and methods:
 Core classes
 ------------
 
-* :class:`~simpy.core.Simulation`: SimPy's central class that starts
-  the processes and performs the simulation.
+* :class:`~simpy.core.Environment`: SimPy's central class. It contains
+  the simulation's state and lets the PEMs interact with it (i.e.,
+  schedule events).
 
 * :class:`~simpy.core.Interrupt`: This exception is thrown into
   a process if it gets interrupted by another one.
-
-The following classes should not be imported directly:
-
-* :class:`~simpy.core.Context`: An instance of that class is created by
-  :class:`~simpy.core.Simulation` and passed to every PEM that is
-  started.
-
-* :class:`~simpy.core.Process`: An instance of that class is returned by
-  :meth:`simpy.core.Context.start`.
 
 
 Resources

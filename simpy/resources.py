@@ -1,5 +1,5 @@
 """
-This modules contains envpy's resource types:
+This modules contains simpy's resource types:
 
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
@@ -30,16 +30,16 @@ class Resource(object):
     that can be used by refueling vehicles. If all fuel pumps are
     occupied, incoming vehicles have to wait until one gets free.
 
-    The ``env`` parameter is the :class:`~envpy.core.envulation`
+    The ``env`` parameter is the :class:`~simpy.core.Environment`
     instance the resource is bound to.
 
     The ``capacity`` defines the number of slots and must be a positive
     integer.
 
     The ``queue`` must provide a ``pop()`` method to get one item from
-    it and a ``push(item)`` method to append an item. envPy comes with
-    a :class:`~envpy.queues.FIFO` (which is used as a default),
-    :class:`~envpy.queues.LIFO` and a :class:`~envpy.queues.Priority`
+    it and a ``push(item)`` method to append an item. simpy comes with
+    a :class:`~simpy.queues.FIFO` (which is used as a default),
+    :class:`~simpy.queues.LIFO` and a :class:`~simpy.queues.Priority`
     queue.
 
     You can get the list of users via the :attr:`users` attribute and
@@ -83,7 +83,7 @@ class Resource(object):
     def release(self):
         """Release the resource for the active process.
 
-        Raise a :class:`ValueError` if the process did not request the
+        Raise a :exc:`ValueError` if the process did not request the
         resource in the first place.
 
         If another process is waiting for the resource, resume that
@@ -115,19 +115,19 @@ class Container(object):
     Tankers increase, and refuelled cars decrease, the amount of gas in
     the station's storage tanks.
 
-    The ``env`` parameter is the :class:`~envpy.core.envulation`
+    The ``env`` parameter is the :class:`~simpy.core.Environment`
     instance the container is bound to.
 
     The ``capacity`` defines the size of the container and must be
     a positive number (> 0). By default, a container is of unlimited
     size.  You can specify the initial level of the container via
-    ``init``. It must be >= 0 and is 0 by default. A :class:`ValueError`
+    ``init``. It must be >= 0 and is 0 by default. A :exc:`ValueError`
     is raised if one of these values is negative.
 
     A container has two queues: ``put_q`` is used for processes that
     want to put something into the container, ``get_q`` is for those
     that want to get something out. The default for both is
-    :class:`~envpy.queues.FIFO`.
+    :class:`~simpy.queues.FIFO`.
 
     """
     def __init__(self, env, capacity=Infinity, init=0, put_q=None, get_q=None):
@@ -161,7 +161,7 @@ class Container(object):
         """Put ``amount`` into the Container if possible or wait until
         it is.
 
-        Raise a :class:`ValueError` if ``amount <= 0``.
+        Raise a :exc:`ValueError` if ``amount <= 0``.
 
         """
         if amount <= 0:
@@ -192,7 +192,7 @@ class Container(object):
         """Get ``amount`` from the container if possible or wait until
         it is available.
 
-        Raise a :class:`ValueError` if ``amount <= 0``.
+        Raise a :exc:`ValueError` if ``amount <= 0``.
 
         """
         if amount <= 0:
@@ -224,21 +224,21 @@ class Store(object):
     """Models the production and consumption of concrete Python objects.
 
     The type of items you can put into or get from the store is not
-    defined. You can use normal Python objects, envpy processes or
+    defined. You can use normal Python objects, SimPy processes or
     other resources. You can even mix them as you want.
 
-    The ``env`` parameter is the :class:`~envpy.core.envulation`
+    The ``env`` parameter is the :class:`~simpy.core.Environment`
     instance the container is bound to.
 
     The ``capacity`` defines the size of the Store and must be
     a positive number (> 0). By default, a Store is of unlimited size.
-    A :class:`ValueError` is raised if the value is negative.
+    A :exc:`ValueError` is raised if the value is negative.
 
     A container has three queues: ``put_q`` is used for processes that
     want to put something into the Store, ``get_q`` is for those that
     want to get something out. The ``item_q`` is used to store and
     retrieve the actual items. The default for all of them is
-    :class:`~envpy.queues.FIFO`.
+    :class:`~simpy.queues.FIFO`.
 
     """
     def __init__(self, env, capacity=Infinity, put_q=None, get_q=None,
