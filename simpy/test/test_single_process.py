@@ -1,4 +1,3 @@
-# encoding: utf-8
 """
 API tests for single processes (no interaction with other processes or
 resources).

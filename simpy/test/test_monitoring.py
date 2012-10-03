@@ -4,7 +4,7 @@ Theses test cases demonstrate the API for monitoring processes and
 resources.
 
 """
-# Pytest gets the parameters "sim" and "log" from the *conftest.py*
+# Pytest gets the parameters "env" and "log" from the *conftest.py*
 # file
 import pytest
 
@@ -12,106 +12,106 @@ import simpy
 
 
 @pytest.mark.xfail
-def test_whitebox_monitor_explicit(sim):
+def test_whitebox_monitor_explicit(env):
     """*Whitebox monitoring* means, the user monitors the attributes of
     a process from within the process and has thus full access to all
-    attributes.  If the process is just a simple method, the
+    attributes.  If the process is just a envple method, the
     :class:`~simpy.Monitor` has to be passed to it when it is activated.
 
     """
-    def pem(context, monitor):
+    def pem(env, monitor):
         a = 0
 
         while True:
-            a += context.now
-            monitor.append(context.now, a)  # Explicitly collect data
-            yield context.hold(1)
+            a += env.now
+            monitor.append(env.now, a)  # Explicitly collect data
+            yield env.hold(1)
 
     monitor = simpy.Monitor()
-    sim.start(pem, monitor)
-    sim.simulate(5)
+    env.start(pem(env, monitor))
+    simpy.simulate(env, 5)
 
     assert monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
 @pytest.mark.xfail
-def test_whitebox_monitor_implicit(sim):
+def test_whitebox_monitor_implicit(env):
     """This is the same example as above, but shows that the monitor can
     also be configured to implictly collect data.
 
     """
-    def pem(context, monitor):
+    def pem(env, monitor):
         a = 0
         monitor.configure(lambda: a)  # Configure the monitor
 
         while True:
-            a += context.now
+            a += env.now
             monitor.collect()  # Implicitly collect data
-            yield context.hold(1)
+            yield env.hold(1)
 
     monitor = simpy.Monitor()
-    sim.start(pem, monitor)
-    sim.simulate(5)
+    env.start(pem(env, monitor))
+    simpy.simulate(env, 5)
 
     assert monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
 @pytest.mark.xfail
-def test_whitebox_monitor_data_object(sim):
+def test_whitebox_monitor_data_object(env):
     """If the *PEM* is an instance method of an object,
     a :class:`~simpy.Monitor` can be configured to automatically collect
     a nummber of instance attributes.
 
     """
     class Spam(object):
-        def __init__(self, sim):
+        def __init__(self, env):
             self.a = 0
             self.monitor = simpy.Monitor()
-            self.process = sim.start(self.pem)
+            self.process = env.start(self.pem)
 
-        def pem(self, context):
+        def pem(self, env):
             self.monitor.configure(
-                    lambda: context.now,
+                    lambda: env.now,
                     lambda: self.a)
             while True:
-                self.a += context.now
+                self.a += env.now
                 self.monitor.collect()
-                yield context.hold(1)
+                yield env.hold(1)
 
-    spam = Spam(sim)  # Spam.__init__ starts the PEM
-    sim.simulate(5)
+    spam = Spam(env)  # Spam.__init__ starts the PEM
+    simpy.simulate(env, 5)
 
     assert spam.monitor.data == [(0, 0), (1, 1), (2, 3), (3, 6), (4, 10)]
 
 
 @pytest.mark.xfail
-def test_blackbox_monitor_processes(sim):
+def test_blackbox_monitor_processes(env):
     """A :class:`~simpy.Monitor` also provides a *PEM*
     (:meth:`Monitor.run`) that collects data from a number of objects in
     regular intervals.
 
     """
     class Spam(object):
-        def __init__(self, sim):
+        def __init__(self, env):
             self.a = 0
-            self.process = sim.start(self.pem)
+            self.process = env.start(self.pem)
 
-        def pem(self, context):
+        def pem(self, env):
             while True:
-                self.a += context.now
-                yield context.hold(1)
+                self.a += env.now
+                yield env.hold(1)
 
-    spams = [Spam(sim) for i in range(2)]
+    spams = [Spam(env) for i in range(2)]
     monitor = simpy.Monitor()
 
     # configure also accepts a generator that creates a number of
     # collector functions:
     monitor.configure((lambda: spam.a) for spam in spams)
-    sim.start(monitor.run, collect_interval=1, collect_time=True)
+    env.start(monitor.run, collect_interval=1, collect_time=True)
 
-    sim.simulate(3)
+    simpy.simulate(env, 3)
     assert monitor.data == [
-            # (context.now, spam[0].a, spam[1].a)
+            # (env.now, spam[0].a, spam[1].a)
             (0, 0, 0),
             (1, 1, 1),
             (2, 3, 3),
@@ -119,35 +119,35 @@ def test_blackbox_monitor_processes(sim):
 
 
 @pytest.mark.xfail
-def test_monitor_resource_queue_length(sim):
+def test_monitor_resource_queue_length(env):
     """The number of queueing processes for a resource can be collected
     via a :class:`~simpy.Monitor` process (as in
     :func:`test_blackbox_monitor_processes`).
 
     """
-    def pem(context, resource):
+    def pem(env, resource):
         yield resource.request()
-        yield context.hold(2)
+        yield env.hold(2)
         resource.release()
 
     resource = simpy.Resource(1)
 
-    sim.start(pem, resource)
-    sim.start(pem, resource)
+    env.start(pem(env, resource))
+    env.start(pem(env, resource))
 
     monitor = simpy.Monitor()
     monitor.configure(lambda: len(resource.queue))
     # Monitor.run is a PEM that collects the configured items (and the
-    # simulation time if collect_time == True) every *collect_interval*
+    # envulation time if collect_time == True) every *collect_interval*
     # steps.
-    sim.start(monitor.run, collect_interval=1, collect_time=True)
-    sim.simulate(2)
+    env.start(monitor.run, collect_interval=1, collect_time=True)
+    simpy.simulate(env, 2)
 
     assert monitor.data == [(0, 0), (1, 1)]  # (time, len(queue))
 
 
 @pytest.mark.xfail
-def test_monitor_resource_wait_time(sim):
+def test_monitor_resource_wait_time(env):
     """There are two ways to monitor the time a process waited for (or
     used) a resource:
 
@@ -160,6 +160,6 @@ def test_monitor_resource_wait_time(sim):
 
 
 @pytest.mark.xfail
-def test_resource_utilization(sim):
+def test_resource_utilization(env):
     """utilization monitoring of pumps (percent of time it’s being used)."""
     assert False  # No test yet
