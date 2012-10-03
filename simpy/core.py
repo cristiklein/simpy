@@ -125,7 +125,7 @@ class Process(object):
         # If it is the first interrupt, schedule it. Else, just append it.
         if self._next_event[0] is not EVT_INTERRUPT:
             self._next_event = None
-            self._env._schedule(self, EVT_INTERRUPT, interrupt)
+            _schedule(self._env, self, EVT_INTERRUPT, interrupt)
         else:
             interrupts.append(interrupt)
 
@@ -144,7 +144,7 @@ class Process(object):
             raise RuntimeError('%s is not suspended.' % self)
 
         self._next_event = None
-        self._env._schedule(self, EVT_RESUME, value=value)
+        _schedule(self._env, self, EVT_RESUME, value=value)
 
 
 class Environment(object):

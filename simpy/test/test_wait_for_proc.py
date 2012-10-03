@@ -4,87 +4,87 @@ Tests for waiting for a process to finish.
 """
 import pytest
 
-from simpy import Interrupt
+from simpy import Interrupt, simulate
 from simpy.util import wait_for_all, wait_for_any
 
 
-def test_wait_for_proc(sim):
+def test_wait_for_proc(env):
     """A process can wait until another process finishes."""
-    def finisher(context):
-        yield context.hold(5)
+    def finisher(env):
+        yield env.hold(5)
 
-    def waiter(context, finisher):
-        proc = context.start(finisher)
+    def waiter(env, finisher):
+        proc = env.start(finisher(env))
         yield proc  # Waits until "proc" finishes
 
-        assert context.now == 5
+        assert env.now == 5
 
-    sim.start(waiter, finisher)
-    sim.simulate()
+    env.start(waiter(env, finisher))
+    simulate(env)
 
 
-def test_return_value(sim):
+def test_return_value(env):
     """Processes can set a return value via an ``exit()`` function,
     comparable to ``sys.exit()``.
 
     """
-    def child(context):
-        yield context.hold(1)
-        context.exit(context.now)
+    def child(env):
+        yield env.hold(1)
+        env.exit(env.now)
 
-    def parent(context):
-        result1 = yield context.start(child)
-        result2 = yield context.start(child)
+    def parent(env):
+        result1 = yield env.start(child(env))
+        result2 = yield env.start(child(env))
 
         assert [result1, result2] == [1, 2]
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_illegal_wait(sim):
+def test_illegal_wait(env):
     """Raise an error if a process forget to yield an event before it
     starts waiting for a process.
 
     """
-    def child(context):
-        yield context.hold(1)
+    def child(env):
+        yield env.hold(1)
 
-    def parent(context):
-        context.hold(1)
-        yield context.start(child)
+    def parent(env):
+        env.hold(1)
+        yield env.start(child(env))
 
-    sim.start(parent)
-    pytest.raises(RuntimeError, sim.simulate)
+    env.start(parent(env))
+    pytest.raises(RuntimeError, simulate, env)
 
 
-def test_join_after_terminate(sim):
+def test_join_after_terminate(env):
     """Waiting for an already terminated process should return
     immediately.
 
     """
-    def child(context):
-        yield context.hold(1)
+    def child(env):
+        yield env.hold(1)
 
-    def parent(context):
-        child_proc = context.start(child)
-        yield context.hold(2)
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield env.hold(2)
         yield child_proc
 
-        assert context.now == 2
+        assert env.now == 2
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_join_all(sim):
+def test_join_all(env):
     """Test waiting for multiple processes."""
-    def child(context, i):
-        yield context.hold(i)
-        context.exit(i)
+    def child(env, i):
+        yield env.hold(i)
+        env.exit(i)
 
-    def parent(context):
-        processes = [context.start(child, i) for i in range(9, -1, -1)]
+    def parent(env):
+        processes = [env.start(child(env, i)) for i in range(9, -1, -1)]
 
         # Wait for all processes to terminate.
         results = []
@@ -92,191 +92,191 @@ def test_join_all(sim):
             results.append((yield proc))
 
         assert results == list(reversed(range(10)))
-        assert context.now == 9
+        assert env.now == 9
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_join_any(sim):
-    def child(context, i):
-        yield context.hold(i)
-        context.exit(i)
+def test_join_any(env):
+    def child(env, i):
+        yield env.hold(i)
+        env.exit(i)
 
-    def parent(context):
-        processes = [context.start(child, i) for i in range(9, -1, -1)]
+    def parent(env):
+        processes = [env.start(child(env, i)) for i in range(9, -1, -1)]
 
         for proc in processes:
-            context.interrupt_on(proc)
+            env.interrupt_on(proc)
 
         try:
-            yield context.hold()
+            yield env.hold()
             pytest.fail('There should have been an interrupt')
         except Interrupt as interrupt:
             first_dead = interrupt.cause
             assert first_dead is processes[-1]
             assert first_dead.result == 0
-            assert context.now == 0
+            assert env.now == 0
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_child_exception(sim):
+def test_child_exception(env):
     """A child catches an exception and sends it to its parent."""
-    def child(context):
+    def child(env):
         try:
-            yield context.hold(1)
+            yield env.hold(1)
             raise RuntimeError('Onoes!')
         except RuntimeError as err:
-            context.exit(err)
+            env.exit(err)
 
-    def parent(context):
-        result = yield context.start(child)
+    def parent(env):
+        result = yield env.start(child(env))
         assert isinstance(result, Exception)
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_illegal_hold_followed_by_join(sim):
+def test_illegal_hold_followed_by_join(env):
     """Check that an exception is raised if a "yield proc" follows on an
     illegal hold()."""
-    def child(context):
-        yield context.hold(1)
+    def child(env):
+        yield env.hold(1)
 
-    def parent(context):
-        context.hold(1)
-        yield context.start(child)
+    def parent(env):
+        env.hold(1)
+        yield env.start(child(env))
 
-    sim.start(parent)
-    ei = pytest.raises(RuntimeError, sim.simulate)
+    env.start(parent(env))
+    ei = pytest.raises(RuntimeError, simulate, env)
     # Assert that the exceptino was correctly thwon into the PEM
-    assert "yield context.start(child)" in str(ei.traceback[-1])
+    assert "yield env.start(child(env))" in str(ei.traceback[-1])
 
 
-def test_interrupt_on(sim):
+def test_interrupt_on(env):
     """Check async. interrupt if a process terminates."""
-    def child(context):
-        yield context.hold(3)
-        context.exit('ohai')
+    def child(env):
+        yield env.hold(3)
+        env.exit('ohai')
 
-    def parent(context):
-        child_proc = context.start(child)
-        context.interrupt_on(child_proc)
+    def parent(env):
+        child_proc = env.start(child(env))
+        env.interrupt_on(child_proc)
 
         try:
-            yield context.hold()
+            yield env.hold()
         except Interrupt as interrupt:
             assert interrupt.cause is child_proc
             assert child_proc.result == 'ohai'
-            assert context.now == 3
+            assert env.now == 3
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_interrupt_on_terminated_proc(sim):
+def test_interrupt_on_terminated_proc(env):
     """interrupt_on(other) proc should send a singal immediatly if
     "other" has already terminated.
 
     """
-    def child(context):
-        yield context.hold(1)
+    def child(env):
+        yield env.hold(1)
 
-    def parent(context):
-        child_proc = context.start(child)
-        yield context.hold(2)
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield env.hold(2)
         try:
-            context.interrupt_on(child_proc)
-            assert context.now == 2
-            yield context.hold()
+            env.interrupt_on(child_proc)
+            assert env.now == 2
+            yield env.hold()
             pytest.fail('Did not get an Interrupt.')
         except Interrupt:
-            assert context.now == 2
+            assert env.now == 2
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_interrupted_join(sim):
+def test_interrupted_join(env):
     """Tests that interrupts are raised while the victim is waiting for
     another process.
 
     """
-    def interruptor(context, process):
-        yield context.hold(1)
+    def interruptor(env, process):
+        yield env.hold(1)
         process.interrupt()
 
-    def child(context):
-        yield context.hold(2)
+    def child(env):
+        yield env.hold(2)
 
-    def parent(context):
-        child_proc = context.start(child)
+    def parent(env):
+        child_proc = env.start(child(env))
         try:
             yield child_proc
             pytest.fail('Did not receive an interrupt.')
         except Interrupt:
-            assert context.now == 1
+            assert env.now == 1
             assert child_proc.is_alive
 
-    parent_proc = sim.start(parent)
-    sim.start(interruptor, parent_proc)
-    sim.simulate()
+    parent_proc = env.start(parent(env))
+    env.start(interruptor(env, parent_proc))
+    simulate(env)
 
 
-def test_interrupt_on_with_join(sim):
+def test_interrupt_on_with_join(env):
     """Test that interrupt_on() works if a process waits for another one."""
-    def child(context, i):
-        yield context.hold(i)
+    def child(env, i):
+        yield env.hold(i)
 
-    def parent(context):
-        child_proc1 = context.start(child, 1)
-        child_proc2 = context.start(child, 2)
+    def parent(env):
+        child_proc1 = env.start(child(env, 1))
+        child_proc2 = env.start(child(env, 2))
         try:
-            context.interrupt_on(child_proc1)
+            env.interrupt_on(child_proc1)
             yield child_proc2
         except Interrupt as interrupt:
-            assert context.now == 1
+            assert env.now == 1
             assert interrupt.cause is child_proc1
             assert child_proc2.is_alive
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_join_all_shortcut(sim):
+def test_join_all_shortcut(env):
     """Test the shortcut function to wait until a number of procs finish."""
-    def child(context, i):
-        yield context.hold(i)
-        context.exit(i)
+    def child(env, i):
+        yield env.hold(i)
+        env.exit(i)
 
-    def parent(context):
-        processes = [context.start(child, i) for i in range(10)]
+    def parent(env):
+        processes = [env.start(child(env, i)) for i in range(10)]
 
-        results = yield context.start(wait_for_all(processes))
+        results = yield wait_for_all(env, processes)
 
         assert results == list(range(10))
-        assert context.now == 9
+        assert env.now == 9
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
 
 
-def test_join_any_shortcut(sim):
+def test_join_any_shortcut(env):
     """Test the shortcut function to wait for any of a number of procs."""
-    def child(context, i):
-        yield context.hold(i)
-        context.exit(i)
+    def child(env, i):
+        yield env.hold(i)
+        env.exit(i)
 
-    def parent(context):
-        processes = [context.start(child, i) for i in [4, 1, 2, 0, 3]]
+    def parent(env):
+        processes = [env.start(child(env, i)) for i in [4, 1, 2, 0, 3]]
 
         for i in range(5):
-            finished, processes = yield context.start(wait_for_any(processes))
+            finished, processes = yield wait_for_any(env, processes)
             assert finished.result == i
             assert len(processes) == (5 - i - 1)
-            assert context.now == i
+            assert env.now == i
 
-    sim.start(parent)
-    sim.simulate()
+    env.start(parent(env))
+    simulate(env)
