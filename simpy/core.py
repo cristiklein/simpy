@@ -4,10 +4,10 @@ from itertools import count
 from collections import defaultdict
 from types import GeneratorType
 
-Failed = 0
+Failed = -1
+Interrupted = 0
 Success = 1
-Init = 2
-Suspended = 3
+Suspended = 2
 
 
 Infinity = float('inf')
@@ -16,7 +16,6 @@ Infinity = float('inf')
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
     another process.
-
     """
     def __init__(self, cause):
         super(Interrupt, self).__init__(cause)
@@ -44,51 +43,26 @@ class Failure(Exception):
 
 
 class Process(object):
-    __slots__ = ('ctx', 'generator', 'next_event', 'name', 'state',
-            'result', 'joiners', 'interrupts')
+    __slots__ = ('ctx', 'generator', 'event', 'joiners')
 
     def __init__(self, ctx, generator):
         self.ctx = ctx
         self.generator = generator
-        self.name = self.generator.__name__
-        self.state = None
-        self.next_event = None
-        self.result = None
         self.joiners = []
-        self.interrupts = []
 
     def __repr__(self):
-        return self.name
+        return self.generator.__name__
 
     @property
     def is_alive(self):
-        return self.generator is not None
+        return self.event is not None
 
     def interrupt(self, cause=None):
-        if self.generator is None:
+        if self.event is None:
             # Interrupts on dead process have no effect.
             return
 
-        interrupts = self.interrupts
-        # Reschedule the current event, if this is the first interrupt.
-        if not interrupts and self.next_event[0] != Init:
-            # Keep the type of the next event in order to decide how the
-            # interrupt should be send into the process.
-            self.ctx._schedule(self, self.next_event[0], self.next_event[1],
-                    self.ctx.now)
-
-        interrupts.append(cause)
-
-    def subscribe(self):
-        """Interrupt the currently active process, if the target terminates."""
-        proc = self.ctx._active_proc
-
-        if proc in self.joiners: return
-
-        if self.generator is None:
-            proc.interrupts.append(self)
-        else:
-            self.joiners.append(proc)
+        self.ctx._interrupt(self, cause)
 
 
 class Context(object):
@@ -113,35 +87,39 @@ class Context(object):
         proc = Process(self, pem)
 
         # Schedule start of the process.
-        self._schedule(proc, Init, None, self._now)
-
+        self._schedule(proc, self._now, Success, None)
         return proc
 
     def exit(self, result=None):
-        self._active_proc.result = result
-        raise StopIteration()
+        raise StopIteration(result)
 
     def wait(self, delta_t, value=None):
         if delta_t < 0:
             raise RuntimeError('Invalid wait duration %.2f' % float(delta_t))
 
         proc = self._active_proc
-        if proc.next_event is not None:
+        if proc.event is not None:
             raise RuntimeError('Next event already scheduled')
 
-        self._schedule(proc, Success, value, self._now + delta_t)
+        self._schedule(proc, self._now + delta_t, Success, value)
         return Ignore
 
     def suspend(self):
         proc = self._active_proc
-        if proc.next_event is not None:
+        if proc.event is not None:
             raise RuntimeError('Next event already scheduled')
-        proc.next_event = (Suspended, None)
+        proc.event = [None, None, self, Suspended, None]
         return Ignore
 
-    def _schedule(self, proc, evt_type, value, at):
-        proc.next_event = (evt_type, value)
-        heappush(self._events, (at, next(self._eid), proc, proc.next_event))
+    def _schedule(self, proc, at, event, value):
+        proc.event = [at, next(self._eid), proc, event, value]
+        heappush(self._events, proc.event)
+
+    def _interrupt(self, proc, value):
+        # Cancel previous event.
+        proc.event[2] = None
+        interrupt = [self._now, next(self._eid), proc, Interrupted, value]
+        heappush(self._events, interrupt)
 
 
 Ignore = object()
@@ -154,9 +132,12 @@ def peek(ctx):
 
     events = ctx._events
     while events:
-        if events[0][2].next_event is events[0][3]: break
+        event = events[0]
+        # Break from the loop if we find a valid event.
+        if event[2] is not None:
+            return event[0]
         heappop(events)
-    return events[0][0] if events else Infinity
+    return Infinity
 
 
 def step(ctx):
@@ -164,95 +145,79 @@ def step(ctx):
         raise RuntimeError('There is still an active process')
 
     while True:
-        ctx._now, eid, proc, evt = heappop(ctx._events)
+        event = heappop(ctx._events)
+        if event[2] is not None: break
 
-        # Break from the loop if we find a valid event.
-        if evt is proc.next_event:
-            break
+    ctx._now, eid, proc, state, value = event
 
-    evt_type, value = evt
-    proc.next_event = None
+    if state is Interrupted:
+        # FIXME Is this necessary? Consider the following situation for a
+        # process:
+        #  - 1: interrupt, 1: interrupt, 5: wait (cancelled)
+        # The wait event will be skipped and the process will be called to
+        # handle the interrupt, thereby scheduling another event. The queue
+        # will now look like this:
+        # - 1: interrupt, 1: wait
+        # Note that wait isn't yet marked as cancelled and would be processed
+        # if there weren't the call below:
+        proc.event[2] = None
+        # TODO If interrupts would always be scheduled with higher priority it
+        # wouldn't even be necessary to cancel the event during
+        # Context._interrupt. E.g: [<time>, <eid>, <etype>, <proc>, <value>]
+        if proc.event[3] is Suspended:
+            state = Suspended
+        else:
+            value = Interrupt(value)
+
+    # Mark current event as processed.
+    proc.event = None
     ctx._active_proc = proc
 
-    # Check if there are interrupts for this process.
-    interrupts = proc.interrupts
-    if interrupts:
-        cause = interrupts.pop(0)
-        if evt_type == Suspended and (value is None or value is cause):
-            # Only interrupts may trigger the continuation of a suspended
-            # process. The cause of the interrupt is directly send (or
-            # thrown in case of an exception) into the process.  Using an
-            # Interrupt exception would be redundant.
-            value = cause if value is None else cause.result
-            evt_type = not isinstance(value, BaseException)
-        else:
-            # In all other cases an interrupt exception is thrown into the
-            # process.
-            value = Interrupt(cause)
-            evt_type = Failed
-
     try:
-        if evt_type:
-            # A "successful" event.
-            target = proc.generator.send(value)
-        else:
-            # An "unsuccessful" event.
-            target = proc.generator.throw(value)
+        target = (proc.generator.send(value) if state > 0 else
+                proc.generator.throw(value))
 
         if target is not Ignore:
             # TODO Improve this error message.
             if type(target) is not Process:
                 proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
                         target))
-            if proc.next_event is not None:
+            if proc.event is not None:
                 proc.generator.throw(RuntimeError(
                         'Next event already scheduled'))
 
             # Add this process to the list of waiters.
-            if target.generator is None:
-                # FIXME This context switching is ugly.
-                prev, ctx._active_proc = ctx._active_proc, target
-                # Process has already terminated. Resume as soon as possible.
-                ctx._schedule(proc, target.state, target.result, ctx.now)
-                ctx._active_proc = prev
-            else:
-                # FIXME This is a bit ugly. Because next_event cannot be
-                # None this stub event is used. It will never be executed
-                # because it isn't scheduled. This is necessary for
-                # interrupt handling.
-                proc.next_event = (Suspended, target)
-                target.joiners.append(proc)
-
-        # Schedule concurrent interrupts.
-        if interrupts:
-            ctx._schedule(proc, proc.next_event[0], proc.next_event[1],
-                    ctx.now)
+            if proc not in target.joiners:
+                if target.event is None:
+                    proc.generator.throw(RuntimeError('Already terminated "%s"' %
+                            target))
+                else:
+                    target.joiners.append(proc)
 
         ctx._active_proc = None
         return
-    except StopIteration:
+    except StopIteration as e:
         # Process has terminated.
-        proc.state = Success
+        evt_type = Success
+        result = e.args[0] if e.args else None
     except BaseException as e:
         # Process has failed.
-        proc.state = Failed
-        proc.result = Failure()
-        proc.result.__cause__ = e
+        evt_type = Failed
+        result = Failure()
+        result.__cause__ = e
 
-    # The process has terminated, interrupt joiners.
-    proc.generator = None
+        # The process has terminated, interrupt joiners.
+        if not proc.joiners:
+            # Crash the simulation if a process has crashed and no other
+            # process is there to handle the crash.
+            raise result.__cause__
 
-    if proc.state == Failed and not proc.joiners:
-        # TODO Don't know about this one. This check causes the whole
-        # simulation to crash if there is a crashed process and no other
-        # process to handle this crash. Something like this must certainely
-        # be done, because exception should never ever be silently ignored.
-        # Still, a check like this looks fishy to me.
-        raise proc.result.__cause__
+    # Mark process as dead.
+    proc.event = None
 
     for joiner in proc.joiners:
-        if joiner.generator is None: continue
-        joiner.interrupt(proc)
+        if joiner.event is None: continue
+        ctx._schedule(joiner, ctx._now, evt_type, result)
 
     ctx._active_proc = None
 
