@@ -62,7 +62,7 @@ def test_illegal_interrupt(env):
     def root(env):
         child_proc = env.start(child(env))
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(1, child) was just initialized '
+        assert ei.value.args[0] == ('Process(child) was just initialized '
                                     'and cannot yet be interrupted.')
 
         yield env.hold(1)
@@ -81,7 +81,7 @@ def test_interrupt_terminated_process(env):
 
         yield env.hold(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(1, child) has no event scheduled '
+        assert ei.value.args[0] == ('Process(child) has no event scheduled '
                                     'and cannot be interrupted.')
 
         yield env.hold(1)
@@ -100,7 +100,7 @@ def test_interrupt_suspended_proces(env):
 
         yield env.hold(1)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(1, child) is suspended and '
+        assert ei.value.args[0] == ('Process(child) is suspended and '
                                     'cannot be interrupted.')
 
     env.start(parent(env))
