@@ -144,6 +144,16 @@ class Process(object):
         self._next_event = None
         _schedule(self._env, self, EVT_RESUME, value=value)
 
+    def subscribe(self):
+        """Register at the process to receive an interrupt when it terminates.
+        """
+        proc = self._env._active_proc
+
+        if self._alive:
+            self._observers.append(proc)
+        else:
+            proc._interrupts.append(Interrupt(self))
+
 
 class Environment(object):
     """The *environment* contains the simulation state and provides a
@@ -252,15 +262,6 @@ class Environment(object):
         _schedule(self, self._active_proc, EVT_SUSPEND)
 
         return Event
-
-    def interrupt_on(self, other):
-        """Register at ``other`` to receive an interrupt when it terminates."""
-        proc = self._active_proc
-
-        if other.is_alive:
-            other._observers.append(proc)
-        else:
-            proc._interrupts.append(Interrupt(other))
 
 
 def peek(env):

@@ -46,7 +46,7 @@ def wait_for_any(env, procs):
 
     def waiter():
         for proc in procs:
-            env.interrupt_on(proc)
+            proc.subscribe()
 
         try:
             yield env.hold()
