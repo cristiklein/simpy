@@ -62,22 +62,19 @@ class Interrupt(Exception):
 class Process(object):
     """A *Process* is a wrapper for instantiated PEMs.
 
-    A Processes has a unique process ID (``pid``) and a process event
-    generator (``peg`` -- the generator that the PEM returns). It also
-    contains internal and external status information. It is also used
-    for process interaction, e.g., for interruptions.
+    A Processes has a process event generator (``peg`` -- the generator
+    that the PEM returns) and a reference to its :class:`Environment`
+    ``env``. It also contains internal and external status information.
+    It is also used for process interaction, e.g., for interruptions.
 
     An instance of this class is returned by
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('pid', 'name', 'result', '_peg', '_env', '_alive',
+    __slots__ = ('name', 'result', '_peg', '_env', '_alive',
                  '_next_event', '_joiners', '_observers', '_interrupts')
 
-    def __init__(self, pid, peg, env):
-        self.pid = pid
-        """The process ID."""
-
+    def __init__(self, peg, env):
         self.name = peg.__name__
         """The process name."""
 
@@ -99,8 +96,8 @@ class Process(object):
         return self._alive
 
     def __repr__(self):
-        """Return a string "Process(pid, pem_name)"."""
-        return '%s(%s, %s)' % (self.__class__.__name__, self.pid, self.name)
+        """Return a string "Process(pem_name)"."""
+        return '%s(%s)' % (self.__class__.__name__, self.name)
 
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
@@ -156,7 +153,6 @@ class Environment(object):
     def __init__(self):
         self._events = []
 
-        self._pid = count()
         self._eid = count()
         self._active_proc = None
         self._now = 0
@@ -199,7 +195,7 @@ class Environment(object):
 
             at = self._now + delay
 
-        proc = Process(next(self._pid), peg, self)
+        proc = Process(peg, self)
         _schedule(self, proc, EVT_INIT, at=at)
 
         return proc

@@ -57,7 +57,7 @@ def test_resume_before_start(env):
         simulate(env)
         pytest.fail()
     except RuntimeError as exc:
-        assert exc.args[0] == 'Process(1, child) is not suspended.'
+        assert exc.args[0] == 'Process(child) is not suspended.'
 
 
 def test_immediate_resume(env, log):
