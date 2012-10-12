@@ -107,7 +107,7 @@ def test_join_any(env):
         processes = [env.start(child(env, i)) for i in range(9, -1, -1)]
 
         for proc in processes:
-            env.interrupt_on(proc)
+            proc.subscribe()
 
         try:
             yield env.hold()
@@ -155,7 +155,7 @@ def test_illegal_hold_followed_by_join(env):
     assert "yield env.start(child(env))" in str(ei.traceback[-1])
 
 
-def test_interrupt_on(env):
+def test_subscribe(env):
     """Check async. interrupt if a process terminates."""
     def child(env):
         yield env.hold(3)
@@ -163,7 +163,7 @@ def test_interrupt_on(env):
 
     def parent(env):
         child_proc = env.start(child(env))
-        env.interrupt_on(child_proc)
+        child_proc.subscribe()
 
         try:
             yield env.hold()
@@ -176,8 +176,8 @@ def test_interrupt_on(env):
     simulate(env)
 
 
-def test_interrupt_on_terminated_proc(env):
-    """interrupt_on(other) proc should send a singal immediatly if
+def test_subscribe_terminated_proc(env):
+    """subscribe() proc should send a singal immediatly if
     "other" has already terminated.
 
     """
@@ -188,7 +188,7 @@ def test_interrupt_on_terminated_proc(env):
         child_proc = env.start(child(env))
         yield env.hold(2)
         try:
-            env.interrupt_on(child_proc)
+            child_proc.subscribe()
             assert env.now == 2
             yield env.hold()
             pytest.fail('Did not get an Interrupt.')
@@ -225,8 +225,8 @@ def test_interrupted_join(env):
     simulate(env)
 
 
-def test_interrupt_on_with_join(env):
-    """Test that interrupt_on() works if a process waits for another one."""
+def test_subscribe_with_join(env):
+    """Test that subscribe() works if a process waits for another one."""
     def child(env, i):
         yield env.hold(i)
 
@@ -234,7 +234,7 @@ def test_interrupt_on_with_join(env):
         child_proc1 = env.start(child(env, 1))
         child_proc2 = env.start(child(env, 2))
         try:
-            env.interrupt_on(child_proc1)
+            child_proc1.subscribe()
             yield child_proc2
         except Interrupt as interrupt:
             assert env.now == 1
