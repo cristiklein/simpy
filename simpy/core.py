@@ -59,6 +59,12 @@ class Interrupt(Exception):
         return self.args[0]
 
 
+def _signaller(signaller, receiver):
+    yield signaller
+    if receiver.is_alive:
+        receiver.interrupt(signaller)
+
+
 class Process(object):
     """A *Process* is a wrapper for instantiated PEMs.
 
@@ -72,7 +78,7 @@ class Process(object):
 
     """
     __slots__ = ('name', 'result', '_peg', '_env', '_alive',
-                 '_next_event', '_joiners', '_observers', '_interrupts')
+                 '_next_event', '_joiners', '_interrupts')
 
     def __init__(self, peg, env):
         self.name = peg.__name__
@@ -87,7 +93,7 @@ class Process(object):
         self._next_event = None
 
         self._joiners = []  # Procs that wait for this one
-        self._observers = []  # Procs that want to get interrupted
+        # self._observers = []  # Procs that want to get interrupted
         self._interrupts = []  # Pending interrupts for this proc
 
     @property
@@ -150,7 +156,8 @@ class Process(object):
         proc = self._env._active_proc
 
         if self._alive:
-            self._observers.append(proc)
+            # self._observers.append(proc)
+            self._env.start(_signaller(signaller=self, receiver=proc))
         else:
             proc._interrupts.append(Interrupt(self))
 
@@ -407,7 +414,7 @@ def _schedule(env, proc, evt_type, value=None, at=None):
 def _join(env, proc):
     """Notify all registered processes that the process ``proc`` terminated."""
     joiners = proc._joiners
-    observers = proc._observers
+    # observers = proc._observers
 
     proc._alive = False
 
@@ -417,7 +424,7 @@ def _join(env, proc):
         joiner._next_event = None
         _schedule(env, joiner, EVT_RESUME, proc.result)
 
-    for observer in observers:
-        if not observer.is_alive:
-            continue
-        observer.interrupt(proc)
+    # for observer in observers:
+    #     if not observer.is_alive:
+    #         continue
+    #     observer.interrupt(proc)

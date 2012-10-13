@@ -104,7 +104,7 @@ def test_join_any(env):
         env.exit(i)
 
     def parent(env):
-        processes = [env.start(child(env, i)) for i in range(9, -1, -1)]
+        processes = [env.start(child(env, i)) for i in range(1, -1, -1)]
 
         for proc in processes:
             proc.subscribe()
