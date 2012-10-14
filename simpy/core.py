@@ -72,7 +72,7 @@ class Process(object):
 
     """
     __slots__ = ('name', 'result', '_peg', '_env', '_alive',
-                 '_next_event', '_joiners', '_observers', '_interrupts')
+                 '_next_event', '_observers', '_interrupts')
 
     def __init__(self, peg, env):
         self.name = peg.__name__
@@ -86,8 +86,7 @@ class Process(object):
         self._alive = True
         self._next_event = None
 
-        self._joiners = []  # Procs that wait for this one
-        self._observers = []  # Procs that want to get interrupted
+        self._observers = []  # Procs that wait for this one
         self._interrupts = []  # Pending interrupts for this proc
 
     @property
@@ -150,7 +149,7 @@ class Process(object):
         proc = self._env._active_proc
 
         if self._alive:
-            self._observers.append(proc)
+            self._observers.append((proc, _interrupt_observer))
         else:
             proc._interrupts.append(Interrupt(self))
 
@@ -317,7 +316,12 @@ def step(env):
 
     # env._active_proc has terminated
     except StopIteration:
-        _join(env, proc)
+        proc._alive = False
+        for observer, func in proc._observers:
+            if not observer._alive:
+                continue
+            func(env, observer, proc)
+
         env._active_proc = None
 
         return  # Don't need to check a new event
@@ -332,7 +336,7 @@ def step(env):
             # Schedule a hold(Infinity) so that the waiting proc can
             # be interrupted if target terminates.
             proc._next_event = (EVT_RESUME, None)
-            target._joiners.append(proc)
+            target._observers.append((proc, _resume_observer))
 
         else:
             # Process has already terminated. Resume as soon as possible.
@@ -404,20 +408,12 @@ def _schedule(env, proc, evt_type, value=None, at=None):
     heappush(env._events, (at, next(env._eid), proc, proc._next_event))
 
 
-def _join(env, proc):
-    """Notify all registered processes that the process ``proc`` terminated."""
-    joiners = proc._joiners
-    observers = proc._observers
+def _resume_observer(env, observer, proc):
+    """Resume the waiting ``observer`` process that ``proc`` has terminated."""
+    observer._next_event = None
+    _schedule(env, observer, EVT_RESUME, proc.result)
 
-    proc._alive = False
 
-    for joiner in joiners:
-        # A joiner is always alive, since "yield proc" blocks until
-        # "proc" has terminated.
-        joiner._next_event = None
-        _schedule(env, joiner, EVT_RESUME, proc.result)
-
-    for observer in observers:
-        if not observer.is_alive:
-            continue
-        observer.interrupt(proc)
+def _interrupt_observer(env, observer, proc):
+    """Interrupt the ``observer`` process, because ``proc`` has terminated."""
+    observer.interrupt(proc)
