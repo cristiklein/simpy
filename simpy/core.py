@@ -328,14 +328,10 @@ def step(env):
 
     # Check what was yielded
     if type(target) is Process:
-        if proc._next_event:
-            proc._peg.throw(RuntimeError('%s already has an event '
-                    'scheduled. Did you forget to yield?' % proc))
-
         if target.is_alive:
             # Schedule a hold(Infinity) so that the waiting proc can
             # be interrupted if target terminates.
-            proc._next_event = (EVT_RESUME, None)
+            _schedule(env, proc, EVT_RESUME, at=Infinity)
             target._observers.append((proc, _resume_observer))
 
         else:
