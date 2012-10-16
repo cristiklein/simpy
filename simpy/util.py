@@ -1,12 +1,34 @@
 """
 This modules contains various utility functions:
 
+- :func:`subscribe_at`: Receive an interrupt if a process terminates.
 - :func:`wait_for_all`: Wait until all passed processes have terminated.
 - :func:`wait_for_any`: Wait until one of the passed processes has
   terminated.
 
 """
 from simpy.core import Interrupt
+
+
+def subscribe_at(self, proc):
+    """Register at the process ``proc`` to receive an interrupt when it
+    terminates.
+
+    Raise a :exc:`RuntimeError` if ``proc`` has already terminated.
+
+    """
+    env = proc._env
+    subscriber = env._active_proc
+
+    def _signaller(signaller, receiver):
+        yield signaller
+        if receiver.is_alive:
+            receiver.interrupt(signaller)
+
+    if proc._alive:
+        env.start(_signaller(proc, subscriber))
+    else:
+        raise ValueError('%s has already terminated.' % proc)
 
 
 def wait_for_all(env, procs):
