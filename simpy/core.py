@@ -72,7 +72,7 @@ class Process(object):
 
     """
     __slots__ = ('name', 'result', '_peg', '_env', '_alive',
-                 '_next_event', '_observers', '_interrupts')
+                 '_next_event', '_joiners', '_interrupts')
 
     def __init__(self, peg, env):
         self.name = peg.__name__
@@ -86,7 +86,7 @@ class Process(object):
         self._alive = True
         self._next_event = None
 
-        self._observers = []  # Procs that wait for this one
+        self._joiners = []  # Procs that wait for this one
         self._interrupts = []  # Pending interrupts for this proc
 
     @property
@@ -142,16 +142,6 @@ class Process(object):
 
         self._next_event = None
         _schedule(self._env, self, EVT_RESUME, value=value)
-
-    def subscribe(self):
-        """Register at the process to receive an interrupt when it terminates.
-        """
-        proc = self._env._active_proc
-
-        if self._alive:
-            self._observers.append((proc, _interrupt_observer))
-        else:
-            proc._interrupts.append(Interrupt(self))
 
 
 class Environment(object):
@@ -317,10 +307,11 @@ def step(env):
     # env._active_proc has terminated
     except StopIteration:
         proc._alive = False
-        for observer, func in proc._observers:
-            if not observer._alive:
+        for joiner in proc._joiners:
+            if not joiner._alive:
                 continue
-            func(env, observer, proc)
+            joiner._next_event = None
+            _schedule(env, joiner, EVT_RESUME, proc.result)
 
         env._active_proc = None
 
@@ -328,11 +319,16 @@ def step(env):
 
     # Check what was yielded
     if type(target) is Process:
+        if proc._next_event:
+            # This check is required to throw an error into the PEM.
+            proc._peg.throw(RuntimeError('%s already has an event '
+                    'scheduled. Did you forget to yield?' % proc))
+
         if target.is_alive:
             # Schedule a hold(Infinity) so that the waiting proc can
             # be interrupted if target terminates.
             _schedule(env, proc, EVT_RESUME, at=Infinity)
-            target._observers.append((proc, _resume_observer))
+            target._joiners.append(proc)
 
         else:
             # Process has already terminated. Resume as soon as possible.
@@ -402,14 +398,3 @@ def _schedule(env, proc, evt_type, value=None, at=None):
         at = env._now
 
     heappush(env._events, (at, next(env._eid), proc, proc._next_event))
-
-
-def _resume_observer(env, observer, proc):
-    """Resume the waiting ``observer`` process that ``proc`` has terminated."""
-    observer._next_event = None
-    _schedule(env, observer, EVT_RESUME, proc.result)
-
-
-def _interrupt_observer(env, observer, proc):
-    """Interrupt the ``observer`` process, because ``proc`` has terminated."""
-    observer.interrupt(proc)
