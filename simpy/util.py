@@ -1,6 +1,7 @@
 """
 This modules contains various utility functions:
 
+- :func:`subscribe_at`: Receive an interrupt if a process terminates.
 - :func:`wait_for_all`: Wait until all passed processes have terminated.
 - :func:`wait_for_any`: Wait until one of the passed processes has
   terminated.
@@ -9,7 +10,28 @@ This modules contains various utility functions:
 from simpy.core import Interrupt
 
 
-def wait_for_all(env, procs):
+def subscribe_at(proc):
+    """Register at the process ``proc`` to receive an interrupt when it
+    terminates.
+
+    Raise a :exc:`RuntimeError` if ``proc`` has already terminated.
+
+    """
+    env = proc._env
+    subscriber = env._active_proc
+
+    def _signaller(signaller, receiver):
+        yield signaller
+        if receiver.is_alive:
+            receiver.interrupt(signaller)
+
+    if proc._alive:
+        env.start(_signaller(proc, subscriber))
+    else:
+        raise RuntimeError('%s has already terminated.' % proc)
+
+
+def wait_for_all(procs):
     """Return a process that waits for all ``procs``.
 
     The result of the helper process will be a list with the results
@@ -21,6 +43,8 @@ def wait_for_all(env, procs):
     if not procs:
         raise ValueError('No processes were passed.')
 
+    env = procs[0]._env
+
     def waiter():
         results = []
         for proc in procs:
@@ -31,7 +55,7 @@ def wait_for_all(env, procs):
     return env.start(waiter())
 
 
-def wait_for_any(env, procs):
+def wait_for_any(procs):
     """Return a process that waits for the first of ``procs`` to finish.
 
     The result of the helper process will be a tuple ``(finished_proc,
@@ -44,9 +68,11 @@ def wait_for_any(env, procs):
     if not procs:
         raise ValueError('No processes were passed.')
 
+    env = procs[0]._env
+
     def waiter():
         for proc in procs:
-            proc.subscribe()
+            subscribe_at(proc)
 
         try:
             yield env.hold()
