@@ -59,12 +59,6 @@ class Interrupt(Exception):
         return self.args[0]
 
 
-def _signaller(signaller, receiver):
-    yield signaller
-    if receiver.is_alive:
-        receiver.interrupt(signaller)
-
-
 class Process(object):
     """A *Process* is a wrapper for instantiated PEMs.
 
@@ -149,17 +143,6 @@ class Process(object):
 
         self._next_event = None
         _schedule(self._env, self, EVT_RESUME, value=value)
-
-    def subscribe(self):
-        """Register at the process to receive an interrupt when it terminates.
-        """
-        proc = self._env._active_proc
-
-        if self._alive:
-            # self._observers.append(proc)
-            self._env.start(_signaller(signaller=self, receiver=proc))
-        else:
-            proc._interrupts.append(Interrupt(self))
 
 
 class Environment(object):
