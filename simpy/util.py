@@ -31,7 +31,7 @@ def subscribe_at(proc):
         raise RuntimeError('%s has already terminated.' % proc)
 
 
-def wait_for_all(env, procs):
+def wait_for_all(procs):
     """Return a process that waits for all ``procs``.
 
     The result of the helper process will be a list with the results
@@ -43,6 +43,8 @@ def wait_for_all(env, procs):
     if not procs:
         raise ValueError('No processes were passed.')
 
+    env = procs[0]._env
+
     def waiter():
         results = []
         for proc in procs:
@@ -53,7 +55,7 @@ def wait_for_all(env, procs):
     return env.start(waiter())
 
 
-def wait_for_any(env, procs):
+def wait_for_any(procs):
     """Return a process that waits for the first of ``procs`` to finish.
 
     The result of the helper process will be a tuple ``(finished_proc,
@@ -65,6 +67,8 @@ def wait_for_any(env, procs):
     """
     if not procs:
         raise ValueError('No processes were passed.')
+
+    env = procs[0]._env
 
     def waiter():
         for proc in procs:
