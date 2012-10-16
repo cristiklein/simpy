@@ -10,7 +10,7 @@ This modules contains various utility functions:
 from simpy.core import Interrupt
 
 
-def subscribe_at(self, proc):
+def subscribe_at(proc):
     """Register at the process ``proc`` to receive an interrupt when it
     terminates.
 
@@ -28,7 +28,7 @@ def subscribe_at(self, proc):
     if proc._alive:
         env.start(_signaller(proc, subscriber))
     else:
-        raise ValueError('%s has already terminated.' % proc)
+        raise RuntimeError('%s has already terminated.' % proc)
 
 
 def wait_for_all(env, procs):
@@ -68,7 +68,7 @@ def wait_for_any(env, procs):
 
     def waiter():
         for proc in procs:
-            proc.subscribe()
+            subscribe_at(proc)
 
         try:
             yield env.hold()
