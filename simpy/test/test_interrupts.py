@@ -11,7 +11,7 @@ import simpy
 def test_interruption(env):
     """With asynchronous interrupts, the victim expects an interrupt
     while waiting for an event, but will process this even if no
-    interrupt occured.
+    interrupt occurred.
 
     """
     def interruptee(env):
@@ -27,12 +27,12 @@ def test_interruption(env):
         child_process.interrupt('interrupt!')
 
     env.start(interruptor(env))
-    simpy.simulate(env, until=30)
+    simpy.simulate(env)
 
 
 def test_concurrent_interrupts(env, log):
     """Concurrent interrupts are scheduled in the order in which they
-    occured.
+    occurred.
 
     """
     def fox(env, log):
