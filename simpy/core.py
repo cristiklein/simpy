@@ -72,7 +72,7 @@ class Process(object):
 
     """
     __slots__ = ('name', 'result', '_peg', '_env', '_alive',
-                 '_next_event', '_joiners', '_interrupts')
+                 '_next_event', '_joiners')
 
     def __init__(self, peg, env):
         self.name = peg.__name__
@@ -87,7 +87,6 @@ class Process(object):
         self._next_event = None
 
         self._joiners = []  # Procs that wait for this one
-        self._interrupts = []  # Pending interrupts for this proc
 
     @property
     def is_alive(self):
@@ -116,15 +115,7 @@ class Process(object):
             raise RuntimeError('%s is suspended and cannot be interrupted.' %
                                 self)
 
-        interrupts = self._interrupts
-        interrupt = Interrupt(cause)
-
-        # If it is the first interrupt, schedule it. Else, just append it.
-        if self._next_event[0] is not EVT_INTERRUPT:
-            self._next_event = None
-            _schedule(self._env, self, EVT_INTERRUPT, interrupt)
-        else:
-            interrupts.append(interrupt)
+        _schedule(self._env, self, EVT_INTERRUPT, Interrupt(cause))
 
     def resume(self, value=None):
         """Resume this process.
@@ -263,7 +254,8 @@ def peek(env):
             # Pop all removed events from the queue
             # env._events[0][3] is the scheduled event
             # env._events[0][2] is the corresponding proc
-            if env._events[0][3] is env._events[0][2]._next_event:
+            if (env._events[0][3][0] == EVT_INTERRUPT or
+                    env._events[0][3] is env._events[0][2]._next_event):
                 break
             heappop(env._events)
 
@@ -288,14 +280,13 @@ def step(env):
         env._now, eid, proc, evt = heappop(env._events)
 
         # Break from the loop if we find a valid event.
-        if evt is proc._next_event:
+        if evt[0] == EVT_INTERRUPT or evt is proc._next_event:
             break
 
     env._active_proc = proc
 
     evt_type, value = evt
     proc._next_event = None
-    interrupts = proc._interrupts
 
     # Get next event from process
     try:
@@ -339,11 +330,6 @@ def step(env):
 
     # else: target is event
 
-    # Schedule concurrent interrupts.
-    if interrupts:
-        proc._next_event = None
-        _schedule(env, proc, EVT_INTERRUPT, interrupts.pop(0))
-
     env._active_proc = None
 
 
@@ -379,11 +365,14 @@ def _schedule(env, proc, evt_type, value=None, at=None):
     scheduled.
 
     """
-    if proc._next_event:
-        raise RuntimeError('%s already has an event scheduled. Did you '
-                        'forget to yield?' % proc)
+    evt = (evt_type, value)
 
-    proc._next_event = (evt_type, value)
+    if evt_type != EVT_INTERRUPT:
+        # Interrupts don't set the "next_event" attribute.
+        if proc._next_event:
+            raise RuntimeError('%s already has an event scheduled. Did you '
+                               'forget to yield?' % proc)
+        proc._next_event = evt
 
     # Don't put anything on the heap for a suspended proc.
     if evt_type is EVT_SUSPEND:
@@ -396,5 +385,4 @@ def _schedule(env, proc, evt_type, value=None, at=None):
 
     if at is None:
         at = env._now
-
-    heappush(env._events, (at, next(env._eid), proc, proc._next_event))
+    heappush(env._events, (at, next(env._eid), proc, evt))
