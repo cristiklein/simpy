@@ -6,7 +6,7 @@ With SimPy, simulating is fun again!
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
 
-from simpy.core import Context, Process, Interrupt, Failure, simulate, step
+from simpy.core import Context, Process, Interrupt, simulate, step
 
 
 __all__ = ['Simulation', 'Interrupt', 'Failure', 'test']
