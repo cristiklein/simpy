@@ -23,7 +23,12 @@ def pytest_pyfunc_call(pyfuncitem):
     if inspect.isgeneratorfunction(testfunction):
         process = ctx.start(testfunction(**funcargs))
 
-        while process.generator is not None and peek(ctx) != Infinity:
+        while process.is_alive:
+            if peek(ctx) == Infinity:
+                process.generator.throw(
+                        RuntimeError('Simulation completed, but test process '
+                                'has not finished yet!'))
+
             step(ctx)
     else:
         testfunction(**funcargs)
