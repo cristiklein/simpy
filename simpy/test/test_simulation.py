@@ -1,6 +1,6 @@
 import pytest
 
-from simpy import Context, Process, Interrupt, Failure, simulate
+from simpy import Context, Process, Interrupt, simulate
 
 
 pytest_plugins = ['simpy.test.support']
@@ -70,10 +70,8 @@ def test_crashing_child_process():
         try:
             yield ctx.start(panic(ctx))
             assert False, "Hey, where's the roflcopter?"
-        except Failure as exc:
-            cause = exc.__cause__
-            assert type(cause) == RuntimeError
-            assert cause.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
+        except RuntimeError as exc:
+            assert exc.args[0] == 'Oh noes, roflcopter incoming... BOOM!'
 
     ctx = Context()
     ctx.start(root(ctx))
@@ -89,14 +87,11 @@ def test_crashing_child_traceback():
         try:
             yield ctx.start(panic(ctx))
             assert False, "Hey, where's the roflcopter?"
-        except Failure as exc:
+        except RuntimeError as exc:
             import traceback
             stacktrace = traceback.format_exc()
-            # The original exception cause (the raise in the child process) ...
-            assert 'raise RuntimeError' in stacktrace
-            assert type(exc.__cause__) is RuntimeError
-            # ...as well as the current frame must be visible in the
-            # stacktrace.
+            traceback.print_exc()
+            # The current frame must be visible in the stacktrace.
             assert 'yield ctx.start(panic(ctx))' in stacktrace
 
     ctx = Context()

@@ -25,23 +25,6 @@ class Interrupt(Exception):
         return self.args[0]
 
 
-class Failure(Exception):
-    """This exception indicates that a process failed during its execution."""
-    if sys.version_info < (3, 0):
-        # Exception chaining was added in Python 3. Mimic exception chaining as
-        # good as possible for Python 2.
-        def __init__(self):
-            super(Failure, self).__init__()
-            self.stacktrace = traceback.format_exc(sys.exc_info()[2]).strip()
-
-        def __str__(self):
-            return 'Caused by the following exception:\n\n%s' % (
-                    self.stacktrace)
-
-    def __str__(self):
-        return '%s' % self.__cause__
-
-
 class Event(object):
     __slots__ = ('ctx', 'joiners',)
 
@@ -196,14 +179,16 @@ def process(ctx, resume, event, value):
         except BaseException as e:
             # Process has failed.
             evt_type = False
-            result = Failure()
+            # FIXME Isn't there a better way to obtain the exception type? For
+            # example using (type, value, traceback) tuple?
+            result = type(e)(*e.args)
             result.__cause__ = e
 
             # The process has terminated, interrupt joiners.
             if not proc.joiners:
                 # Crash the simulation if a process has crashed and no other
                 # process is there to handle the crash.
-                raise result.__cause__
+                raise result
 
         if proc.joiners:
             ctx._schedule(Resume, proc, evt_type, result)
