@@ -106,6 +106,10 @@ class Process(object):
         event scheduled) or if it was just initialized and could not
         issue a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
 
+        If ``cause`` is an instance of an exception, it will be directly
+        thrown into the process. If not, an :class:`Interrupt` will be
+        thrown.
+
         """
         if not self._alive:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
@@ -117,7 +121,9 @@ class Process(object):
             raise RuntimeError('%s is suspended and cannot be interrupted.' %
                                 self)
 
-        _schedule(self._env, self, EVT_INTERRUPT, Interrupt(cause))
+        if not isinstance(cause, BaseException):
+            cause = Interrupt(cause)
+        _schedule(self._env, self, EVT_INTERRUPT, cause)
 
     def resume(self, value=None):
         """Resume this process.
@@ -297,16 +303,15 @@ def step(env):
         else:
             target = proc._peg.send(value)
 
-    # env._active_proc has terminated
+    # proc has terminated
     except StopIteration:
-        proc._alive = False
-        for joiner in proc._joiners:
-            if joiner._alive and joiner._next_event[1] is proc:
-                joiner._next_event = None
-                _schedule(env, joiner, EVT_RESUME, proc.result)
+        _join(env, proc)
+        return  # Don't need to check a new event
 
-        env._active_proc = None
-
+    # proc raised an error. Try to forward it or re-raise it.
+    except BaseException as err:
+        if not _join(env, proc, err):
+            raise err
         return  # Don't need to check a new event
 
     # Check what was yielded
@@ -385,3 +390,44 @@ def _schedule(env, proc, evt_type, value=None, at=None):
     if at is None:
         at = env._now
     heappush(env._events, (at, next(env._eid), proc, evt))
+
+
+def _join(env, proc, err=None):
+    proc._alive = False
+    could_interrupt = True
+    if err:
+        could_interrupt = False
+        proc.result = err
+
+    for joiner in proc._joiners:
+        if joiner._alive and joiner._next_event[1] is proc:
+            if not err:
+                joiner._next_event = None
+                _schedule(env, joiner, EVT_RESUME, proc.result)
+            else:
+                joiner.interrupt(err)
+                could_interrupt = True
+
+    env._active_proc = None
+    return could_interrupt
+#
+#
+#     proc._alive = False
+#     for joiner in proc._joiners:
+#         if joiner._alive and joiner._next_event[1] is proc:
+#             joiner._next_event = None
+#             _schedule(env, joiner, EVT_RESUME, proc.result)
+#
+#     env._active_proc = None
+#
+#     # Event if there are joiners, they may all be already dead or
+#     # doing something else ...
+#     could_interrupt = False
+#     for joiner in proc._joiners:
+#         if joiner._alive and joiner._next_event[1] is proc:
+#             joiner.interrupt(err)
+#             could_interrupt = True
+#
+#     proc._alive = False
+#     proc.result = err
+#     env._active_proc = None
