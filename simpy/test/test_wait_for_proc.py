@@ -133,7 +133,8 @@ def test_illegal_hold_followed_by_join(env):
 
 def test_interrupted_join(env):
     """Tests that interrupts are raised while the victim is waiting for
-    another process.
+    another process. The victim should get unregistered from the other
+    process.
 
     """
     def interruptor(env, process):
@@ -152,6 +153,47 @@ def test_interrupted_join(env):
             assert env.now == 1
             assert child_proc.is_alive
 
+            # We should not get resumed when child terminates.
+            yield env.hold(5)
+            assert env.now == 6
+
     parent_proc = env.start(parent(env))
     env.start(interruptor(env, parent_proc))
     simulate(env)
+
+
+def test_interrupted_join_and_rejoin(env):
+    """Tests that interrupts are raised while the victim is waiting for
+    another process. The victim tries to join again.
+
+    """
+    def interruptor(env, process):
+        yield env.hold(1)
+        process.interrupt()
+
+    def child(env):
+        yield env.hold(2)
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        try:
+            yield child_proc
+            pytest.fail('Did not receive an interrupt.')
+        except Interrupt:
+            assert env.now == 1
+            assert child_proc.is_alive
+
+            yield child_proc
+            assert env.now == 2
+
+    parent_proc = env.start(parent(env))
+    env.start(interruptor(env, parent_proc))
+    simulate(env)
+
+
+def test_unregister_after_interrupt(env):
+    """If a process is interrupted while waiting for another one, it
+    should be unregistered from that process.
+
+    """
+
