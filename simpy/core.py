@@ -73,8 +73,8 @@ class Process(object):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('name', 'result', '_peg', '_env', '_alive',
-                 '_next_event', '_joiners')
+    __slots__ = ('name', 'result', '_peg', '_env', '_alive', '_target',
+                 '_joiners')
 
     def __init__(self, peg, env):
         self.name = peg.__name__
@@ -86,7 +86,7 @@ class Process(object):
         self._peg = peg
         self._env = env
         self._alive = True
-        self._next_event = None
+        self._target = None
 
         self._joiners = []  # Procs that wait for this one
 
@@ -114,10 +114,10 @@ class Process(object):
         if not self._alive:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
-        if self._next_event[0] is EVT_INIT:
+        if self._target[0] is EVT_INIT:
             raise RuntimeError('%s was just initialized and cannot yet be '
                             'interrupted.' % self)
-        if self._next_event[0] is EVT_SUSPEND:
+        if self._target[0] is EVT_SUSPEND:
             raise RuntimeError('%s is suspended and cannot be interrupted.' %
                                 self)
 
@@ -136,10 +136,10 @@ class Process(object):
         Raise a :exc:`RuntimeError` if the process is not suspended.
 
         """
-        if self._next_event[0] is not EVT_SUSPEND:
+        if self._target[0] is not EVT_SUSPEND:
             raise RuntimeError('%s is not suspended.' % self)
 
-        self._next_event = None
+        self._target = None
         _schedule(self._env, self, EVT_RESUME, value=value)
 
 
@@ -263,7 +263,7 @@ def peek(env):
             # Pop all removed events from the queue
             # evt[3] is the scheduled event
             # env[2] is the corresponding proc
-            if evt[3] is evt[2]._next_event or evt[3][0] is EVT_INTERRUPT:
+            if evt[3] is evt[2]._target or evt[3][0] is EVT_INTERRUPT:
                 break
             heappop(env._events)
 
@@ -288,13 +288,13 @@ def step(env):
         env._now, eid, proc, evt = heappop(env._events)
 
         # Break from the loop if we find a valid event.
-        if evt is proc._next_event or evt[0] is EVT_INTERRUPT:
+        if evt is proc._target or evt[0] is EVT_INTERRUPT:
             break
 
     env._active_proc = proc
 
     evt_type, value = evt
-    proc._next_event = None
+    proc._target = None
 
     # Get next event from process
     try:
@@ -316,13 +316,13 @@ def step(env):
 
     # Check what was yielded
     if type(target) is Process:
-        if proc._next_event:
+        if proc._target:
             # This check is required to throw an error into the PEM.
             proc._peg.throw(RuntimeError('%s already has an event '
                     'scheduled. Did you forget to yield?' % proc))
 
         if target._alive:
-            proc._next_event = (EVT_PROCESS, target)
+            proc._target = (EVT_PROCESS, target)
             target._joiners.append(proc)
 
         else:
@@ -373,10 +373,10 @@ def _schedule(env, proc, evt_type, value=None, at=None):
 
     if evt_type != EVT_INTERRUPT:
         # Interrupts don't set the "next_event" attribute.
-        if proc._next_event:
+        if proc._target:
             raise RuntimeError('%s already has an event scheduled. Did you '
                                'forget to yield?' % proc)
-        proc._next_event = evt
+        proc._target = evt
 
     # Don't put anything on the heap for a suspended proc.
     if evt_type is EVT_SUSPEND:
@@ -400,9 +400,9 @@ def _join(env, proc, err=None):
         proc.result = err
 
     for joiner in proc._joiners:
-        if joiner._alive and joiner._next_event[1] is proc:
+        if joiner._alive and joiner._target[1] is proc:
             if not err:
-                joiner._next_event = None
+                joiner._target = None
                 _schedule(env, joiner, EVT_RESUME, proc.result)
             else:
                 joiner.interrupt(err)
@@ -410,24 +410,3 @@ def _join(env, proc, err=None):
 
     env._active_proc = None
     return could_interrupt
-#
-#
-#     proc._alive = False
-#     for joiner in proc._joiners:
-#         if joiner._alive and joiner._next_event[1] is proc:
-#             joiner._next_event = None
-#             _schedule(env, joiner, EVT_RESUME, proc.result)
-#
-#     env._active_proc = None
-#
-#     # Event if there are joiners, they may all be already dead or
-#     # doing something else ...
-#     could_interrupt = False
-#     for joiner in proc._joiners:
-#         if joiner._alive and joiner._next_event[1] is proc:
-#             joiner.interrupt(err)
-#             could_interrupt = True
-#
-#     proc._alive = False
-#     proc.result = err
-#     env._active_proc = None
