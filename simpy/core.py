@@ -27,8 +27,10 @@ from itertools import count
 # Event types
 EVT_INTERRUPT = 0  # Throw an error into the PEG
 EVT_RESUME = 1  # Default event, send value into the PEG
-EVT_INIT = 2  # First event after a proc was started
-EVT_SUSPEND = 3  # Suspend the process
+EVT_PROCESS = 2  # Wait for a process to finish
+EVT_INIT = 3  # First event after a proc was started
+EVT_SUSPEND = 4  # Suspend the process
+
 
 # Process states
 STATE_FAILED = 0
@@ -105,9 +107,9 @@ class Process(object):
         issue a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
 
         """
-        if not self._next_event:
-            raise RuntimeError('%s has no event scheduled and cannot be '
-                            'interrupted.' % self)
+        if not self._alive:
+            raise RuntimeError('%s has terminated and cannot be interrupted.' %
+                               self)
         if self._next_event[0] is EVT_INIT:
             raise RuntimeError('%s was just initialized and cannot yet be '
                             'interrupted.' % self)
@@ -251,15 +253,15 @@ def peek(env):
     """
     try:
         while True:
+            evt = env._events[0]
             # Pop all removed events from the queue
-            # env._events[0][3] is the scheduled event
-            # env._events[0][2] is the corresponding proc
-            if (env._events[0][3][0] == EVT_INTERRUPT or
-                    env._events[0][3] is env._events[0][2]._next_event):
+            # evt[3] is the scheduled event
+            # env[2] is the corresponding proc
+            if evt[3] is evt[2]._next_event or evt[3][0] is EVT_INTERRUPT:
                 break
             heappop(env._events)
 
-        return env._events[0][0]  # time of first event
+        return evt[0]  # time of first event
 
     except IndexError:
         return Infinity
@@ -280,7 +282,7 @@ def step(env):
         env._now, eid, proc, evt = heappop(env._events)
 
         # Break from the loop if we find a valid event.
-        if evt[0] == EVT_INTERRUPT or evt is proc._next_event:
+        if evt is proc._next_event or evt[0] is EVT_INTERRUPT:
             break
 
     env._active_proc = proc
@@ -299,10 +301,9 @@ def step(env):
     except StopIteration:
         proc._alive = False
         for joiner in proc._joiners:
-            if not joiner._alive:
-                continue
-            joiner._next_event = None
-            _schedule(env, joiner, EVT_RESUME, proc.result)
+            if joiner._alive and joiner._next_event[1] is proc:
+                joiner._next_event = None
+                _schedule(env, joiner, EVT_RESUME, proc.result)
 
         env._active_proc = None
 
@@ -315,10 +316,8 @@ def step(env):
             proc._peg.throw(RuntimeError('%s already has an event '
                     'scheduled. Did you forget to yield?' % proc))
 
-        if target.is_alive:
-            # Schedule a hold(Infinity) so that the waiting proc can
-            # be interrupted if target terminates.
-            _schedule(env, proc, EVT_RESUME, at=Infinity)
+        if target._alive:
+            proc._next_event = (EVT_PROCESS, target)
             target._joiners.append(proc)
 
         else:

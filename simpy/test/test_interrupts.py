@@ -81,7 +81,7 @@ def test_interrupt_terminated_process(env):
 
         yield env.hold(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(child) has no event scheduled '
+        assert ei.value.args[0] == ('Process(child) has terminated '
                                     'and cannot be interrupted.')
 
         yield env.hold(1)
