@@ -4,10 +4,10 @@ from itertools import count
 from collections import defaultdict
 from types import GeneratorType
 
-Failed = -1
-Interrupted = 0
-Success = 1
-Suspended = 2
+
+Initialize = 0
+Interrupted = 1
+Resume = 2
 
 
 Infinity = float('inf')
@@ -42,7 +42,41 @@ class Failure(Exception):
         return '%s' % self.__cause__
 
 
-class Process(object):
+class Event(object):
+    __slots__ = ('ctx', 'joiners',)
+
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.joiners = []
+
+    @property
+    def is_alive(self):
+        return self.joiners is not None
+
+    def resume(self, value=None):
+        self.ctx._schedule(Resume, self, True, value)
+
+    def fail(self, value):
+        self.ctx._schedule(Resume, self, False, value)
+
+
+class Wait(Event):
+    __slots__ = ('ctx', 'joiners',)
+
+    def __init__(self, ctx, delay, value=None):
+        self.ctx = ctx
+        self.joiners = []
+
+        ctx._schedule(Resume, self, True, value, delay)
+    
+    def resume(self, value=None):
+        raise RuntimeError('A timeout cannot be resumed')
+
+    def fail(self, value=None):
+        raise RuntimeError('A timeout cannot be failed')
+
+
+class Process(Event):
     __slots__ = ('ctx', 'generator', 'event', 'joiners')
 
     def __init__(self, ctx, generator):
@@ -50,19 +84,21 @@ class Process(object):
         self.generator = generator
         self.joiners = []
 
+        self.event = Event(ctx)
+        self.event.joiners.append(self)
+        ctx._schedule(Initialize, self.event, True, None)
+
     def __repr__(self):
         return self.generator.__name__
 
-    @property
-    def is_alive(self):
-        return self.event is not None
-
     def interrupt(self, cause=None):
-        if self.event is None:
+        if self.joiners is None:
             # Interrupts on dead process have no effect.
             return
 
-        self.ctx._interrupt(self, cause)
+        interrupt_evt = Event(self)
+        interrupt_evt.joiners.append(self)
+        self.ctx._schedule(Interrupted, interrupt_evt, False, Interrupt(cause))
 
 
 class Context(object):
@@ -81,145 +117,101 @@ class Context(object):
         return self._now
 
     def start(self, pem):
-        if type(pem) is not GeneratorType:
-            raise RuntimeError(
-                'Process function %s is not a generator' % pem)
-        proc = Process(self, pem)
-
-        # Schedule start of the process.
-        self._schedule(proc, self._now, Success, None)
-        return proc
+        return Process(self, pem)
 
     def exit(self, result=None):
         raise StopIteration(result)
 
     def wait(self, delta_t, value=None):
-        if delta_t < 0:
-            raise RuntimeError('Invalid wait duration %.2f' % float(delta_t))
+        return Wait(self, delta_t, value)
 
-        proc = self._active_proc
-        if proc.event is not None:
-            raise RuntimeError('Next event already scheduled')
+    def suspend(self, name=''):
+        return Event(self)
 
-        self._schedule(proc, self._now + delta_t, Success, value)
-        return Ignore
-
-    def suspend(self):
-        proc = self._active_proc
-        if proc.event is not None:
-            raise RuntimeError('Next event already scheduled')
-        proc.event = [None, None, self, Suspended, None]
-        return Ignore
-
-    def _schedule(self, proc, at, event, value):
-        proc.event = [at, next(self._eid), proc, event, value]
-        heappush(self._events, proc.event)
-
-    def _interrupt(self, proc, value):
-        # Cancel previous event.
-        proc.event[2] = None
-        interrupt = [self._now, next(self._eid), proc, Interrupted, value]
-        heappush(self._events, interrupt)
-
-
-Ignore = object()
+    def _schedule(self, priority, event, resume, value=None, delay=0):
+        heappush(self._events, (self._now + delay, priority, next(self._eid),
+                resume, event, value))
 
 
 def peek(ctx):
     """Return the time of the next event or ``inf`` if no more
     events are scheduled.
     """
-
-    events = ctx._events
-    while events:
-        event = events[0]
-        # Break from the loop if we find a valid event.
-        if event[2] is not None:
-            return event[0]
-        heappop(events)
-    return Infinity
+    return ctx._events[0][0] if ctx._events else Infinity
 
 
 def step(ctx):
+    ctx._now, _, _, resume, event, value = heappop(ctx._events)
+
+    process(ctx, resume, event, value)
+
+
+def process(ctx, resume, event, value):
     if ctx._active_proc is not None:
         raise RuntimeError('There is still an active process')
 
-    while True:
-        event = heappop(ctx._events)
-        if event[2] is not None: break
+    # Mark event as done.
+    joiners, event.joiners = event.joiners, None
 
-    ctx._now, eid, proc, state, value = event
+    for proc in joiners:
+        # Ignore dead processes. Multiple concurrently scheduled interrupts
+        # cause this situation. If the process dies while handling the first
+        # one, the remaining interrupts must be discarded.
+        if proc.joiners is None: continue
 
-    if state is Interrupted:
-        # FIXME Is this necessary? Consider the following situation for a
-        # process:
-        #  - 1: interrupt, 1: interrupt, 5: wait (cancelled)
-        # The wait event will be skipped and the process will be called to
-        # handle the interrupt, thereby scheduling another event. The queue
-        # will now look like this:
-        # - 1: interrupt, 1: wait
-        # Note that wait isn't yet marked as cancelled and would be processed
-        # if there weren't the call below:
-        proc.event[2] = None
-        # TODO If interrupts would always be scheduled with higher priority it
-        # wouldn't even be necessary to cancel the event during
-        # Context._interrupt. E.g: [<time>, <eid>, <etype>, <proc>, <value>]
-        if proc.event[3] is Suspended:
-            state = Suspended
-        else:
-            value = Interrupt(value)
+        # If the current event (e.g. an interrupt) isn't the one the process
+        # expects, remove it from the original events joiners list.
+        if event is not proc.event and proc.event is not None:
+            proc.event.joiners.remove(proc)
+            proc.event = None
 
-    # Mark current event as processed.
-    proc.event = None
-    ctx._active_proc = proc
+        # Mark the current process as active.
+        ctx._active_proc = proc
 
-    try:
-        target = (proc.generator.send(value) if state > 0 else
-                proc.generator.throw(value))
+        try:
+            target = (proc.generator.send(value) if resume else
+                    proc.generator.throw(value))
 
-        if target is not Ignore:
-            # TODO Improve this error message.
-            if type(target) is not Process:
-                proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
-                        target))
-            if proc.event is not None:
-                proc.generator.throw(RuntimeError(
-                        'Next event already scheduled'))
-
-            # Add this process to the list of waiters.
-            if proc not in target.joiners:
-                if target.event is None:
+            try:
+                if target.joiners is None:
+                    # FIXME This is dangerous. If the process catches these
+                    # exceptions it may yield another event, which will not get
+                    # processed causing the process to become deadlocked.
                     proc.generator.throw(RuntimeError('Already terminated "%s"' %
                             target))
                 else:
+                    # Add this process to the list of waiters.
                     target.joiners.append(proc)
+                    proc.event = target
+            except AttributeError:
+                # FIXME Same problem as above.
+                proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
+                        target))
 
-        ctx._active_proc = None
-        return
-    except StopIteration as e:
-        # Process has terminated.
-        evt_type = Success
-        result = e.args[0] if e.args else None
-    except BaseException as e:
-        # Process has failed.
-        evt_type = Failed
-        result = Failure()
-        result.__cause__ = e
+            continue
+        except StopIteration as e:
+            # Process has terminated.
+            evt_type = True
+            result = e.args[0] if len(e.args) else None
+        except BaseException as e:
+            # Process has failed.
+            evt_type = False
+            result = Failure()
+            result.__cause__ = e
 
-        # The process has terminated, interrupt joiners.
-        if not proc.joiners:
-            # Crash the simulation if a process has crashed and no other
-            # process is there to handle the crash.
-            raise result.__cause__
+            # The process has terminated, interrupt joiners.
+            if not proc.joiners:
+                # Crash the simulation if a process has crashed and no other
+                # process is there to handle the crash.
+                raise result.__cause__
 
-    # Mark process as dead.
-    proc.event = None
-
-    for joiner in proc.joiners:
-        if joiner.event is None: continue
-        ctx._schedule(joiner, ctx._now, evt_type, result)
+        if proc.joiners:
+            ctx._schedule(Resume, proc, evt_type, result)
+        else:
+            proc.joiners = None
 
     ctx._active_proc = None
+
 
 def step_dt(ctx, delta_t=1):
     """Execute all events that occur within the next *delta_t*
@@ -233,10 +225,14 @@ def step_dt(ctx, delta_t=1):
     while peek(ctx) < until:
         step(ctx)
 
+
 def simulate(ctx, until=Infinity):
     """Shortcut for ``while sim.peek() < until: sim.step()``."""
     if until <= 0:
         raise ValueError('until(=%s) should be a number > 0.' % until)
 
-    while peek(ctx) < until:
-        step(ctx)
+    try:
+        while ctx._events[0][0] < until:
+            step(ctx)
+    except IndexError:
+        pass
