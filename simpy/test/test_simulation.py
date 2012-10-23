@@ -515,3 +515,57 @@ def test_fail_shared_event(ctx):
     yield ctx.wait(0)
 
     assert log == [(0, exc), (1, exc), (2, exc)]
+
+
+def test_suspend_interrupt(ctx):
+    def child(ctx):
+        try:
+            yield ctx.wait(1)
+        except Interrupt as i:
+            assert i.cause == 1
+
+        try:
+            yield ctx.suspend()
+        except Interrupt as i:
+            assert i.cause == 2
+
+    c = ctx.start(child(ctx))
+    yield ctx.wait(0)
+    c.interrupt(1)
+    c.interrupt(2)
+
+
+def test_interrupt_exit(ctx):
+    def child(ctx):
+        yield ctx.wait(1)
+
+    c = ctx.start(child(ctx))
+    yield ctx.wait(0)
+    c.interrupt('spam')
+
+    try:
+        yield c
+        assert False, 'Expected an exception'
+    except Interrupt as i:
+        assert i.cause == 'spam'
+
+
+def test_interrupted_join_failure(ctx):
+    def child(ctx):
+        raise RuntimeError('spam')
+        yield
+
+    def interruptor(ctx, process):
+        process.interrupt()
+        yield ctx.exit()
+
+    c = ctx.start(child(ctx))
+    i = ctx.start(interruptor(ctx, ctx.process))
+
+    try:
+        yield c
+    except Interrupt:
+        pass
+
+    yield ctx.wait(1)
+    assert ctx.now == 1
