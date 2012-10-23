@@ -190,6 +190,11 @@ def process(ctx, resume, event, value):
                 # process is there to handle the crash.
                 raise result
 
+        # FIXME proc.joiners should ideally be set to None unconditionally, so
+        # that it is impossible to become a joiner of this process after this
+        # step. Currently that's still possible if there are joiners and not
+        # consistent to the case of no joiners. There were some problems with
+        # the immediate scheduling of the wait event. Examine!
         if proc.joiners:
             ctx._schedule(Resume, proc, evt_type, result)
         else:
