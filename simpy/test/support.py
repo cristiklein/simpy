@@ -10,7 +10,7 @@ def pytest_pycollect_makeitem(collector, name, obj):
     they would be collected as generator tests."""
     if collector.funcnamefilter(name) and hasattr(obj, '__call__'):
         if 'ctx' in _pytest.python.getfuncargnames(obj):
-            return collector._genfunctions(name, obj)
+            return list(collector._genfunctions(name, obj))
 
 
 def pytest_pyfunc_call(pyfuncitem):
@@ -20,8 +20,13 @@ def pytest_pyfunc_call(pyfuncitem):
 
     ctx = funcargs['ctx']
 
+    # Filter argument names.
+    args = {}
+    for arg in pyfuncitem._fixtureinfo.argnames:
+        args[arg] = funcargs[arg]
+
     if inspect.isgeneratorfunction(testfunction):
-        process = ctx.start(testfunction(**funcargs))
+        process = ctx.start(testfunction(**args))
 
         while process.is_alive:
             if peek(ctx) == Infinity:
@@ -31,7 +36,7 @@ def pytest_pyfunc_call(pyfuncitem):
 
             step(ctx)
     else:
-        testfunction(**funcargs)
+        testfunction(**args)
 
     return True
 
