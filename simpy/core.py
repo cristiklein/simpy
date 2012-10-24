@@ -1,7 +1,7 @@
 import sys
 from heapq import heappush, heappop
+from inspect import isgenerator
 from itertools import count
-from collections import defaultdict
 from types import GeneratorType
 
 
@@ -63,6 +63,9 @@ class Process(Event):
     __slots__ = ('ctx', 'generator', 'event', 'joiners')
 
     def __init__(self, ctx, generator):
+        if not isgenerator(generator):
+            raise ValueError('%s is not a generator.' % generator)
+
         self.ctx = ctx
         self.generator = generator
         self.joiners = []
