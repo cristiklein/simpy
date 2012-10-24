@@ -90,7 +90,6 @@ def test_crashing_child_traceback():
         except RuntimeError as exc:
             import traceback
             stacktrace = traceback.format_exc()
-            traceback.print_exc()
             # The current frame must be visible in the stacktrace.
             assert 'yield ctx.start(panic(ctx))' in stacktrace
 
