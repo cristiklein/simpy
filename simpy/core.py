@@ -180,18 +180,18 @@ def process(ctx, resume, event, value):
             evt_type = True
             result = e.args[0] if len(e.args) else None
         except BaseException as e:
+            # The process has terminated, interrupt joiners.
+            if not proc.joiners:
+                # Crash the simulation if a process has crashed and no other
+                # process is there to handle the crash.
+                raise e
+
             # Process has failed.
             evt_type = False
             # FIXME Isn't there a better way to obtain the exception type? For
             # example using (type, value, traceback) tuple?
             result = type(e)(*e.args)
             result.__cause__ = e
-
-            # The process has terminated, interrupt joiners.
-            if not proc.joiners:
-                # Crash the simulation if a process has crashed and no other
-                # process is there to handle the crash.
-                raise result
 
         # FIXME proc.joiners should ideally be set to None unconditionally, so
         # that it is impossible to become a joiner of this process after this
