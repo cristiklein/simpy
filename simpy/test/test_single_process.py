@@ -11,10 +11,10 @@ from simpy import simulate
 
 def test_discrete_time_steps(env, log):
     """envple envulation with discrete time steps."""
-    def pem(context, log):
+    def pem(env, log):
         while True:
-            log.append(context.now)
-            yield context.hold(delta_t=1)
+            log.append(env.now)
+            yield env.hold(delta_t=1)
 
     env.start(pem(env, log))
     simulate(env, until=3)
@@ -24,10 +24,10 @@ def test_discrete_time_steps(env, log):
 
 def test_stop_self(env, log):
     """Process stops itself."""
-    def pem(context, log):
-        while context.now < 2:
-            log.append(context.now)
-            yield context.hold(1)
+    def pem(env, log):
+        while env.now < 2:
+            log.append(env.now)
+            yield env.hold(1)
 
     env.start(pem(env, log))
     simulate(env, 10)
@@ -36,17 +36,17 @@ def test_stop_self(env, log):
 
 
 def test_start_at(env):
-    def pem(context):
-        assert context.now == 5
-        yield context.hold(1)
+    def pem(env):
+        assert env.now == 5
+        yield env.hold(1)
 
     env.start(pem(env), at=5)
     simulate(env)
 
 
 def test_start_at_error(env):
-    def pem(context):
-        yield context.hold(2)
+    def pem(env):
+        yield env.hold(2)
 
     env.start(pem(env))
     simulate(env)
@@ -54,9 +54,9 @@ def test_start_at_error(env):
 
 
 def test_start_delayed(env):
-    def pem(context):
-        assert context.now == 5
-        yield context.hold(1)
+    def pem(env):
+        assert env.now == 5
+        yield env.hold(1)
 
     env.start(pem(env), delay=5)
     simulate(env)
@@ -64,17 +64,17 @@ def test_start_delayed(env):
 
 def test_start_delayed_error(env):
     """Check if delayed() raises an error if you pass a negative dt."""
-    def pem(context):
-        yield context.hold(1)
+    def pem(env):
+        yield env.hold(1)
 
     pytest.raises(ValueError, env.start, pem(env), delay=-1)
 
 
 def test_start_at_delay_precedence(env):
     """The ``delay`` param shoul take precedence ofer the ``at`` param."""
-    def pem(context):
-        assert context.now == 5
-        yield context.hold(1)
+    def pem(env):
+        assert env.now == 5
+        yield env.hold(1)
 
     env.start(pem(env), at=3, delay=5)
     simulate(env)
@@ -90,8 +90,8 @@ def test_start_non_process(env):
 
 def test_negative_hold(env):
     """Don't allow negative hold times."""
-    def pem(context):
-        yield context.hold(-1)
+    def pem(env):
+        yield env.hold(-1)
 
     env.start(pem(env))
     pytest.raises(ValueError, simulate, env)
@@ -99,7 +99,7 @@ def test_negative_hold(env):
 
 def test_yield_none_forbidden(env):
     """A process may not yield ``None``."""
-    def pem(context):
+    def pem(env):
         yield
 
     env.start(pem(env))
@@ -108,9 +108,9 @@ def test_yield_none_forbidden(env):
 
 def test_hold_not_yielded(env):
     """Check if an error is raised if you forget to yield a hold."""
-    def pem(context):
-        context.hold(1)
-        yield context.hold(1)
+    def pem(env):
+        env.hold(1)
+        yield env.hold(1)
 
     env.start(pem(env))
     pytest.raises(RuntimeError, simulate, env)
@@ -119,7 +119,7 @@ def test_hold_not_yielded(env):
 def test_illegal_yield(env):
     """There should be an error if a process neither yields an event
     nor another process."""
-    def pem(context):
+    def pem(env):
         yield 'ohai'
 
     env.start(pem(env))
@@ -128,14 +128,14 @@ def test_illegal_yield(env):
 
 def test_get_process_state(env):
     """A process is alive until it's generator has not terminated."""
-    def pem_a(context):
-        yield context.hold(3)
+    def pem_a(env):
+        yield env.hold(3)
 
-    def pem_b(context, pem_a):
-        yield context.hold(1)
+    def pem_b(env, pem_a):
+        yield env.hold(1)
         assert pem_a.is_alive
 
-        yield context.hold(3)
+        yield env.hold(3)
         assert not pem_a.is_alive
 
     proc_a = env.start(pem_a(env))
@@ -156,8 +156,8 @@ def test_hold_value(env):
     See :class:`envpy.resources.Store` for an example.
 
     """
-    def pem(context):
-        val = yield context.hold(1, 'ohai')
+    def pem(env):
+        val = yield env.hold(1, 'ohai')
         assert val == 'ohai'
 
     env.start(pem(env))
