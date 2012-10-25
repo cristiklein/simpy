@@ -25,22 +25,13 @@ from itertools import count
 
 
 # Event types
-EVT_INTERRUPT = 0  # Throw an error into the PEG
-EVT_RESUME = 1  # Default event, send value into the PEG
-EVT_PROCESS = 2  # Wait for a process to finish
-EVT_INIT = 3  # First event after a proc was started
-EVT_SUSPEND = 4  # Suspend the process
-
-
-# Process states
-STATE_FAILED = 0
-STATE_SUCCEEDED = 1
+(
+    EVT_INIT,       # First event after a proc was started
+    EVT_INTERRUPT,  # Throw an interrupt into the PEG
+    EVT_RESUME,     # Default event, send value into the PEG
+) = range(3)
 
 Infinity = float('inf')
-
-
-Event = object()
-"""Yielded by a PEM if it waits for an event (e.g. via "yield ctx.hold(1))."""
 
 
 class Interrupt(Exception):
@@ -61,7 +52,31 @@ class Interrupt(Exception):
         return self.args[0]
 
 
-class Process(object):
+class Event(object):
+    __slots__ = ('processes', '_env', '_activated')
+
+    def __init__(self, env):
+        self._env = env
+        self._activated = False
+        self.processes = []
+
+    @property
+    def is_alive(self):
+        """``False`` if the PEG stopped."""
+        return self.processes is not None
+
+    @property
+    def is_activated(self):
+        return self._activated
+
+    def activate(self, succeed=True, value=None):
+        if self._activated:
+            raise RuntimeError('Event %s has already been activated.' % self)
+        _schedule(self._env, EVT_RESUME, self, succeed, value)
+        self._activated = True
+
+
+class Process(Event):
     """A *Process* is a wrapper for instantiated PEMs.
 
     A Processes has a process event generator (``peg`` -- the generator
@@ -73,27 +88,20 @@ class Process(object):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('name', 'result', '_peg', '_env', '_alive', '_target',
-                 '_joiners')
+    __slots__ = ('processes', '_env', '_activated',
+                 'name', 'result', '_peg', '_target')
 
-    def __init__(self, peg, env):
+    def __init__(self, env, peg):
+        super(Process, self).__init__(env)
         self.name = peg.__name__
         """The process name."""
 
+        # TODO: Remove result attribute?
         self.result = None
         """The process' result after it terminated."""
 
         self._peg = peg
-        self._env = env
-        self._alive = True
         self._target = None
-
-        self._joiners = []  # Procs that wait for this one
-
-    @property
-    def is_alive(self):
-        """``False`` if the PEG stopped."""
-        return self._alive
 
     def __repr__(self):
         """Return a string "Process(pem_name)"."""
@@ -103,7 +111,7 @@ class Process(object):
         """Interupt this process optionally providing a ``cause``.
 
         A process cannot be interrupted if it is suspended (and has no
-        event scheduled) or if it was just initialized and could not
+        event activated) or if it was just initialized and could not
         issue a *hold* yet. Raise a :exc:`RuntimeError` in both cases.
 
         If ``cause`` is an instance of an exception, it will be directly
@@ -111,36 +119,24 @@ class Process(object):
         thrown.
 
         """
-        if not self._alive:
+        if not self.is_alive:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
         if self._target[0] is EVT_INIT:
             raise RuntimeError('%s was just initialized and cannot yet be '
                             'interrupted.' % self)
-        if self._target[0] is EVT_SUSPEND:
-            raise RuntimeError('%s is suspended and cannot be interrupted.' %
-                                self)
 
-        if not isinstance(cause, BaseException):
-            cause = Interrupt(cause)
-        _schedule(self._env, self, EVT_INTERRUPT, cause)
+        # Unsubscribe the event we were waiting for
+        if self._target:
+            self._target.processes.remove(self)
+            self._target = None
 
-    def resume(self, value=None):
-        """Resume this process.
-
-        You can optionally pass a ``value`` which will be sent to the
-        resumed PEM when it continues. This might be helpful to e.g.
-        implement resources (:class:`simpy.resources.Store` uses this
-        feature).
-
-        Raise a :exc:`RuntimeError` if the process is not suspended.
-
-        """
-        if self._target[0] is not EVT_SUSPEND:
-            raise RuntimeError('%s is not suspended.' % self)
-
-        self._target = None
-        _schedule(self._env, self, EVT_RESUME, value=value)
+        # Schedule interrupt event
+        event = Event(self._env)
+        event.processes.append(self)
+        _schedule(self._env, EVT_INTERRUPT, event, succeed=False,
+                  value=Interrupt(cause))
+        event._active = True
 
 
 class Environment(object):
@@ -193,8 +189,12 @@ class Environment(object):
 
             at = self._now + delay
 
-        proc = Process(peg, self)
-        _schedule(self, proc, EVT_INIT, at=at)
+        proc = Process(self, peg)
+
+        event = Event(self)
+        event.processes.append(proc)
+        _schedule(self, EVT_INIT, event, succeed=True, at=at)
+        event._activated = True
 
         return proc
 
@@ -209,6 +209,7 @@ class Environment(object):
         raise StopIteration()
 
     def hold(self, delta_t=Infinity, value=None):
+        # TODO: rename?
         """Schedule a new event in ``delta_t`` time units.
 
         If ``delta_t`` is omitted, schedule an event at *infinity*. This
@@ -230,26 +231,12 @@ class Environment(object):
         if delta_t < 0:
             raise ValueError('delta_t=%s must be >= 0.' % delta_t)
 
-        _schedule(self, self._active_proc, EVT_RESUME, value=value,
-                    at=(self._now + delta_t))
+        event = Event(self)
+        _schedule(self, EVT_RESUME, event, succeed=True, value=value,
+                  at=(self._now + delta_t))
+        event._activated = True
 
-        return Event
-
-    def suspend(self):
-        """Suspend the current process by deleting all future events.
-
-        A suspended process needs to be resumed (see
-        :meth:`Process.resume()`) by another process to get active
-        again.
-
-        As with :meth:`~Environment.hold()`, the result of that method
-        must be ``yield``\ ed. Raise a :exc:`RuntimeError` if the
-        process has already an event scheduled.
-
-        """
-        _schedule(self, self._active_proc, EVT_SUSPEND)
-
-        return Event
+        return event
 
 
 def peek(env):
@@ -258,16 +245,7 @@ def peek(env):
 
     """
     try:
-        while True:
-            evt = env._events[0]
-            # Pop all removed events from the queue
-            # evt[3] is the scheduled event
-            # env[2] is the corresponding proc
-            if evt[3] is evt[2]._target or evt[3][0] is EVT_INTERRUPT:
-                break
-            heappop(env._events)
-
-        return evt[0]  # time of first event
+        return env._events[0][0]  # time of first event
 
     except IndexError:
         return Infinity
@@ -281,58 +259,49 @@ def step(env):
     """
     if env._active_proc:
         raise RuntimeError('step() was called from within step().'
-                            'Something went horribly wrong.')
+                           'Something went horribly wrong.')
 
-    # Get the next valid event from the heap
-    while True:
-        env._now, eid, proc, evt = heappop(env._events)
+    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
 
-        # Break from the loop if we find a valid event.
-        if evt is proc._target or evt[0] is EVT_INTERRUPT:
-            break
+    # Mark event as processed
+    processes, event.processes = event.processes, None
 
-    env._active_proc = proc
+    for proc in processes:
+        # Ignore terminated processes
+        if not proc.is_alive:
+            continue
 
-    evt_type, value = evt
-    proc._target = None
+        env._active_proc = proc
+        proc._target = None
 
-    # Get next event from process
-    try:
-        if evt_type is EVT_INTERRUPT:
-            target = proc._peg.throw(value)
-        else:
-            target = proc._peg.send(value)
+        # Get next event from process
+        try:
+            new_event = proc._peg.send(value) if succeed else \
+                        proc._peg.throw(value)
 
-    # proc has terminated
-    except StopIteration:
-        _join(env, proc)
-        return  # Don't need to check a new event
+        # proc has terminated
+        except StopIteration:
+            proc.activate(succeed=True, value=proc.result)
+            continue  # Don't need to check a new event
 
-    # proc raised an error. Try to forward it or re-raise it.
-    except BaseException as err:
-        if not _join(env, proc, err):
-            raise err
-        return  # Don't need to check a new event
+        # proc raised an error. Try to forward it or re-raise it.
+        except BaseException as err:
+            if not proc.processes:
+                raise err
+            proc.result = err
+            proc.activate(succeed=False, value=proc.result)
+            continue  # Don't need to check a new event
 
-    # Check what was yielded
-    if type(target) is Process:
-        if proc._target:
-            # This check is required to throw an error into the PEM.
-            proc._peg.throw(RuntimeError('%s already has an event '
-                    'scheduled. Did you forget to yield?' % proc))
+        # Check yielded event
+        try:
+            if new_event.is_alive:
+                new_event.processes.append(proc)
+                proc._target = new_event
+            else:
+                proc._peg.throw(RuntimeError('%s is not alive.' % new_event))
 
-        if target._alive:
-            proc._target = (EVT_PROCESS, target)
-            target._joiners.append(proc)
-
-        else:
-            # Process has already terminated. Resume as soon as possible.
-            _schedule(env, proc, EVT_RESUME, target.result)
-
-    elif target is not Event:
-        proc._peg.throw(ValueError('Invalid yield value: %s' % target))
-
-    # else: target is event
+        except AttributeError:
+            proc._peg.throw(ValueError('Invalid yield value: %s' % new_event))
 
     env._active_proc = None
 
@@ -353,7 +322,7 @@ def simulate(env, until=Infinity):
         step(env)
 
 
-def _schedule(env, proc, evt_type, value=None, at=None):
+def _schedule(env, evt_type, event, succeed, value=None, at=None):
     """Schedule a new event for process ``proc``.
 
     ``evt_type`` should be one of the ``EVT_*`` constants defined on
@@ -362,51 +331,20 @@ def _schedule(env, proc, evt_type, value=None, at=None):
     The optional ``value`` will be sent into the PEG when the event is
     processed.
 
-    The event will be scheduled at the simulation time ``at`` or at the
+    The event will be activated at the simulation time ``at`` or at the
     current time if no value is provided.
 
     Raise a :exc:`RuntimeError` if ``proc`` already has an event
-    scheduled.
+    activated.
 
     """
-    evt = (evt_type, value)
-
-    if evt_type != EVT_INTERRUPT:
-        # Interrupts don't set the "next_event" attribute.
-        if proc._target:
-            raise RuntimeError('%s already has an event scheduled. Did you '
-                               'forget to yield?' % proc)
-        proc._target = evt
-
-    # Don't put anything on the heap for a suspended proc.
-    if evt_type is EVT_SUSPEND:
-        return
-
-    # Don't put events scheduled for "Infinity" onto the heap,
+    # Don't put events activated for "Infinity" onto the heap,
     # because the will never be popped.
     if at is Infinity:
         return
 
     if at is None:
         at = env._now
-    heappush(env._events, (at, next(env._eid), proc, evt))
 
-
-def _join(env, proc, err=None):
-    proc._alive = False
-    could_interrupt = True
-    if err:
-        could_interrupt = False
-        proc.result = err
-
-    for joiner in proc._joiners:
-        if joiner._alive and joiner._target[1] is proc:
-            if not err:
-                joiner._target = None
-                _schedule(env, joiner, EVT_RESUME, proc.result)
-            else:
-                joiner.interrupt(err)
-                could_interrupt = True
-
-    env._active_proc = None
-    return could_interrupt
+    heappush(env._events, (at, evt_type, next(env._eid), succeed, event,
+                           value))
