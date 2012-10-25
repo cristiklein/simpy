@@ -89,16 +89,12 @@ class Process(Event):
 
     """
     __slots__ = ('processes', '_env', '_activated',
-                 'name', 'result', '_peg', '_target')
+                 'name', '_peg', '_target')
 
     def __init__(self, env, peg):
         super(Process, self).__init__(env)
         self.name = peg.__name__
         """The process name."""
-
-        # TODO: Remove result attribute?
-        self.result = None
-        """The process' result after it terminated."""
 
         self._peg = peg
         self._target = None
@@ -205,8 +201,7 @@ class Environment(object):
         process and can also be obtained via :attr:`Process.result`.
 
         """
-        self._active_proc.result = result
-        raise StopIteration()
+        raise StopIteration(result)
 
     def hold(self, delta_t=Infinity, value=None):
         # TODO: rename?
@@ -280,16 +275,15 @@ def step(env):
                         proc._peg.throw(value)
 
         # proc has terminated
-        except StopIteration:
-            proc.activate(succeed=True, value=proc.result)
+        except StopIteration as si:
+            proc.activate(succeed=True, value=si.args[0])
             continue  # Don't need to check a new event
 
         # proc raised an error. Try to forward it or re-raise it.
         except BaseException as err:
             if not proc.processes:
                 raise err
-            proc.result = err
-            proc.activate(succeed=False, value=proc.result)
+            proc.activate(succeed=False, value=err)
             continue  # Don't need to check a new event
 
         # Check yielded event
