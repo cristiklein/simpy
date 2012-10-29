@@ -143,3 +143,30 @@ def test_unregister_after_interrupt(env):
 
     """
     # TODO: implement
+
+
+def test_error_and_interrupted_join(env):
+    def child_a(env, process):
+        process.interrupt()
+        env.exit()
+        yield  # Dummy yield
+
+    def child_b(env):
+        raise AttributeError('spam')
+        yield  # Dummy yield
+
+    def parent(env):
+        env.start(child_a(env, env.active_process))
+        b = env.start(child_b(env))
+
+        try:
+            yield b
+        # This interrupt unregisters me from b so I won't receive its
+        # AttributeError
+        except Interrupt:
+            pass
+
+        yield env.hold(0)
+
+    env.start(parent(env))
+    pytest.raises(AttributeError, simulate, env)
