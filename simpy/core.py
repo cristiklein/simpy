@@ -220,6 +220,16 @@ class Environment(object):
 
         return event
 
+    def event(self):
+        """Create and return a new :class:`Event`.
+
+        The event will not be activated, so you can (and need to) call
+        one of its :meth:`~Event.succeed()` or :meth:`~Event.fail()`
+        methods at some point to activate and schedule the event.
+
+        """
+        return Event(self)
+
 
 def peek(env):
     """Return the time of the Environment ``env``'s next event or
