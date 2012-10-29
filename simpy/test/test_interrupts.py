@@ -114,3 +114,13 @@ def test_multiple_interrupts(env):
 
     env.start(parent(env))
     pytest.raises(RuntimeError, simpy.simulate, env)
+
+
+def test_interrupt_self(env):
+    """A processs should not be able to interrupt itself."""
+    def pem(env):
+        pytest.raises(RuntimeError, env.active_process.interrupt)
+        yield env.hold(0)
+
+    env.start(pem(env))
+    simpy.simulate(env)
