@@ -75,6 +75,12 @@ class Event(object):
         _schedule(self._env, EVT_RESUME, self, succeed, value)
         self._activated = True
 
+    def succeed(self, value=None):
+        self.activate(True, value)
+
+    def fail(self, value=None):
+        self.activate(False, value)
+
 
 class Process(Event):
     """A *Process* is a wrapper for instantiated PEMs.
@@ -118,9 +124,6 @@ class Process(Event):
         if not self.is_alive:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
-        if self._target[0] is EVT_INIT:
-            raise RuntimeError('%s was just initialized and cannot yet be '
-                            'interrupted.' % self)
 
         # Unsubscribe the event we were waiting for
         if self._target:
@@ -132,7 +135,7 @@ class Process(Event):
         event.processes.append(self)
         _schedule(self._env, EVT_INTERRUPT, event, succeed=False,
                   value=Interrupt(cause))
-        event._active = True
+        event._activated = True
 
 
 class Environment(object):
@@ -163,33 +166,17 @@ class Environment(object):
         *PEG* is the *Process Execution Generator*, which is the
         generator returned by *PEM*.
 
-        The process is started at the current simulation time, but you
-        can alternatively specify a start time via ``at`` or a delayed
-        start via ``delay``. ``delay`` takes precedence over ``at`` if
-        both are specified.
-
-        Raise a :exc:`ValueError` if ``peg`` is not a generator, if
-        ``at`` is smaller than the current simulation time or if
-        ``delay`` is negative.
+        Raise a :exc:`ValueError` if ``peg`` is not a generator.
 
         """
         if not isgenerator(peg):
             raise ValueError('PEG %s is not a generator.' % peg)
 
-        if at and at < self._now:
-            raise ValueError('at(=%s) must be > %s' % (at, self._now))
-
-        if delay:
-            if delay < 0:
-                raise ValueError('delay(=%s) must be > 0' % delay)
-
-            at = self._now + delay
-
         proc = Process(self, peg)
 
         event = Event(self)
         event.processes.append(proc)
-        _schedule(self, EVT_INIT, event, succeed=True, at=at)
+        _schedule(self, EVT_INIT, event, succeed=True)
         event._activated = True
 
         return proc
@@ -276,7 +263,7 @@ def step(env):
 
         # proc has terminated
         except StopIteration as si:
-            proc.activate(succeed=True, value=si.args[0])
+            proc.activate(succeed=True, value=si.args[0] if si.args else None)
             continue  # Don't need to check a new event
 
         # proc raised an error. Try to forward it or re-raise it.

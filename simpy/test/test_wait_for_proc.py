@@ -41,22 +41,6 @@ def test_return_value(env):
     simulate(env)
 
 
-def test_illegal_wait(env):
-    """Raise an error if a process forget to yield an event before it
-    starts waiting for a process.
-
-    """
-    def child(env):
-        yield env.hold(1)
-
-    def parent(env):
-        env.hold(1)
-        yield env.start(child(env))
-
-    env.start(parent(env))
-    pytest.raises(RuntimeError, simulate, env)
-
-
 def test_join_after_terminate(env):
     """Waiting for an already terminated process should return
     immediately.
@@ -73,28 +57,7 @@ def test_join_after_terminate(env):
         assert env.now == 2
 
     env.start(parent(env))
-    simulate(env)
-
-
-def test_join_all(env):
-    """Test waiting for multiple processes."""
-    def child(env, i):
-        yield env.hold(i)
-        env.exit(i)
-
-    def parent(env):
-        processes = [env.start(child(env, i)) for i in range(9, -1, -1)]
-
-        # Wait for all processes to terminate.
-        results = []
-        for proc in processes:
-            results.append((yield proc))
-
-        assert results == list(reversed(range(10)))
-        assert env.now == 9
-
-    env.start(parent(env))
-    simulate(env)
+    pytest.raises(RuntimeError, simulate, env)
 
 
 def test_child_exception(env):
@@ -112,23 +75,6 @@ def test_child_exception(env):
 
     env.start(parent(env))
     simulate(env)
-
-
-def test_illegal_hold_followed_by_join(env):
-    """Check that an exception is raised if a "yield proc" follows on an
-    illegal hold()."""
-    def child(env):
-        yield env.hold(1)
-
-    def parent(env):
-        env.hold(1)
-        yield env.start(child(env))
-
-    env.start(parent(env))
-    ei = pytest.raises(RuntimeError, simulate, env)
-    # Assert that the exceptino was correctly thwon into the PEM
-    str_tb = str(ei.traceback[-1])
-    assert "yield env.start(child(env))" in str_tb
 
 
 def test_interrupted_join(env):
@@ -196,4 +142,4 @@ def test_unregister_after_interrupt(env):
     should be unregistered from that process.
 
     """
-
+    # TODO: implement

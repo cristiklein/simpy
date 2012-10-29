@@ -35,51 +35,6 @@ def test_stop_self(env, log):
     assert log == [0, 1]
 
 
-def test_start_at(env):
-    def pem(env):
-        assert env.now == 5
-        yield env.hold(1)
-
-    env.start(pem(env), at=5)
-    simulate(env)
-
-
-def test_start_at_error(env):
-    def pem(env):
-        yield env.hold(2)
-
-    env.start(pem(env))
-    simulate(env)
-    pytest.raises(ValueError, env.start, pem(env), at=1)
-
-
-def test_start_delayed(env):
-    def pem(env):
-        assert env.now == 5
-        yield env.hold(1)
-
-    env.start(pem(env), delay=5)
-    simulate(env)
-
-
-def test_start_delayed_error(env):
-    """Check if delayed() raises an error if you pass a negative dt."""
-    def pem(env):
-        yield env.hold(1)
-
-    pytest.raises(ValueError, env.start, pem(env), delay=-1)
-
-
-def test_start_at_delay_precedence(env):
-    """The ``delay`` param shoul take precedence ofer the ``at`` param."""
-    def pem(env):
-        assert env.now == 5
-        yield env.hold(1)
-
-    env.start(pem(env), at=3, delay=5)
-    simulate(env)
-
-
 def test_start_non_process(env):
     """Check that you cannot start a normal function."""
     def foo():
@@ -104,16 +59,6 @@ def test_yield_none_forbidden(env):
 
     env.start(pem(env))
     pytest.raises(ValueError, simulate, env)
-
-
-def test_hold_not_yielded(env):
-    """Check if an error is raised if you forget to yield a hold."""
-    def pem(env):
-        env.hold(1)
-        yield env.hold(1)
-
-    env.start(pem(env))
-    pytest.raises(RuntimeError, simulate, env)
 
 
 def test_illegal_yield(env):

@@ -54,16 +54,19 @@ def test_concurrent_interrupts(env, log):
     assert log == [(0, 'boggis'), (0, 'bunce'), (0, 'beans')]
 
 
-def test_illegal_interrupt(env):
-    """A process that was just started cannot be interrupted."""
+def test_init_interrupt(env):
+    """An interrupt should always be executed after an INIT event at the
+    same time."""
     def child(env):
-        yield env.hold(10)
+        try:
+            yield env.hold(10)
+            pytest.fail('Should have been interrrupted.')
+        except simpy.Interrupt:
+            assert env.now == 0
 
     def root(env):
         child_proc = env.start(child(env))
-        ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(child) was just initialized '
-                                    'and cannot yet be interrupted.')
+        child_proc.interrupt()
 
         yield env.hold(1)
 
@@ -85,23 +88,6 @@ def test_interrupt_terminated_process(env):
                                     'and cannot be interrupted.')
 
         yield env.hold(1)
-
-    env.start(parent(env))
-    simpy.simulate(env)
-
-
-def test_interrupt_suspended_proces(env):
-    """A suspended process cannot be interrupted."""
-    def child(env):
-        yield env.suspend()
-
-    def parent(env):
-        child_proc = env.start(child(env))
-
-        yield env.hold(1)
-        ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(child) is suspended and '
-                                    'cannot be interrupted.')
 
     env.start(parent(env))
     simpy.simulate(env)
