@@ -271,6 +271,15 @@ def step(env):
             new_event = proc._peg.send(value) if succeed else \
                         proc._peg.throw(value)
 
+        # proc should have been interrupted but already terminated.
+        except Interrupt as interrupt:
+            # TODO: It would be nice if we could throw an error into the
+            # processes that caused the illegal interrupt, but this
+            # error can only be detected once the second interrupt is
+            # thrown into the terminated victim.
+            raise RuntimeError('Illegal Interrupt(%s) for %s.' %
+                               (interrupt.cause, proc))
+
         # proc has terminated
         except StopIteration as si:
             proc.activate(succeed=True, value=si.args[0] if si.args else None)
