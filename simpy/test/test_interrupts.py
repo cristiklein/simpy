@@ -91,3 +91,26 @@ def test_interrupt_terminated_process(env):
 
     env.start(parent(env))
     simpy.simulate(env)
+
+
+def test_multiple_interrupts(env):
+    """SimPy should detect if a process gets interrupted twice, but
+    terminates after the first one.
+
+    """
+    def child(env):
+        try:
+            yield env.hold(1)
+        except simpy.Interrupt:
+            env.exit('spam')
+
+    def parent(env):
+        c = env.start(child(env))
+        yield env.hold(0)
+        c.interrupt(1)
+        c.interrupt(2)
+        result = yield c
+        assert result == 'spam'
+
+    env.start(parent(env))
+    pytest.raises(RuntimeError, simpy.simulate, env)
