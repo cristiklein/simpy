@@ -5,6 +5,13 @@ Theses test cases demonstrate the API for shared resources.
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import simpy
 
+# TODO:
+# request() not yielded
+# Interrupt during request(), cancel waiting
+# Interrupt during request(), continue waiting
+# Container.level
+# Store.count
+
 
 def test_resource(env, log):
     """A *resource* is something with a limited numer of slots that need
