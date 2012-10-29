@@ -142,7 +142,29 @@ def test_unregister_after_interrupt(env):
     should be unregistered from that process.
 
     """
-    # TODO: implement
+    def interruptor(env, process):
+        yield env.hold(1)
+        process.interrupt()
+
+    def child(env):
+        yield env.hold(2)
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        try:
+            yield child_proc
+            pytest.fail('Did not receive an interrupt.')
+        except Interrupt:
+            assert env.now == 1
+            assert child_proc.is_alive
+
+        yield env.hold(2)
+        assert env.now == 3
+        assert not child_proc.is_alive
+
+    parent_proc = env.start(parent(env))
+    env.start(interruptor(env, parent_proc))
+    simulate(env)
 
 
 def test_error_and_interrupted_join(env):
