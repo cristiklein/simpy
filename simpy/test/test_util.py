@@ -2,10 +2,29 @@
 Tests for the utility functions from :mod:`simpy.util`.
 
 """
+import random
+
 import pytest
 
 from simpy import Interrupt, simulate
-from simpy.util import subscribe_at, wait_for_all, wait_for_any
+from simpy.util import start_delayed, subscribe_at, wait_for_all, wait_for_any
+
+
+def test_start_delayed(env):
+    def pem(env):
+        assert env.now == 5
+        yield env.hold(1)
+
+    start_delayed(env, pem(env), delay=5)
+    simulate(env)
+
+
+def test_start_delayed_error(env):
+    """Check if delayed() raises an error if you pass a negative dt."""
+    def pem(env):
+        yield env.hold(1)
+
+    pytest.raises(ValueError, start_delayed, env, pem(env), delay=-1)
 
 
 def test_subscribe(env):
@@ -21,8 +40,8 @@ def test_subscribe(env):
         try:
             yield env.hold()
         except Interrupt as interrupt:
-            assert interrupt.cause is child_proc
-            assert child_proc.result == 'ohai'
+            assert interrupt.cause[0] is child_proc
+            assert interrupt.cause[1] == 'ohai'
             assert env.now == 3
 
     env.start(parent(env))
@@ -59,7 +78,7 @@ def test_subscribe_with_join(env):
             yield child_proc2
         except Interrupt as interrupt:
             assert env.now == 1
-            assert interrupt.cause is child_proc1
+            assert interrupt.cause[0] is child_proc1
             assert child_proc2.is_alive
 
     env.start(parent(env))
@@ -81,9 +100,9 @@ def test_join_any(env):
             yield env.hold()
             pytest.fail('There should have been an interrupt')
         except Interrupt as interrupt:
-            first_dead = interrupt.cause
+            first_dead, result = interrupt.cause
             assert first_dead is processes[-1]
-            assert first_dead.result == 0
+            assert result == 0
             assert env.now == 0
 
     env.start(parent(env))
@@ -97,7 +116,10 @@ def test_join_all_shortcut(env):
         env.exit(i)
 
     def parent(env):
-        processes = [env.start(child(env, i)) for i in range(10)]
+        # Shuffle range so that processes terminate in a random order.
+        rrange = list(range(10))
+        random.shuffle(rrange)
+        processes = [env.start(child(env, i)) for i in rrange]
 
         results = yield wait_for_all(processes)
 
@@ -118,10 +140,22 @@ def test_join_any_shortcut(env):
         processes = [env.start(child(env, i)) for i in [4, 1, 2, 0, 3]]
 
         for i in range(5):
-            finished, processes = yield wait_for_any(processes)
-            assert finished.result == i
+            (finished_proc, result), processes = yield wait_for_any(processes)
+            assert result == i
             assert len(processes) == (5 - i - 1)
             assert env.now == i
 
     env.start(parent(env))
     simulate(env)
+
+
+def test_start_delayed_with_wait_for_all(env):
+    """Test waiting for all instances of delayed processes."""
+    def child(env):
+        yield env.hold(1)
+
+    def parent(env):
+        procs = wait_for_all(
+                    start_delayed(env, child(env), i) for i in range(3))
+        for proc in procs:
+            assert proc.name == 'child'

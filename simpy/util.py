@@ -10,6 +10,40 @@ This modules contains various utility functions:
 from simpy.core import Interrupt
 
 
+def start_delayed(env, peg, delay):
+    """Return a helper process that starts another PEM after a delay of
+    ``delay``.
+
+    :meth:`~simpy.core.Simulation.start` starts a PEM at the current
+    simulation time. This helper allows you to start a PEM after a delay
+    of ``delay`` simulation time units.
+
+    Just pass it as a first parameter to ``start()``::
+
+        >>> def pem(env, x):
+        ...     print('%s, %s' % (env.now, x))
+        ...     yield env.hold(1)
+        ...
+        >>> env = Environment()
+        >>> start_delayed(env, pem(env, 3), 5)
+        Process(starter)
+        >>> simulate(env)
+        5, 3
+
+    Raises a :class:`ValueError` if ``delay <= 0``.
+
+    """
+    if delay <= 0:
+        raise ValueError('delay(=%s) must be > 0.' % delay)
+
+    def starter():
+        yield env.hold(delay)
+        proc = env.start(peg)
+        env.exit(proc)
+
+    return env.start(starter())
+
+
 def subscribe_at(proc):
     """Register at the process ``proc`` to receive an interrupt when it
     terminates.
@@ -20,13 +54,13 @@ def subscribe_at(proc):
     env = proc._env
     subscriber = env._active_proc
 
-    def _signaller(signaller, receiver):
-        yield signaller
+    def signaller(signaller, receiver):
+        result = yield signaller
         if receiver.is_alive:
-            receiver.interrupt(signaller)
+            receiver.interrupt((signaller, result))
 
-    if proc._alive:
-        env.start(_signaller(proc, subscriber))
+    if proc.is_alive:
+        env.start(signaller(proc, subscriber))
     else:
         raise RuntimeError('%s has already terminated.' % proc)
 
@@ -46,9 +80,19 @@ def wait_for_all(procs):
     env = procs[0]._env
 
     def waiter():
+        # We cannot simply wait for each process because they might
+        # terminate in random order which may cause us to wait for an
+        # already terminated process.
+        for proc in list(procs):
+            subscribe_at(proc)
+
         results = []
-        for proc in procs:
-            results.append((yield proc))
+        while len(results) < len(procs):
+            try:
+                yield env.hold()
+            except Interrupt as interrupt:
+                finished_proc, result = interrupt.cause
+                results.append(result)
 
         env.exit(results)
 
@@ -71,14 +115,14 @@ def wait_for_any(procs):
     env = procs[0]._env
 
     def waiter():
-        for proc in procs:
+        for proc in list(procs):
             subscribe_at(proc)
 
         try:
             yield env.hold()
         except Interrupt as interrupt:
-            finished_proc = interrupt.cause
+            finished_proc, result = interrupt.cause
             procs.remove(finished_proc)
-            env.exit((finished_proc, procs))
+            env.exit(((finished_proc, result), procs))
 
     return env.start(waiter())
