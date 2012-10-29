@@ -125,6 +125,9 @@ class Process(Event):
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
 
+        if self is self._env.active_process:
+            raise RuntimeError('A process is not allowed to interrupt itself.')
+
         # Unsubscribe the event we were waiting for
         if self._target:
             self._target.processes.remove(self)
