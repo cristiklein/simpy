@@ -194,7 +194,6 @@ class Environment(object):
         raise StopIteration(result)
 
     def hold(self, delta_t=Infinity, value=None):
-        # TODO: rename?
         """Schedule a new event in ``delta_t`` time units.
 
         If ``delta_t`` is omitted, schedule an event at *infinity*. This
@@ -276,7 +275,7 @@ def step(env):
 
         # proc should have been interrupted but already terminated.
         except Interrupt as interrupt:
-            # TODO: It would be nice if we could throw an error into the
+            # NOTE: It would be nice if we could throw an error into the
             # processes that caused the illegal interrupt, but this
             # error can only be detected once the second interrupt is
             # thrown into the terminated victim.
