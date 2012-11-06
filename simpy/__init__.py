@@ -50,7 +50,10 @@ Other
 .. - :func:`test`: Run the test suite on the installed copy of Simpy.
 
 """
-from simpy.core import Environment, Interrupt, peek, step, simulate
+from pkgutil import extend_path
+__path__ = extend_path(__path__, __name__)
+
+from simpy.core import Environment, Process, Interrupt, simulate, step, peek
 from simpy.queues import FIFO, LIFO, Priority
 from simpy.resources import Resource, Container, Store
 
