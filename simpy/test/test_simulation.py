@@ -568,3 +568,15 @@ def test_interrupted_join_failure(ctx):
 
     yield ctx.wait(1)
     assert ctx.now == 1
+
+
+def test_event_trigger(ctx):
+    def child(ctx):
+        yield ctx.exit()
+
+    child_proc = ctx.start(child(ctx))
+    evt = ctx.suspend()
+    child_proc.joiners.append(evt.activate)
+    yield evt
+
+
