@@ -1,13 +1,34 @@
+"""
+This module contains the implementation of SimPy's core classes. Not
+all of them are intended for direct use and are thus not importable
+directly via ``from simpy import ...``.
+
+* :class:`Environment`: SimPy's central class. It contains the
+  simulation's state and lets the PEMs interact with it (i.e., schedule
+  events).
+
+* :class:`Interrupt`: This exception is thrown into a process if it gets
+  interrupted by another one.
+
+The following classes should not be imported directly:
+
+* :class:`~simpy.core.Process`: An instance of that class is returned by
+  :meth:`Environment.start()`.
+
+This module also contains a few functions to simulate an
+:class:`Environment`.
+
+"""
 import sys
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
-from types import GeneratorType
 
 
-Initialize = 0
-Interrupted = 1
-Resume = 2
+# Event priorities
+INITIALIZE = 0
+INTERRUPT = 1
+CONTINUE = 2
 
 
 Infinity = float('inf')
@@ -15,45 +36,57 @@ Infinity = float('inf')
 
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
-    another process.
+    another process (see :func:`Process.interrupt()`).
+
+    ``cause`` may be none of no cause was explicitly passed to
+    :func:`Process.interrupt()`.
+
     """
     def __init__(self, cause):
         super(Interrupt, self).__init__(cause)
 
     @property
     def cause(self):
+        """Property that returns the cause of an interrupt or ``None``
+        if no cause was passed."""
         return self.args[0]
 
 
 class Event(object):
-    __slots__ = ('ctx', 'joiners',)
+    __slots__ = ('env', 'joiners',)
 
-    def __init__(self, ctx):
-        self.ctx = ctx
+    def __init__(self, env):
+        self.env = env
         self.joiners = []
 
     @property
     def is_alive(self):
         return self.joiners is not None
 
+    # FIXME activate, resume and fail do not make sense for every event.
+    # Processes and timeouts cannot be activated or anything. Maybe introduce a
+    # BaseEvent class without these methods?
     def activate(self, event, evt_type, value):
-        self.ctx._schedule(Resume, self, evt_type, value)
+        self.env._schedule(CONTINUE, self, evt_type, value)
 
     def resume(self, value=None):
-        self.ctx._schedule(Resume, self, True, value)
+        self.env._schedule(CONTINUE, self, True, value)
 
     def fail(self, value):
-        self.ctx._schedule(Resume, self, False, value)
+        self.env._schedule(CONTINUE, self, False, value)
 
 
-class Wait(Event):
-    __slots__ = ('ctx', 'joiners',)
+class Timeout(Event):
+    __slots__ = ('env', 'joiners',)
 
-    def __init__(self, ctx, delay, value=None):
-        self.ctx = ctx
+    def __init__(self, env, delay, value=None):
+        if delay < 0:
+            raise ValueError('Negative delay %f' % delay)
+
+        self.env = env
         self.joiners = []
 
-        ctx._schedule(Resume, self, True, value, delay)
+        env._schedule(CONTINUE, self, True, value, delay)
     
     def resume(self, value=None):
         raise RuntimeError('A timeout cannot be resumed')
@@ -63,22 +96,33 @@ class Wait(Event):
 
 
 class Process(Event):
-    __slots__ = ('ctx', 'generator', 'event', 'joiners',)
+    """A *Process* is a wrapper for instantiated PEMs.
 
-    def __init__(self, ctx, generator):
+    A Processes has a process event generator (``peg`` -- the generator
+    that the PEM returns) and a reference to its :class:`Environment`
+    ``env``. It also contains internal and external status information.
+    It is also used for process interaction, e.g., for interruptions.
+
+    An instance of this class is returned by
+    :meth:`Environment.start()`.
+
+    """
+    __slots__ = ('env', 'generator', 'event', 'joiners',)
+
+    def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
-        self.ctx = ctx
+        self.env = env
         self.generator = generator
         self.joiners = []
-
         self.event = None
-        initialize = Event(ctx)
+        initialize = Event(env)
         initialize.joiners.append(self.process)
-        ctx._schedule(Initialize, initialize, True, None)
+        env._schedule(INITIALIZE, initialize, True, None)
 
     def __repr__(self):
+        """Returns the name of the :attr:`generator`."""
         return self.generator.__name__
 
     def interrupt(self, cause=None):
@@ -88,7 +132,7 @@ class Process(Event):
 
         interrupt_evt = Event(self)
         interrupt_evt.joiners.append(self.process)
-        self.ctx._schedule(Interrupted, interrupt_evt, False, Interrupt(cause))
+        self.env._schedule(INTERRUPT, interrupt_evt, False, Interrupt(cause))
 
     def process(self, event, evt_type, value):
         # Ignore dead processes. Multiple concurrently scheduled interrupts
@@ -103,11 +147,9 @@ class Process(Event):
             self.event = None
 
         # Mark the current process as active.
-        self.ctx._active_proc = self
+        self.env._active_proc = self
 
         try:
-            # FIXME Events als joiner zulassen. dann müsste hier resume und
-            # fail aufgerufen werden können.
             target = (self.generator.send(value) if evt_type else
                     self.generator.throw(value))
 
@@ -127,7 +169,7 @@ class Process(Event):
                 self.generator.throw(RuntimeError('Invalid yield value "%s"' %
                         target))
 
-            self.ctx._active_proc = None
+            self.env._active_proc = None
             return
         except StopIteration as e:
             # Process has terminated.
@@ -153,14 +195,26 @@ class Process(Event):
         # consistent to the case of no joiners. There were some problems with
         # the immediate scheduling of the wait event. Examine!
         if self.joiners:
-            self.ctx._schedule(Resume, self, evt_type, result)
+            self.env._schedule(CONTINUE, self, evt_type, result)
         else:
             self.joiners = None
 
-        self.ctx._active_proc = None
+        self.env._active_proc = None
+    
+    # FIXME Resume and fail do not make sense for a process. A process is
+    # activated immediately. This methods should ideally be not there.
+    def resume(self, value=None):
+        raise RuntimeError('A process cannot be resumed')
+
+    def fail(self, value=None):
+        raise RuntimeError('A process cannot be failed')
 
 
-class Context(object):
+class Environment(object):
+    """The *environment* contains the simulation state and provides a
+    basic API for processes to interact with it.
+
+    """
     def __init__(self, initial_time=0):
         self._now = initial_time
         self._events = []
@@ -169,20 +223,28 @@ class Context(object):
 
     @property
     def process(self):
+        """Property that returns the currently active process."""
         return self._active_proc
 
     @property
     def now(self):
+        """Property that returns the current simulation time."""
         return self._now
 
-    def start(self, pem):
-        return Process(self, pem)
+    def start(self, peg):
+        """Start a new process for ``peg``.
+
+        *PEG* is the *Process Execution Generator*, which is the
+        generator returned by *PEM*.
+
+        """
+        return Process(self, peg)
 
     def exit(self, result=None):
         raise StopIteration(result)
 
-    def wait(self, delta_t, value=None):
-        return Wait(self, delta_t, value)
+    def timeout(self, delta_t, value=None):
+        return Timeout(self, delta_t, value)
 
     def suspend(self, name=''):
         return Event(self)
@@ -192,15 +254,15 @@ class Context(object):
                 resume, event, value))
 
 
-def peek(ctx):
+def peek(env):
     """Return the time of the next event or ``inf`` if no more
     events are scheduled.
     """
-    return ctx._events[0][0] if ctx._events else Infinity
+    return env._events[0][0] if env._events else Infinity
 
 
-def step(ctx):
-    ctx._now, _, _, resume, event, value = heappop(ctx._events)
+def step(env):
+    env._now, _, _, resume, event, value = heappop(env._events)
 
     # Mark event as done.
     joiners, event.joiners = event.joiners, None
@@ -209,13 +271,20 @@ def step(ctx):
         proc(event, resume, value)
 
 
-def simulate(ctx, until=Infinity):
-    """Shortcut for ``while sim.peek() < until: sim.step()``."""
+def simulate(env, until=Infinity):
+    """Shortcut for ``while peek(env) < until: step(env)``.
+
+    The parameter ``until`` specifies when the simulation ends. By
+    default it is set to *infinity*, which means SimPy tries to simulate
+    all events, which might take infinite time if your processes don't
+    terminate on their own.
+
+    """
     if until <= 0:
         raise ValueError('until(=%s) should be a number > 0.' % until)
 
     try:
-        while ctx._events[0][0] < until:
-            step(ctx)
+        while env._events[0][0] < until:
+            step(env)
     except IndexError:
         pass

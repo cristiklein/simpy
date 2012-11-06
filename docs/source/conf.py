@@ -41,7 +41,7 @@ extensions = [
 templates_path = ['_templates']
 
 # The suffix of source filenames.
-source_suffix = '.rst'
+source_suffix = '.txt'
 
 # The encoding of source files.
 #source_encoding = 'utf-8-sig'
@@ -50,12 +50,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-authors = [
-    u'Klaus Müller',
-    'Tony Vignaux',
-    u'Ontje Lünsdorf',
-    'Stefan Scherfke',
-]
+authors = ['Team SimPy']
 project = u'SimPy'
 copyright = '2002-2012, ' + ', '.join(authors)
 
@@ -127,7 +122,7 @@ html_theme = 'default'
 
 # The name of an image file (relative to this directory) to place at the top
 # of the sidebar.
-html_logo = "_static/sm_SimPy_Logo.png"
+# html_logo = '../simpy-logo.png'
 
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
