@@ -36,6 +36,9 @@ class Event(object):
     def is_alive(self):
         return self.joiners is not None
 
+    def activate(self, event, evt_type, value):
+        self.ctx._schedule(Resume, self, evt_type, value)
+
     def resume(self, value=None):
         self.ctx._schedule(Resume, self, True, value)
 
@@ -60,7 +63,7 @@ class Wait(Event):
 
 
 class Process(Event):
-    __slots__ = ('ctx', 'generator', 'event', 'joiners')
+    __slots__ = ('ctx', 'generator', 'event', 'joiners',)
 
     def __init__(self, ctx, generator):
         if not isgenerator(generator):
@@ -70,9 +73,10 @@ class Process(Event):
         self.generator = generator
         self.joiners = []
 
-        self.event = Event(ctx)
-        self.event.joiners.append(self)
-        ctx._schedule(Initialize, self.event, True, None)
+        self.event = None
+        initialize = Event(ctx)
+        initialize.joiners.append(self.process)
+        ctx._schedule(Initialize, initialize, True, None)
 
     def __repr__(self):
         return self.generator.__name__
@@ -83,8 +87,77 @@ class Process(Event):
             return
 
         interrupt_evt = Event(self)
-        interrupt_evt.joiners.append(self)
+        interrupt_evt.joiners.append(self.process)
         self.ctx._schedule(Interrupted, interrupt_evt, False, Interrupt(cause))
+
+    def process(self, event, evt_type, value):
+        # Ignore dead processes. Multiple concurrently scheduled interrupts
+        # cause this situation. If the process dies while handling the first
+        # one, the remaining interrupts must be discarded.
+        if self.joiners is None: return
+
+        # If the current event (e.g. an interrupt) isn't the one the process
+        # expects, remove it from the original events joiners list.
+        if self.event is not None and self.event.joiners is not None:
+            self.event.joiners.remove(self.process)
+            self.event = None
+
+        # Mark the current process as active.
+        self.ctx._active_proc = self
+
+        try:
+            # FIXME Events als joiner zulassen. dann müsste hier resume und
+            # fail aufgerufen werden können.
+            target = (self.generator.send(value) if evt_type else
+                    self.generator.throw(value))
+
+            try:
+                if target.joiners is None:
+                    # FIXME This is dangerous. If the process catches these
+                    # exceptions it may yield another event, which will not get
+                    # processed causing the process to become deadlocked.
+                    self.generator.throw(RuntimeError('Already terminated "%s"' %
+                            target))
+                else:
+                    # Add this process to the list of waiters.
+                    target.joiners.append(self.process)
+                    self.event = target
+            except AttributeError:
+                # FIXME Same problem as above.
+                self.generator.throw(RuntimeError('Invalid yield value "%s"' %
+                        target))
+
+            self.ctx._active_proc = None
+            return
+        except StopIteration as e:
+            # Process has terminated.
+            evt_type = True
+            result = e.args[0] if len(e.args) else None
+        except BaseException as e:
+            # The process has terminated, interrupt joiners.
+            if not self.joiners:
+                # Crash the simulation if a process has crashed and no other
+                # process is there to handle the crash.
+                raise e
+
+            # Process has failed.
+            evt_type = False
+            # FIXME Isn't there a better way to obtain the exception type? For
+            # example using (type, value, traceback) tuple?
+            result = type(e)(*e.args)
+            result.__cause__ = e
+
+        # FIXME proc.joiners should ideally be set to None unconditionally, so
+        # that it is impossible to become a joiner of this process after this
+        # step. Currently that's still possible if there are joiners and not
+        # consistent to the case of no joiners. There were some problems with
+        # the immediate scheduling of the wait event. Examine!
+        if self.joiners:
+            self.ctx._schedule(Resume, self, evt_type, result)
+        else:
+            self.joiners = None
+
+        self.ctx._active_proc = None
 
 
 class Context(object):
@@ -129,81 +202,11 @@ def peek(ctx):
 def step(ctx):
     ctx._now, _, _, resume, event, value = heappop(ctx._events)
 
-    process(ctx, resume, event, value)
-
-
-def process(ctx, resume, event, value):
-    if ctx._active_proc is not None:
-        raise RuntimeError('There is still an active process')
-
     # Mark event as done.
     joiners, event.joiners = event.joiners, None
 
     for proc in joiners:
-        # Ignore dead processes. Multiple concurrently scheduled interrupts
-        # cause this situation. If the process dies while handling the first
-        # one, the remaining interrupts must be discarded.
-        if proc.joiners is None: continue
-
-        # If the current event (e.g. an interrupt) isn't the one the process
-        # expects, remove it from the original events joiners list.
-        if event is not proc.event and proc.event is not None:
-            proc.event.joiners.remove(proc)
-            proc.event = None
-
-        # Mark the current process as active.
-        ctx._active_proc = proc
-
-        try:
-            target = (proc.generator.send(value) if resume else
-                    proc.generator.throw(value))
-
-            try:
-                if target.joiners is None:
-                    # FIXME This is dangerous. If the process catches these
-                    # exceptions it may yield another event, which will not get
-                    # processed causing the process to become deadlocked.
-                    proc.generator.throw(RuntimeError('Already terminated "%s"' %
-                            target))
-                else:
-                    # Add this process to the list of waiters.
-                    target.joiners.append(proc)
-                    proc.event = target
-            except AttributeError:
-                # FIXME Same problem as above.
-                proc.generator.throw(RuntimeError('Invalid yield value "%s"' %
-                        target))
-
-            continue
-        except StopIteration as e:
-            # Process has terminated.
-            evt_type = True
-            result = e.args[0] if len(e.args) else None
-        except BaseException as e:
-            # The process has terminated, interrupt joiners.
-            if not proc.joiners:
-                # Crash the simulation if a process has crashed and no other
-                # process is there to handle the crash.
-                raise e
-
-            # Process has failed.
-            evt_type = False
-            # FIXME Isn't there a better way to obtain the exception type? For
-            # example using (type, value, traceback) tuple?
-            result = type(e)(*e.args)
-            result.__cause__ = e
-
-        # FIXME proc.joiners should ideally be set to None unconditionally, so
-        # that it is impossible to become a joiner of this process after this
-        # step. Currently that's still possible if there are joiners and not
-        # consistent to the case of no joiners. There were some problems with
-        # the immediate scheduling of the wait event. Examine!
-        if proc.joiners:
-            ctx._schedule(Resume, proc, evt_type, result)
-        else:
-            proc.joiners = None
-
-    ctx._active_proc = None
+        proc(event, resume, value)
 
 
 def simulate(ctx, until=Infinity):
