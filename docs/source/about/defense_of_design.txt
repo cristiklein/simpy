@@ -2,13 +2,18 @@
 Defense of Design
 =================
 
+This document explains why SimPy is designed the way it is and how its design
+evolved over time.
+
+
 Changes in SimPy 3
 ==================
 
-One of the major design goals for SimPy 3 was provide a modular core, which
-provides basic building blocks for complex entities. This goal was not
-achievable by remaining compatible to SimPy 2, which means that code written
-for SimPy 2 will not run with SimPy 3.
+The original goals for SimPy 3 was to simplify and PEP8-ify its API and to
+further clean up and modularize its internals. We knew from the beginning that
+our goals would not be achievable without breaking backwards compatibility with
+SimPy 2. However, we didn't expect the API changes to become as extensive as
+they ended up to be. We
 
 This guide shows the major differences between SimPy 3 and SimPy 2 and tries to
 explain the reason behind each change.
