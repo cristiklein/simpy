@@ -9,30 +9,29 @@ import pytest
 from simpy import simulate
 
 
-pytest_plugins = ['simpy.test.support']
-
-def test_discrete_time_steps(env):
-    """Simple simulation with discrete time steps."""
+def test_discrete_time_steps(env, log):
+    """envple envulation with discrete time steps."""
     def pem(env, log):
         while True:
             log.append(env.now)
-            yield env.timeout(1)
+            yield env.timeout(delay=1)
 
-    log = []
     env.start(pem(env, log))
-    yield env.timeout(3)
+    simulate(env, until=3)
+
     assert log == [0, 1, 2]
 
 
-def test_stop_self(env):
+def test_stop_self(env, log):
     """Process stops itself."""
     def pem(env, log):
         while env.now < 2:
             log.append(env.now)
             yield env.timeout(1)
 
-    log = []
-    yield env.start(pem(env, log))
+    env.start(pem(env, log))
+    simulate(env, 10)
+
     assert log == [0, 1]
 
 
@@ -45,9 +44,18 @@ def test_start_non_process(env):
 
 
 def test_negative_timeout(env):
-    """Don't allow negative timeouts."""
-    def pem(context):
-        yield context.timeout(-1)
+    """Don't allow negative timeout times."""
+    def pem(env):
+        yield env.timeout(-1)
+
+    env.start(pem(env))
+    pytest.raises(ValueError, simulate, env)
+
+
+def test_yield_none_forbidden(env):
+    """A process may not yield ``None``."""
+    def pem(env):
+        yield
 
     env.start(pem(env))
     pytest.raises(ValueError, simulate, env)
@@ -56,23 +64,23 @@ def test_negative_timeout(env):
 def test_illegal_yield(env):
     """There should be an error if a process neither yields an event
     nor another process."""
-    def pem(context):
+    def pem(env):
         yield 'ohai'
 
     env.start(pem(env))
-    pytest.raises(RuntimeError, simulate, env)
+    pytest.raises(ValueError, simulate, env)
 
 
 def test_get_process_state(env):
     """A process is alive until it's generator has not terminated."""
-    def pem_a(context):
-        yield context.timeout(3)
+    def pem_a(env):
+        yield env.timeout(3)
 
-    def pem_b(context, pem_a):
-        yield context.timeout(1)
+    def pem_b(env, pem_a):
+        yield env.timeout(1)
         assert pem_a.is_alive
 
-        yield context.timeout(3)
+        yield env.timeout(3)
         assert not pem_a.is_alive
 
     proc_a = env.start(pem_a(env))
@@ -93,8 +101,8 @@ def test_timeout_value(env):
     See :class:`envpy.resources.Store` for an example.
 
     """
-    def pem(context):
-        val = yield context.timeout(1, 'ohai')
+    def pem(env):
+        val = yield env.timeout(1, 'ohai')
         assert val == 'ohai'
 
     env.start(pem(env))

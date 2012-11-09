@@ -18,7 +18,7 @@ class FIFO(deque):
     def pop(self):
         """Remove and return an element from the left side of the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return super(FIFO, self).popleft()
@@ -31,7 +31,7 @@ class FIFO(deque):
         """Return, but don't remove, an element from the left side of
         the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return self[0]
@@ -47,7 +47,7 @@ class LIFO(deque):
     def pop(self):
         """Remove and return an element from the right side of the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return super(LIFO, self).pop()
@@ -60,7 +60,7 @@ class LIFO(deque):
         """Return, but don't remove, an element from the right side of
         the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return self[-1]
@@ -82,7 +82,7 @@ class Priority(object):
     def pop(self):
         """Remove and return the smallest element from the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return heappop(self._heap)[1]
@@ -97,7 +97,7 @@ class Priority(object):
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
 
-        Raise an :class:`IndexError` if no elements are present.
+        Raise an :exc:`IndexError` if no elements are present.
 
         """
         return self._heap[0]
