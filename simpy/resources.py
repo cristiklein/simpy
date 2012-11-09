@@ -72,13 +72,16 @@ class Resource(object):
         process until another process releases the resource again.
 
         """
+        event = self._env.event()
         proc = self._env.active_process
+
         if len(self.users) < self.capacity:
             self.users.append(proc)
-            return self._env.hold(0)
+            event.succeed()
         else:
-            self.queue.push(proc)
-            return self._env.suspend()
+            self.queue.append((event, proc))
+
+        return event
 
     def release(self):
         """Release the resource for the active process.
@@ -97,13 +100,17 @@ class Resource(object):
             raise ValueError('Cannot release resource for %s since it was not '
                              'previously requested by it.' % proc)
 
-        try:
-            next_user = self.queue.pop()
-        except IndexError:
-            pass
-        else:  # Only schedule event if someone was waiting ...
+        while self.queue:
+            event, next_user = self.queue.pop()
+
+            # Try to find another process if next_user is no longer waiting.
+            if ((next_user not in event.processes) or
+                    (next_user._target is not event)):
+                continue
+
             self.users.append(next_user)
-            next_user.resume()
+            event.succeed()
+            break
 
 
 class Container(object):
@@ -168,25 +175,36 @@ class Container(object):
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
         new_level = self._level + amount
+        new_event = self._env.event()
+
+        # Process can put immediately
         if new_level <= self.capacity:
             self._level = new_level
 
             # Pop processes from the "get_q".
-            while len(self.get_q):
-                proc, amount = self.get_q.peek()
+            while self.get_q:
+                event, proc, amount = self.get_q.peek()
+
+                # Try to find another process if proc is no longer waiting.
+                if ((proc not in event.processes) or
+                        (proc._target is not event)):
+                    self.get_q.pop()
+                    continue
+
                 if self._level >= amount:
                     self.get_q.pop()
                     self._level -= amount
-                    proc.resume()
+                    event.succeed()
                 else:
                     break
 
-            return self._env.hold(0)
+            new_event.succeed()
 
         # Process has to wait.
         else:
-            self.put_q.push((self._env.active_process, amount))
-            return self._env.suspend()
+            self.put_q.push((new_event, self._env.active_process, amount))
+
+        return new_event
 
     def get(self, amount):
         """Get ``amount`` from the container if possible or wait until
@@ -198,26 +216,37 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
+        new_event = self._env.event()
+
+        # Process can get immediately
         if self._level >= amount:
             self._level -= amount
 
             # Pop processes from the "put_q".
-            while len(self.put_q):
-                proc, amout = self.put_q.peek()
+            while self.put_q:
+                event, proc, amout = self.put_q.peek()
+
+                # Try to find another process if proc is no longer waiting.
+                if ((proc not in event.processes) or
+                        (proc._target is not event)):
+                    self.get_q.pop()
+                    continue
+
                 new_level = self._level + amount
                 if new_level <= self.capacity:
                     self.put_q.pop()
                     self._level = new_level
-                    proc.resume()
+                    event.succeed()
                 else:
                     break
 
-            return self._env.hold(0)
+            new_event.succeed()
 
         # Process has to wait.
         else:
-            self.get_q.push((self._env.active_process, amount))
-            return self._env.suspend()
+            self.get_q.push((new_event, self._env.active_process, amount))
+
+        return new_event
 
 
 class Store(object):
@@ -270,36 +299,55 @@ class Store(object):
 
     def put(self, item):
         """Put ``item`` into the Store if possible or wait until it is."""
+        new_event = self._env.event()
+
+        # Process can put immediately
         if len(self.item_q) < self.capacity:
             self.item_q.push(item)
 
             # Pop processes from the "get_q".
-            while len(self.get_q) and len(self.item_q):
-                proc = self.get_q.pop()
-                get_item = self.item_q.pop()
-                proc.resume(get_item)
+            while self.get_q and self.item_q:
+                event, proc = self.get_q.pop()
 
-            return self._env.hold(0)
+                # Try to find another process if proc is no longer waiting.
+                if ((proc not in event.processes) or
+                        (proc._target is not event)):
+                    continue
+
+                get_item = self.item_q.pop()
+                event.succeed(get_item)
+
+            new_event.succeed()
 
         # Process has to wait.
         else:
-            self.put_q.push((self._env.active_process, item))
-            return self._env.suspend()
+            self.put_q.push((new_event, self._env.active_process, item))
+
+        return new_event
 
     def get(self):
         """Get an item from the Store or wait until one is available."""
+        new_event = self._env.event()
+
         if len(self.item_q):
             item = self.item_q.pop()
 
             # Pop processes from the "push_q"
-            while len(self.put_q) and (len(self.item_q) < self.capacity):
-                proc, put_item = self.put_q.pop()
-                self.item_q.push(put_item)
-                proc.resume()
+            while self.put_q and (len(self.item_q) < self.capacity):
+                event, proc, put_item = self.put_q.pop()
 
-            return self._env.hold(0, item)
+                # Try to find another process if proc is no longer waiting.
+                if ((proc not in event.processes) or
+                        (proc._target is not event)):
+                    continue
+
+                self.item_q.push(put_item)
+                event.succeed()
+
+            new_event.succeed(item)
 
         # Process has to wait
         else:
-            self.get_q.push(self._env.active_process)
-            return self._env.suspend()
+            self.get_q.push((new_event, self._env.active_process))
+
+        return new_event

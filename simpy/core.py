@@ -19,17 +19,21 @@ This module also contains a few functions to simulate an
 :class:`Environment`.
 
 """
-import sys
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
 
 
-# Event priorities
-INITIALIZE = 0
-INTERRUPT = 1
-CONTINUE = 2
+# Event types/priorities
+(
+    EVT_INIT,       # First event after a proc was started
+    EVT_INTERRUPT,  # Throw an interrupt into the PEG
+    EVT_RESUME,     # Default event, send value into the PEG
+) = range(3)
 
+# Constants for successful and failed events
+SUCCEED = True
+FAIL = False
 
 Infinity = float('inf')
 
@@ -53,46 +57,27 @@ class Interrupt(Exception):
 
 
 class Event(object):
-    __slots__ = ('env', 'joiners',)
+    __slots__ = ('callbacks', '_env', '_scheduled')
 
     def __init__(self, env):
-        self.env = env
-        self.joiners = []
+        self.callbacks = []
+        self._env = env
+        self._scheduled = False
 
     @property
     def is_alive(self):
-        return self.joiners is not None
-
-    # FIXME activate, resume and fail do not make sense for every event.
-    # Processes and timeouts cannot be activated or anything. Maybe introduce a
-    # BaseEvent class without these methods?
-    def activate(self, event, evt_type, value):
-        self.env._schedule(CONTINUE, self, evt_type, value)
-
-    def resume(self, value=None):
-        self.env._schedule(CONTINUE, self, True, value)
-
-    def fail(self, value):
-        self.env._schedule(CONTINUE, self, False, value)
+        """``False`` if the PEG stopped."""
+        return self.callbacks is not None
 
 
 class Timeout(Event):
-    __slots__ = ('env', 'joiners',)
+    __slots__ = ('callbacks', '_env', '_scheduled')
 
     def __init__(self, env, delay, value=None):
         if delay < 0:
-            raise ValueError('Negative delay %f' % delay)
-
-        self.env = env
-        self.joiners = []
-
-        env._schedule(CONTINUE, self, True, value, delay)
-    
-    def resume(self, value=None):
-        raise RuntimeError('A timeout cannot be resumed')
-
-    def fail(self, value=None):
-        raise RuntimeError('A timeout cannot be failed')
+            raise ValueError('Negative delay %s' % delay)
+        super(Timeout, self).__init__(env)
+        env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
 
 class Process(Event):
@@ -107,107 +92,110 @@ class Process(Event):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('env', 'generator', 'event', 'joiners',)
+    __slots__ = ('callbacks', '_env', '_scheduled',
+                 'name', '_generator', '_target')
 
     def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
-        self.env = env
-        self.generator = generator
-        self.joiners = []
-        self.event = None
-        initialize = Event(env)
-        initialize.joiners.append(self.process)
-        env._schedule(INITIALIZE, initialize, True, None)
+        super(Process, self).__init__(env)
+
+        self.name = generator.__name__
+        """The process name."""
+
+        self._generator = generator
+        self._target = None
+
+        init_event = Event(env)
+        init_event.callbacks.append(self._process)
+        env._schedule(EVT_INIT, init_event, SUCCEED)
 
     def __repr__(self):
-        """Returns the name of the :attr:`generator`."""
-        return self.generator.__name__
+        """Return a string "Process(pem_name)"."""
+        return '%s(%s)' % (self.__class__.__name__, self.name)
 
     def interrupt(self, cause=None):
-        if self.joiners is None:
-            # Interrupts on dead process have no effect.
+        if not self.is_alive:
+            raise RuntimeError('%s has terminated and cannot be interrupted.' %
+                               self)
+
+        if self is self._env.active_process:
+            raise RuntimeError('A process is not allowed to interrupt itself.')
+
+        # Unsubscribe the event we were waiting for
+        if self._target:
+            self._target.callbacks.remove(self._process)
+            self._target = None
+
+        # Schedule interrupt event
+        event = Event(self._env)
+        event.callbacks.append(self._process)
+        self._env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
+
+    def _process(self, event, succeed, value):
+        # Ignore dead processes. Multiple concurrently scheduled
+        # interrupts cause this situation. If the process dies while
+        # handling the first one, the remaining interrupts must be
+        # discarded.
+        if not self.is_alive:
             return
-
-        interrupt_evt = Event(self)
-        interrupt_evt.joiners.append(self.process)
-        self.env._schedule(INTERRUPT, interrupt_evt, False, Interrupt(cause))
-
-    def process(self, event, evt_type, value):
-        # Ignore dead processes. Multiple concurrently scheduled interrupts
-        # cause this situation. If the process dies while handling the first
-        # one, the remaining interrupts must be discarded.
-        if self.joiners is None: return
-
-        # If the current event (e.g. an interrupt) isn't the one the process
-        # expects, remove it from the original events joiners list.
-        if self.event is not None and self.event.joiners is not None:
-            self.event.joiners.remove(self.process)
-            self.event = None
 
         # Mark the current process as active.
-        self.env._active_proc = self
+        self._env._active_proc = self
+        self._target = None
 
+        # Get next event from process
         try:
-            target = (self.generator.send(value) if evt_type else
-                    self.generator.throw(value))
+            new_event = self._generator.send(value) if succeed else \
+                        self._generator.throw(value)
 
-            try:
-                if target.joiners is None:
-                    # FIXME This is dangerous. If the process catches these
-                    # exceptions it may yield another event, which will not get
-                    # processed causing the process to become deadlocked.
-                    self.generator.throw(RuntimeError('Already terminated "%s"' %
-                            target))
-                else:
-                    # Add this process to the list of waiters.
-                    target.joiners.append(self.process)
-                    self.event = target
-            except AttributeError:
-                # FIXME Same problem as above.
-                self.generator.throw(RuntimeError('Invalid yield value "%s"' %
-                        target))
+        # We should have been interrupted but already terminated.
+        except Interrupt as interrupt:
+            # NOTE: It would be nice if we could throw an error into the
+            # processes that caused the illegal interrupt, but this
+            # error can only be detected once the second interrupt is
+            # thrown into the terminated victim.
+            raise RuntimeError('Illegal Interrupt(%s) for %s.' %
+                               (interrupt.cause, self))
 
-            self.env._active_proc = None
+        # The generator exited or raised an exception.
+        except (StopIteration, BaseException) as err:
+            if type(err) is StopIteration:
+                succeed = SUCCEED
+                value = err.args[0] if len(err.args) else None
+
+            else:
+                if not self.callbacks:
+                    raise err
+                succeed = FAIL
+                # FIXME Isn't there a better way to obtain the exception
+                # type? For example using (type, value, traceback)
+                # tuple?
+                value = type(err)(*err.args)
+                value.__cause__ = err
+
+            self._env._schedule(EVT_RESUME, self, succeed, value)
+            self._env._active_proc = None
             return
-        except StopIteration as e:
-            # Process has terminated.
-            evt_type = True
-            result = e.args[0] if len(e.args) else None
-        except BaseException as e:
-            # The process has terminated, interrupt joiners.
-            if not self.joiners:
-                # Crash the simulation if a process has crashed and no other
-                # process is there to handle the crash.
-                raise e
 
-            # Process has failed.
-            evt_type = False
-            # FIXME Isn't there a better way to obtain the exception type? For
-            # example using (type, value, traceback) tuple?
-            result = type(e)(*e.args)
-            result.__cause__ = e
+        # Check yielded event
+        try:
+            if new_event.is_alive:
+                new_event.callbacks.append(self._process)
+                self._target = new_event
+            else:
+                # FIXME This is dangerous. If the process catches these
+                # exceptions it may yield another event, which will not get
+                # processed causing the process to become deadlocked.
+                self._generator.throw(
+                        ValueError('%s already terminated.' % new_event))
+        except AttributeError:
+            # FIXME Same problem as above.
+            self._generator.throw(
+                    ValueError('Invalid yield value "%s"' % new_event))
 
-        # FIXME proc.joiners should ideally be set to None unconditionally, so
-        # that it is impossible to become a joiner of this process after this
-        # step. Currently that's still possible if there are joiners and not
-        # consistent to the case of no joiners. There were some problems with
-        # the immediate scheduling of the wait event. Examine!
-        if self.joiners:
-            self.env._schedule(CONTINUE, self, evt_type, result)
-        else:
-            self.joiners = None
-
-        self.env._active_proc = None
-    
-    # FIXME Resume and fail do not make sense for a process. A process is
-    # activated immediately. This methods should ideally be not there.
-    def resume(self, value=None):
-        raise RuntimeError('A process cannot be resumed')
-
-    def fail(self, value=None):
-        raise RuntimeError('A process cannot be failed')
+        self._env._active_proc = None
 
 
 class Environment(object):
@@ -222,7 +210,7 @@ class Environment(object):
         self._active_proc = None
 
     @property
-    def process(self):
+    def active_process(self):
         """Property that returns the currently active process."""
         return self._active_proc
 
@@ -231,44 +219,81 @@ class Environment(object):
         """Property that returns the current simulation time."""
         return self._now
 
-    def start(self, peg):
-        """Start a new process for ``peg``.
+    def start(self, generator):
+        """Start a new process for ``generator``.
 
-        *PEG* is the *Process Execution Generator*, which is the
-        generator returned by *PEM*.
+        ``generator`` is the generator returned by a *PEM*.
 
         """
-        return Process(self, peg)
+        return Process(self, generator)
 
     def exit(self, result=None):
+        """Stop the current process, optionally providing a ``result``.
+
+        The ``result`` is sent to processes waiting for the current
+        process and can also be obtained via :attr:`Process.result`.
+
+        """
         raise StopIteration(result)
 
-    def timeout(self, delta_t, value=None):
-        return Timeout(self, delta_t, value)
+    def timeout(self, delay, value=None):
+        """Schedule a new event in ``delay`` time units.
 
-    def suspend(self, name=''):
+        Raise a :exc:`ValueError` if ``delta_t < 0``.
+
+        You can optionally pass a ``value`` which will be sent back to
+        the PEM when it continues. This might be helpful to e.g.
+        implement resources (:class:`simpy.resources.Store` uses this
+        feature).
+
+        """
+        return Timeout(self, delay, value)
+
+    def suspend(self):
         return Event(self)
 
-    def _schedule(self, priority, event, resume, value=None, delay=0):
-        heappush(self._events, (self._now + delay, priority, next(self._eid),
-                resume, event, value))
+    def _schedule(self, evt_type, event, succeed, value=None, delay=None):
+        if event._scheduled:
+            raise RuntimeError('Event %s already scheduled.' % event)
+
+        if delay is None:
+            delay = 0
+
+        heappush(self._events, (
+            (self._now + delay),
+            evt_type,
+            next(self._eid),
+            succeed,
+            event,
+            value,
+        ))
+        event._scheduled = True
 
 
 def peek(env):
-    """Return the time of the next event or ``inf`` if no more
-    events are scheduled.
+    """Return the time of the Environment ``env``'s next event or
+    ``inf`` if the event queue is empty.
+
     """
-    return env._events[0][0] if env._events else Infinity
+    try:
+        return env._events[0][0]  # time of first event
+    except IndexError:
+        return Infinity
 
 
 def step(env):
-    env._now, _, _, resume, event, value = heappop(env._events)
+    """Get and process the next event for the Environment ``env``.
 
-    # Mark event as done.
-    joiners, event.joiners = event.joiners, None
+    Raise an :exc:`IndexError` if no valid event is on the heap.
 
-    for proc in joiners:
-        proc(event, resume, value)
+    """
+    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
+
+    # Mark event as processed.
+    callbacks, event.callbacks = event.callbacks, None
+
+    for callback in callbacks:
+        callback(event, succeed, value)
 
 
 def simulate(env, until=Infinity):
@@ -283,8 +308,5 @@ def simulate(env, until=Infinity):
     if until <= 0:
         raise ValueError('until(=%s) should be a number > 0.' % until)
 
-    try:
-        while env._events[0][0] < until:
-            step(env)
-    except IndexError:
-        pass
+    while peek(env) < until:
+        step(env)
