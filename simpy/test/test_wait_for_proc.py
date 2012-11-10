@@ -10,7 +10,7 @@ from simpy import Interrupt, simulate
 def test_wait_for_proc(env):
     """A process can wait until another process finishes."""
     def finisher(env):
-        yield env.hold(5)
+        yield env.timeout(5)
 
     def waiter(env, finisher):
         proc = env.start(finisher(env))
@@ -28,7 +28,7 @@ def test_return_value(env):
 
     """
     def child(env):
-        yield env.hold(1)
+        yield env.timeout(1)
         env.exit(env.now)
 
     def parent(env):
@@ -47,24 +47,24 @@ def test_join_after_terminate(env):
 
     """
     def child(env):
-        yield env.hold(1)
+        yield env.timeout(1)
 
     def parent(env):
         child_proc = env.start(child(env))
-        yield env.hold(2)
+        yield env.timeout(2)
         yield child_proc
 
         assert env.now == 2
 
     env.start(parent(env))
-    pytest.raises(RuntimeError, simulate, env)
+    pytest.raises(ValueError, simulate, env)
 
 
 def test_child_exception(env):
     """A child catches an exception and sends it to its parent."""
     def child(env):
         try:
-            yield env.hold(1)
+            yield env.timeout(1)
             raise RuntimeError('Onoes!')
         except RuntimeError as err:
             env.exit(err)
@@ -84,11 +84,11 @@ def test_interrupted_join(env):
 
     """
     def interruptor(env, process):
-        yield env.hold(1)
+        yield env.timeout(1)
         process.interrupt()
 
     def child(env):
-        yield env.hold(2)
+        yield env.timeout(2)
 
     def parent(env):
         child_proc = env.start(child(env))
@@ -100,7 +100,7 @@ def test_interrupted_join(env):
             assert child_proc.is_alive
 
             # We should not get resumed when child terminates.
-            yield env.hold(5)
+            yield env.timeout(5)
             assert env.now == 6
 
     parent_proc = env.start(parent(env))
@@ -114,11 +114,11 @@ def test_interrupted_join_and_rejoin(env):
 
     """
     def interruptor(env, process):
-        yield env.hold(1)
+        yield env.timeout(1)
         process.interrupt()
 
     def child(env):
-        yield env.hold(2)
+        yield env.timeout(2)
 
     def parent(env):
         child_proc = env.start(child(env))
@@ -143,11 +143,11 @@ def test_unregister_after_interrupt(env):
 
     """
     def interruptor(env, process):
-        yield env.hold(1)
+        yield env.timeout(1)
         process.interrupt()
 
     def child(env):
-        yield env.hold(2)
+        yield env.timeout(2)
 
     def parent(env):
         child_proc = env.start(child(env))
@@ -158,7 +158,7 @@ def test_unregister_after_interrupt(env):
             assert env.now == 1
             assert child_proc.is_alive
 
-        yield env.hold(2)
+        yield env.timeout(2)
         assert env.now == 3
         assert not child_proc.is_alive
 
@@ -188,7 +188,7 @@ def test_error_and_interrupted_join(env):
         except Interrupt:
             pass
 
-        yield env.hold(0)
+        yield env.timeout(0)
 
     env.start(parent(env))
     pytest.raises(AttributeError, simulate, env)
