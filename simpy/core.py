@@ -7,16 +7,23 @@ directly via ``from simpy import ...``.
   simulation's state and lets the PEMs interact with it (i.e., schedule
   events).
 
+* :class:`~simpy.core.Process`: This class represents a PEM while
+  it is executed in an environment. An instance of it is returned by
+  :meth:`Environment.start()`.
+
 * :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 
 The following classes should not be imported directly:
 
-* :class:`~simpy.core.Process`: An instance of that class is returned by
-  :meth:`Environment.start()`.
+* :class:`BaseEvent`: Base class for all events.
+
+* :class:`Timeout`: Can be yielded by a PEM to hold its state or wait
+  for a certain amount of time.
 
 This module also contains a few functions to simulate an
-:class:`Environment`.
+:class:`Environment`: :func:`peek()`, :func:`step` and the shortcut
+:func:`simulate`.
 
 """
 from heapq import heappush, heappop
@@ -24,12 +31,10 @@ from inspect import isgenerator
 from itertools import count
 
 
-# Event types/priorities
-(
-    EVT_INIT,       # First event after a proc was started
-    EVT_INTERRUPT,  # Throw an interrupt into the PEG
-    EVT_RESUME,     # Default event, send value into the PEG
-) = range(3)
+# BaseEvent types/priorities
+EVT_INIT = 0       # First event after a proc was started
+EVT_INTERRUPT = 1  # Throw an interrupt into the PEG
+EVT_RESUME = 2     # Default event, send value into the PEG
 
 # Constants for successful and failed events
 SUCCEED = True
@@ -56,21 +61,42 @@ class Interrupt(Exception):
         return self.args[0]
 
 
-class Event(object):
+class BaseEvent(object):
+    """Base class for all events.
+
+    Every event is bound to an :class:`Environment` ``env`` and has a
+    list of ``callbacks`` that are called when the event is processed.
+
+    """
     __slots__ = ('callbacks', '_env', '_scheduled')
 
     def __init__(self, env):
         self.callbacks = []
+        """List of functions that are called when the event is
+        processed."""
         self._env = env
         self._scheduled = False
 
     @property
     def is_alive(self):
-        """``False`` if the PEG stopped."""
+        """``True`` until the event has been processed."""
         return self.callbacks is not None
 
 
-class Timeout(Event):
+class Event(BaseEvent):
+    __slots__ = ('callbacks', '_env', '_scheduled')
+
+    def __init__(self, env):
+        super(Event, self).__init__(env)
+
+    def succeed(self, value=None):
+        self._env._schedule(EVT_RESUME, self, SUCCEED, value)
+
+    def fail(self, value=None):
+        self._env._schedule(EVT_RESUME, self, FAIL, value)
+
+
+class Timeout(BaseEvent):
     __slots__ = ('callbacks', '_env', '_scheduled')
 
     def __init__(self, env, delay, value=None):
@@ -80,7 +106,7 @@ class Timeout(Event):
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
 
-class Process(Event):
+class Process(BaseEvent):
     """A *Process* is a wrapper for instantiated PEMs.
 
     A Processes has a process event generator (``peg`` -- the generator
@@ -107,7 +133,7 @@ class Process(Event):
         self._generator = generator
         self._target = None
 
-        init_event = Event(env)
+        init_event = BaseEvent(env)
         init_event.callbacks.append(self._process)
         env._schedule(EVT_INIT, init_event, SUCCEED)
 
@@ -129,7 +155,7 @@ class Process(Event):
             self._target = None
 
         # Schedule interrupt event
-        event = Event(self._env)
+        event = BaseEvent(self._env)
         event.callbacks.append(self._process)
         self._env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
@@ -236,6 +262,9 @@ class Environment(object):
         """
         raise StopIteration(result)
 
+    def event(self):
+        return Event(self)
+
     def timeout(self, delay, value=None):
         """Schedule a new event in ``delay`` time units.
 
@@ -250,11 +279,11 @@ class Environment(object):
         return Timeout(self, delay, value)
 
     def suspend(self):
-        return Event(self)
+        return BaseEvent(self)
 
     def _schedule(self, evt_type, event, succeed, value=None, delay=None):
         if event._scheduled:
-            raise RuntimeError('Event %s already scheduled.' % event)
+            raise RuntimeError('BaseEvent %s already scheduled.' % event)
 
         if delay is None:
             delay = 0
