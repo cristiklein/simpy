@@ -10,10 +10,19 @@
 .. autofunction:: simulate
 
 .. autoclass:: Environment
-   :members:
+   :members: active_process, now, start, exit, event, timeout, suspend
 
 .. autoclass:: Process
-   :members: pid, name, result, is_alive, interrupt, resume
+   :members: name, callbacks, is_alive, interrupt
 
 .. autoclass:: Interrupt
    :members: cause
+
+.. autoclass:: BaseEvent
+   :members: callbacks, is_alive
+
+.. autoclass:: Event
+   :members: callbacks, is_alive, succeed, fail
+
+.. autoclass:: Timeout
+   :members: callbacks, is_alive
