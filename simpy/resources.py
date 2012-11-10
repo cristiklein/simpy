@@ -104,7 +104,7 @@ class Resource(object):
             event, next_user = self.queue.pop()
 
             # Try to find another process if next_user is no longer waiting.
-            if ((next_user not in event.processes) or
+            if ((next_user._process not in event.callbacks) or
                     (next_user._target is not event)):
                 continue
 
@@ -186,7 +186,7 @@ class Container(object):
                 event, proc, amount = self.get_q.peek()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc not in event.processes) or
+                if ((proc._process not in event.callbacks) or
                         (proc._target is not event)):
                     self.get_q.pop()
                     continue
@@ -227,7 +227,7 @@ class Container(object):
                 event, proc, amout = self.put_q.peek()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc not in event.processes) or
+                if ((proc._process not in event.callbacks) or
                         (proc._target is not event)):
                     self.get_q.pop()
                     continue
@@ -310,7 +310,7 @@ class Store(object):
                 event, proc = self.get_q.pop()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc not in event.processes) or
+                if ((proc._process not in event.callbacks) or
                         (proc._target is not event)):
                     continue
 
@@ -337,7 +337,7 @@ class Store(object):
                 event, proc, put_item = self.put_q.pop()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc not in event.processes) or
+                if ((proc._process not in event.callbacks) or
                         (proc._target is not event)):
                     continue
 

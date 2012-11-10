@@ -22,7 +22,7 @@ def test_resource(env, log):
     def pem(env, name, resource, log):
         yield resource.request()
 
-        yield env.hold(1)
+        yield env.timeout(1)
         resource.release()
 
         log.append((name, env.now))
@@ -40,7 +40,7 @@ def test_resource_slots(env, log):
     def pem(env, name, resource, log):
         yield resource.request()
         log.append((name, env.now))
-        yield env.hold(1)
+        yield env.timeout(1)
         resource.release()
 
     resource = simpy.Resource(env, capacity=3)
@@ -64,17 +64,17 @@ def test_container(env, log):
 
     """
     def putter(env, buf, log):
-        yield env.hold(1)
+        yield env.timeout(1)
         while True:
             yield buf.put(2)
             log.append(('p', env.now))
-            yield env.hold(1)
+            yield env.timeout(1)
 
     def getter(env, buf, log):
         yield buf.get(1)
         log.append(('g', env.now))
 
-        yield env.hold(1)
+        yield env.timeout(1)
         yield buf.get(1)
         log.append(('g', env.now))
 
