@@ -22,7 +22,7 @@ def start_delayed(env, peg, delay):
 
         >>> def pem(env, x):
         ...     print('%s, %s' % (env.now, x))
-        ...     yield env.hold(1)
+        ...     yield env.timeout(1)
         ...
         >>> env = Environment()
         >>> start_delayed(env, pem(env, 3), 5)
@@ -37,7 +37,7 @@ def start_delayed(env, peg, delay):
         raise ValueError('delay(=%s) must be > 0.' % delay)
 
     def starter():
-        yield env.hold(delay)
+        yield env.timeout(delay)
         proc = env.start(peg)
         env.exit(proc)
 
@@ -89,7 +89,7 @@ def wait_for_all(procs):
         results = []
         while len(results) < len(procs):
             try:
-                yield env.hold()
+                yield env.suspend()
             except Interrupt as interrupt:
                 finished_proc, result = interrupt.cause
                 results.append(result)
@@ -119,7 +119,7 @@ def wait_for_any(procs):
             subscribe_at(proc)
 
         try:
-            yield env.hold()
+            yield env.suspend()
         except Interrupt as interrupt:
             finished_proc, result = interrupt.cause
             procs.remove(finished_proc)

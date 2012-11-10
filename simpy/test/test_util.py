@@ -13,7 +13,7 @@ from simpy.util import start_delayed, subscribe_at, wait_for_all, wait_for_any
 def test_start_delayed(env):
     def pem(env):
         assert env.now == 5
-        yield env.hold(1)
+        yield env.timeout(1)
 
     start_delayed(env, pem(env), delay=5)
     simulate(env)
@@ -22,7 +22,7 @@ def test_start_delayed(env):
 def test_start_delayed_error(env):
     """Check if delayed() raises an error if you pass a negative dt."""
     def pem(env):
-        yield env.hold(1)
+        yield env.timeout(1)
 
     pytest.raises(ValueError, start_delayed, env, pem(env), delay=-1)
 
@@ -30,7 +30,7 @@ def test_start_delayed_error(env):
 def test_subscribe(env):
     """Check async. interrupt if a process terminates."""
     def child(env):
-        yield env.hold(3)
+        yield env.timeout(3)
         env.exit('ohai')
 
     def parent(env):
@@ -38,7 +38,7 @@ def test_subscribe(env):
         subscribe_at(child_proc)
 
         try:
-            yield env.hold()
+            yield env.suspend()
         except Interrupt as interrupt:
             assert interrupt.cause[0] is child_proc
             assert interrupt.cause[1] == 'ohai'
@@ -54,11 +54,11 @@ def test_subscribe_terminated_proc(env):
 
     """
     def child(env):
-        yield env.hold(1)
+        yield env.timeout(1)
 
     def parent(env):
         child_proc = env.start(child(env))
-        yield env.hold(2)
+        yield env.timeout(2)
         pytest.raises(RuntimeError, subscribe_at, child_proc)
 
     env.start(parent(env))
@@ -68,7 +68,7 @@ def test_subscribe_terminated_proc(env):
 def test_subscribe_with_join(env):
     """Test that subscribe() works if a process waits for another one."""
     def child(env, i):
-        yield env.hold(i)
+        yield env.timeout(i)
 
     def parent(env):
         child_proc1 = env.start(child(env, 1))
@@ -87,7 +87,7 @@ def test_subscribe_with_join(env):
 
 def test_join_any(env):
     def child(env, i):
-        yield env.hold(i)
+        yield env.timeout(i)
         env.exit(i)
 
     def parent(env):
@@ -97,7 +97,7 @@ def test_join_any(env):
             subscribe_at(proc)
 
         try:
-            yield env.hold()
+            yield env.suspend()
             pytest.fail('There should have been an interrupt')
         except Interrupt as interrupt:
             first_dead, result = interrupt.cause
@@ -112,7 +112,7 @@ def test_join_any(env):
 def test_join_all_shortcut(env):
     """Test the shortcut function to wait until a number of procs finish."""
     def child(env, i):
-        yield env.hold(i)
+        yield env.timeout(i)
         env.exit(i)
 
     def parent(env):
@@ -133,7 +133,7 @@ def test_join_all_shortcut(env):
 def test_join_any_shortcut(env):
     """Test the shortcut function to wait for any of a number of procs."""
     def child(env, i):
-        yield env.hold(i)
+        yield env.timeout(i)
         env.exit(i)
 
     def parent(env):
@@ -152,7 +152,7 @@ def test_join_any_shortcut(env):
 def test_start_delayed_with_wait_for_all(env):
     """Test waiting for all instances of delayed processes."""
     def child(env):
-        yield env.hold(1)
+        yield env.timeout(1)
 
     def parent(env):
         procs = wait_for_all(
