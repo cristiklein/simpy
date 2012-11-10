@@ -14,7 +14,7 @@ def test_error_forwarding(env):
     """
     def child(env):
         raise ValueError('Onoes!')
-        yield env.hold(1)
+        yield env.timeout(1)
 
     def parent(env):
         try:
@@ -34,14 +34,14 @@ def test_no_parent_process(env):
     """
     def child(env):
         raise ValueError('Onoes!')
-        yield env.hold(1)
+        yield env.timeout(1)
 
     def parent(env):
         try:
             env.start(child(env))
-            yield env.hold(1)
-        except:
-            pytest.fail('There should be no error.')
+            yield env.timeout(1)
+        except Exception as err:
+            pytest.fail('There should be no error (%s).' % err)
 
     env.start(parent(env))
     pytest.raises(ValueError, simpy.simulate, env)
