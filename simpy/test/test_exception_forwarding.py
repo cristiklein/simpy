@@ -45,3 +45,22 @@ def test_no_parent_process(env):
 
     env.start(parent(env))
     pytest.raises(ValueError, simpy.simulate, env)
+
+
+def test_crashing_child_traceback(env):
+    def panic(env):
+        yield env.timeout(1)
+        raise RuntimeError('Oh noes, roflcopter incoming... BOOM!')
+
+    def root(env):
+        try:
+            yield env.start(panic(env))
+            pytest.fail("Hey, where's the roflcopter?")
+        except RuntimeError:
+            import traceback
+            stacktrace = traceback.format_exc()
+            # The current frame must be visible in the stacktrace.
+            assert 'yield env.start(panic(env))' in stacktrace
+
+    env.start(root(env))
+    simpy.simulate(env)

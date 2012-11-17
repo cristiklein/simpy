@@ -6,7 +6,7 @@ resources).
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
-from simpy import simulate
+from simpy import Process, simulate
 
 
 def test_discrete_time_steps(env, log):
@@ -107,3 +107,66 @@ def test_timeout_value(env):
 
     env.start(pem(env))
     simulate(env)
+
+
+def test_event_succeeds(env):
+    """Test for the Environment.event() helper function."""
+    def child(env, event):
+        value = yield event
+        assert value == 'ohai'
+        assert env.now == 5
+
+    def parent(env):
+        event = env.event()
+        env.start(child(env, event))
+        yield env.timeout(5)
+        event.succeed('ohai')
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_event_fails(env):
+    """Test for the Environment.event() helper function."""
+    def child(env, event):
+        try:
+            yield event
+            pytest.fail('Should not get here.')
+        except ValueError as err:
+            assert err.args[0] == 'ohai'
+            assert env.now == 5
+
+    def parent(env):
+        event = env.event()
+        env.start(child(env, event))
+        yield env.timeout(5)
+        event.fail(ValueError('ohai'))
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_exit_with_process(env):
+    def child(env, fork):
+        yield env.exit(env.start(child(env, False)) if fork else None)
+
+    def parent(env):
+        result = yield env.start(child(env, True))
+
+        assert type(result) is Process
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_shared_timeout(env, log):
+    def child(env, timeout, id, log):
+        yield timeout
+        log.append((id, env.now))
+
+    timeout = env.timeout(1)
+    for i in range(3):
+        env.start(child(env, timeout, i, log))
+
+    simulate(env)
+    assert log == [(0, 1), (1, 1), (2, 1)]

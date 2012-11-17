@@ -254,13 +254,8 @@ class Process(BaseEvent):
                         self._generator.throw(value)
 
         # We should have been interrupted but already terminated.
-        except Interrupt as interrupt:
-            # NOTE: It would be nice if we could throw an error into the
-            # processes that caused the illegal interrupt, but this
-            # error can only be detected once the second interrupt is
-            # thrown into the terminated victim.
-            raise RuntimeError('Illegal Interrupt(%s) for %s.' %
-                               (interrupt.cause, self))
+        except Interrupt:
+            return  # Ignore remaining interrupts.
 
         # The generator exited or raised an exception.
         except (StopIteration, BaseException) as err:

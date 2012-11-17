@@ -94,15 +94,17 @@ def test_interrupt_terminated_process(env):
 
 
 def test_multiple_interrupts(env):
-    """SimPy should detect if a process gets interrupted twice, but
-    terminates after the first one.
+    """Interrupts on dead processes are discarded. If there are multiple
+    concurrent interrupts on a process and the latter dies after
+    handling the first interrupt, the remaining ones are silently
+    ignored.
 
     """
     def child(env):
         try:
             yield env.timeout(1)
-        except simpy.Interrupt:
-            env.exit('spam')
+        except simpy.Interrupt as i:
+            env.exit(i.cause)
 
     def parent(env):
         c = env.start(child(env))
@@ -110,10 +112,10 @@ def test_multiple_interrupts(env):
         c.interrupt(1)
         c.interrupt(2)
         result = yield c
-        assert result == 'spam'
+        assert result == 1
 
     env.start(parent(env))
-    pytest.raises(RuntimeError, simpy.simulate, env)
+    simpy.simulate(env)
 
 
 def test_interrupt_self(env):
@@ -123,4 +125,58 @@ def test_interrupt_self(env):
         yield env.timeout(0)
 
     env.start(pem(env))
+    simpy.simulate(env)
+
+
+def test_immediate_interrupt(env, log):
+    """Test should be interruptable immediatly after a suspend."""
+    def child(env, log):
+        try:
+            yield env.suspend()
+        except simpy.Interrupt:
+            log.append(env.now)
+
+    def resumer(env, other):
+        other.interrupt()
+        yield env.exit()
+
+    c = env.start(child(env, log))
+    env.start(resumer(env, c))
+    simpy.simulate(env)
+
+    # Confirm that child has been interrupted immediately at timestep 0.
+    assert log == [0]
+
+
+def test_interrupt_suspend(env):
+    """A process should be interruptable during a suspend."""
+    def child(env):
+        try:
+            yield env.suspend()
+        except simpy.Interrupt:
+            assert env.now == 5
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield env.timeout(5)
+        child_proc.interrupt()
+
+    env.start(parent(env))
+    simpy.simulate(env)
+
+
+def test_interrupt_event(env):
+    """A process should be interruptable while waiting for an Event."""
+    def child(env):
+        try:
+            yield env.event()
+        except simpy.Interrupt:
+            assert env.now == 5
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield env.timeout(5)
+        child_proc.interrupt()
+
+    env.start(parent(env))
     simpy.simulate(env)
