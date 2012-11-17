@@ -1,9 +1,13 @@
+import pytest
+
 import simpy
 
 
-def pytest_funcarg__log(request):
+@pytest.fixture
+def log():
     return []
 
 
-def pytest_funcarg__env(request):
+@pytest.fixture
+def env():
     return simpy.Environment()
