@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% set title = 'Overview' %}
+
+{% block body %}
+  <h1>Welcome</h1>
+
+<div class="floatright">
+    <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">simpy</span>
+<span class="gp">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">clock</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+<span class="gp">... </span>        <span class="k">print</span><span class="p">(</span><span class="n">env</span><span class="o">.</span><span class="n">now</span><span class="p">)</span>
+<span class="gp">... </span>        <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span> <span class="o">=</span> <span class="n">simpy</span><span class="o">.</span><span class="n">Environment</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span><span class="o">.</span><span class="n">start</span><span class="p">(</span><span class="n">clock</span><span class="p">(</span><span class="n">env</span><span class="p">))</span>
+<span class="go">Process(clock)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">simpy</span><span class="o">.</span><span class="n">simulate</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">until</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="go">0</span>
+<span class="go">1</span>
+<span class="go">2</span></pre></div>
+    </div>
+</div>
+
+<p>SimPy is a process-based discrete-event simulation framework based on standard
+Python and released under the GNU LGPL.</p>
+
+<p>It provides the modeller with components of a simulation model. These include
+processes for active components like customers, messages and vehicles as well
+as  resources for passive components that form limited capacity congestion
+points (like servers, checkout counters and tunnels). It also provides monitor
+variables to aid in gathering statistics.</p>
+
+<p>The distribution contains in-depth documentation, tutorials, and a large number
+of simulation models.</p>
+
+<p>Simulation model developers are encouraged to share their SimPy modeling
+techniques with the SimPy community. Please post a message to the SimPy-Users
+mailing list: http://lists.sourceforge.net/lists/listinfo/simpy-users.</p>
+
+<p>Software developers are also encouraged to interface SimPy with other Python-
+accessible packages, such as GUI, database or mapping and to share these new
+capabilities with the community.</p>
+
+<h2 style="clear: both;">Documentation</h2>
+
+<table class="contentstable" align="center" style="margin-left: 30px">
+    <tr>
+        <td width="50%">
+            <p class="biglink"><a class="biglink" href="{{ pathto("tutorial") }}">SimPy in 10 Minutes</a><br />
+            <span class="linkdescr">overview of basic tasks</span></p>
+            <p class="biglink"><a class="biglink" href="{{ pathto("topical_guides") }}">Topical Guides</a><br />
+            <span class="linkdescr">...</span></p>
+            <p class="biglink"><a class="biglink" href="{{ pathto("contents") }}">Contents</a><br />
+            <span class="linkdescr">for a complete overview</span></p>
+        </td>
+        <td width="50%">
+            <p class="biglink"><a class="biglink" href="{{ pathto("search") }}">Examples</a><br />
+            <span class="linkdescr">search the documentation</span></p>
+            <p class="biglink"><a class="biglink" href="{{ pathto("api_reference") }}">API Reference</a><br />
+            <span class="linkdescr">detailed description of SimPy’s API</span></p>
+            <p class="biglink"><a class="biglink" href="{{ pathto("genindex") }}">General Index</a><br />
+            <span class="linkdescr">all functions, classes, terms</span></p>
+        </td>
+    </tr>
+</table>
+{% endblock %}
