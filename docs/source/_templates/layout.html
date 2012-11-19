@@ -1,0 +1,24 @@
+{% extends "!layout.html" %}
+
+{% block extrahead %}
+{{ super() }}
+<style type="text/css">
+.floatright {
+    width: 20em;
+    margin: 0 0 .5em 1em;
+    float: right;
+}
+.floatright pre {
+    margin: 0;
+    border: 1px solid;
+    border-radius: 4px;
+}
+</style>
+{% endblock %}
+
+{% block rootrellink %}
+    <li><a href="{{ pathto('index') }}">SimPy home</a>&nbsp;&nbsp;|&nbsp;</li>
+    {{ super() }}
+    {# <li><a href="{{ pathto('contents') }}">Documentation</a> #}
+    {#   &raquo;</li> #}
+{% endblock %}
