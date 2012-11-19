@@ -14,7 +14,7 @@ def start_delayed(env, peg, delay):
     """Return a helper process that starts another PEM after a delay of
     ``delay``.
 
-    :meth:`~simpy.core.Simulation.start` starts a PEM at the current
+    :meth:`~simpy.core.Environment.start` starts a PEM at the current
     simulation time. This helper allows you to start a PEM after a delay
     of ``delay`` simulation time units.
 
@@ -30,7 +30,7 @@ def start_delayed(env, peg, delay):
         >>> simulate(env)
         5, 3
 
-    Raises a :class:`ValueError` if ``delay <= 0``.
+    Raises a :exc:`ValueError` if ``delay <= 0``.
 
     """
     if delay <= 0:
