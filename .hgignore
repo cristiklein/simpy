@@ -10,8 +10,7 @@ syntax: glob
 .DS_Store
 .coverage
 
-docs/build/*
-docs/html/*
+docs/_build/*
 dist/*
 htmlcov/*
 MANIFEST
