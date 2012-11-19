@@ -4,8 +4,8 @@
 {% block body %}
   <h1>Welcome</h1>
 
-<div class="floatright">
-    <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">simpy</span>
+<div style="width: 20em; margin: 0 0 .5em 1em; float: right;">
+    <div class="highlight-python"><div class="highlight"><pre style="margin: 0;"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">simpy</span>
 <span class="gp">&gt;&gt;&gt;</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">clock</span><span class="p">(</span><span class="n">env</span><span class="p">):</span>
 <span class="gp">... </span>    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
@@ -22,45 +22,51 @@
     </div>
 </div>
 
-<p>SimPy is a process-based discrete-event simulation framework based on standard
-Python and released under the GNU LGPL.</p>
+<p>SimPy is a process-based discrete-event simulation framework based on
+standard Python. It provides the modeller with components of a simulation model
+including <em>processes</em>, for active components like customers, messages,
+and vehicles, and <em>resources</em>, for passive components that form limited
+capacity congestion points like servers, checkout counters, and tunnels. It
+also provides <em>monitor variables</em> to aid in gathering statistics. Random
+variates are provided by the standard Python *random* module.</p>
 
-<p>It provides the modeller with components of a simulation model. These include
-processes for active components like customers, messages and vehicles as well
-as  resources for passive components that form limited capacity congestion
-points (like servers, checkout counters and tunnels). It also provides monitor
-variables to aid in gathering statistics.</p>
+<p>It was orignially based on ideas from <em>Simula 67</em> and
+<em>Simscript</em> and provides efficient implementation of co-routines using
+Python's generators capability. It requires Python 2.6 or later including
+Python 3.x. It was first released in 2002 under the GNU LGPL.</p>
 
-<p>The distribution contains in-depth documentation, tutorials, and a large number
-of simulation models.</p>
-
-<p>Simulation model developers are encouraged to share their SimPy modeling
-techniques with the SimPy community. Please post a message to the SimPy-Users
-mailing list: http://lists.sourceforge.net/lists/listinfo/simpy-users.</p>
-
-<p>Software developers are also encouraged to interface SimPy with other Python-
-accessible packages, such as GUI, database or mapping and to share these new
-capabilities with the community.</p>
 
 <h2 style="clear: both;">Documentation</h2>
 
 <table class="contentstable" align="center" style="margin-left: 30px">
     <tr>
         <td width="50%">
-            <p class="biglink"><a class="biglink" href="{{ pathto("tutorial") }}">SimPy in 10 Minutes</a><br />
-            <span class="linkdescr">overview of basic tasks</span></p>
-            <p class="biglink"><a class="biglink" href="{{ pathto("topical_guides") }}">Topical Guides</a><br />
-            <span class="linkdescr">...</span></p>
+            <p class="biglink"><a class="biglink" href="{{ pathto("simpy_intro/index") }}">SimPy in 10 Minutes</a><br />
+            <span class="linkdescr">learn the basics of SimPy in just a couple of minutes</span></p>
+        </td>
+        <td width="50%">
+            <p class="biglink"><a class="biglink" href="{{ pathto("topical_guides/index") }}">Topical Guides</a><br />
+            <span class="linkdescr">guides covering various features of SimPy in-depth</span></p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("examples/index") }}">Examples</a><br />
+            <span class="linkdescr">usage examples for SimPy</span></p>
+        </td>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("api_reference/index") }}">API Reference</a><br />
+            <span class="linkdescr">detailed description of SimPy’s API</span></p>
+        </td>
+    </tr>
+    <tr>
+        <td>
             <p class="biglink"><a class="biglink" href="{{ pathto("contents") }}">Contents</a><br />
             <span class="linkdescr">for a complete overview</span></p>
         </td>
-        <td width="50%">
-            <p class="biglink"><a class="biglink" href="{{ pathto("search") }}">Examples</a><br />
-            <span class="linkdescr">search the documentation</span></p>
-            <p class="biglink"><a class="biglink" href="{{ pathto("api_reference") }}">API Reference</a><br />
-            <span class="linkdescr">detailed description of SimPy’s API</span></p>
-            <p class="biglink"><a class="biglink" href="{{ pathto("genindex") }}">General Index</a><br />
-            <span class="linkdescr">all functions, classes, terms</span></p>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("about/index") }}">About</a><br />
+            <span class="linkdescr">non-technical stuff (history, change logs, …)</span></p>
         </td>
     </tr>
 </table>

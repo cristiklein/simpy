@@ -3,8 +3,8 @@ Topical Guides
 ==============
 
 
-This sections covers various apsects of SimPy in more depth. It assumes that
-you have a basic understanding of SimPy's capabilites and that you know what
+This sections covers various aspects of SimPy more in-depth. It assumes that
+you have a basic understanding of SimPy's capabilities and that you know what
 you are looking for.
 
 .. .. toctree::

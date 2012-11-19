@@ -2,34 +2,18 @@
 Documentation for SimPy
 =======================
 
-SimPy is a process-based discrete-event simulation framework based on
-standard Python. It provides the modeller with components of a
-simulation model including *processes*, for active components like
-customers, messages, and vehicles, and *resources*, for passive
-components that form limited capacity congestion points like servers,
-checkout counters, and tunnels. It also provides *monitor variables*
-to aid in gathering statistics. Random variates are provided by the
-standard Python *random* module.
-
-It was orignially based on ideas from *Simula 67* and *Simscript* and provides
-efficient implementation of co-routines using Python's generators capability.
-It requires Python 2.6 or later including Python 3.x. It was first released in
-2002 under the GNU LGPL.
-
 
 Contents:
 
 .. toctree::
    :maxdepth: 2
 
+   SimPy home <index>
+   simpy_intro/index
+   topical_guides/index
+   examples/index
    api_reference/index
    about/index
-
-..   simpy_intro
-..   topical_guides
-..   examples
-..   api_reference
-..   about
 
 
 Indices and tables
