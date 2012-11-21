@@ -118,6 +118,29 @@ def test_resource_illegal_release(env):
     assert excinfo.value.args[0].startswith('Cannot release resource')
 
 
+def test_resource_not_released(env):
+    """An error should be thrown if the resource detects that a process
+    didn't release it."""
+    def pem(env, res):
+        yield res.request()
+        res.release()
+
+    def evil_knievel(env, res):
+        try:
+            yield res.request()
+        except simpy.Interrupt:
+            pass  # Onoes, resource no can haz release!
+
+    res = simpy.Resource(env, 1)
+    env.start(pem(env, res))
+    ek = env.start(evil_knievel(env, res))
+    ek.interrupt()
+    with pytest.raises(RuntimeError) as excinfo:
+        simpy.simulate(env)
+    assert excinfo.value.args[0] == ('Process(evil_knievel) did not release '
+                                     'the resource.')
+
+
 def test_container(env, log):
     """A *container* is a resource (of optinally limited capacity) where
     you can put in our take out a discrete or continuous amount of
