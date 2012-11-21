@@ -97,20 +97,20 @@ class Resource(object):
         try:
             self.users.remove(proc)
         except ValueError:
-            raise ValueError('Cannot release resource for %s since it was not '
-                             'previously requested by it.' % proc)
+            # Check if the process is still waiting and remove it
+            for i in range(len(self.queue)):
+                if self.queue[i][1] is proc:
+                    del self.queue[i]
+                break
+            else:
+                # The process is neither in the users list nor in the queue
+                raise ValueError('Cannot release resource for %s since it was '
+                                 'not previously requested by it.' % proc)
 
-        while self.queue:
+        if self.queue:
             event, next_user = self.queue.pop()
-
-            # Try to find another process if next_user is no longer waiting.
-            if ((next_user._process not in event.callbacks) or
-                    (next_user._target is not event)):
-                continue
-
             self.users.append(next_user)
             event.succeed()
-            break
 
 
 class Container(object):

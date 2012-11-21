@@ -3,14 +3,9 @@ Theses test cases demonstrate the API for shared resources.
 
 """
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
-import simpy
+import pytest
 
-# TODO:
-# request() not yielded
-# Interrupt during request(), cancel waiting
-# Interrupt during request(), continue waiting
-# Container.level
-# Store.count
+import simpy
 
 
 def test_resource(env, log):
@@ -52,6 +47,75 @@ def test_resource_slots(env, log):
             ('3', 1), ('4', 1), ('5', 1),
             ('6', 2), ('7', 2), ('8', 2),
     ]
+
+
+def test_resource_continue_after_interrupt(env):
+    """A process may be interrupted while waiting for a resource but
+    should be able to continue waiting afterwards."""
+    def pem(env, res):
+        try:
+            evt = res.request()
+            yield evt
+            pytest.fail('Should not have gotten the resource.')
+        except simpy.Interrupt:
+            yield evt
+            res.release()
+            assert env.now == 0
+
+    def interruptor(env, proc):
+        proc.interrupt()
+        env.exit(0)
+        yield
+
+    res = simpy.Resource(env, 1)
+    proc = env.start(pem(env, res))
+    env.start(interruptor(env, proc))
+    simpy.simulate(env)
+
+
+def test_resource_release_after_interrupt(env):
+    """A process needs to release a resource, even it it was interrupted
+    and does not continue to wait for it."""
+    def victim(env, res):
+        try:
+            evt = res.request()
+            yield evt
+            pytest.fail('Should not have gotten the resource.')
+        except simpy.Interrupt:
+            # Dont wait for the resource
+            res.release()
+            assert env.now == 0
+            env.exit()
+
+    def pem(env, res):
+        yield res.request()
+        assert env.now == 0
+        res.release()
+
+    def interruptor(env, proc):
+        proc.interrupt()
+        env.exit(0)
+        yield
+
+    res = simpy.Resource(env, 1)
+    victim_proc = env.start(victim(env, res))
+    env.start(interruptor(env, victim_proc))
+    env.start(pem(env, res))
+    simpy.simulate(env)
+
+
+def test_resource_illegal_release(env):
+    """A process must be either waiting for or using a resource in order
+    to release it."""
+    def pem(env, res):
+        res.release()
+        yield
+
+    res = simpy.Resource(env, 1)
+    env.start(pem(env, res))
+    with pytest.raises(ValueError) as excinfo:
+        simpy.simulate(env)
+    assert excinfo.value.args[0].startswith('Cannot release resource')
 
 
 def test_container(env, log):
