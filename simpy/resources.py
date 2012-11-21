@@ -109,6 +109,9 @@ class Resource(object):
 
         if self.queue:
             event, next_user = self.queue.pop()
+            if next_user.target is not event:
+                raise RuntimeError('%s did not release the resource.' %
+                                   next_user)
             self.users.append(next_user)
             event.succeed()
 
@@ -186,8 +189,7 @@ class Container(object):
                 event, proc, amount = self.get_q.peek()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc._process not in event.callbacks) or
-                        (proc._target is not event)):
+                if proc.target is not event:
                     self.get_q.pop()
                     continue
 
@@ -227,8 +229,7 @@ class Container(object):
                 event, proc, amout = self.put_q.peek()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc._process not in event.callbacks) or
-                        (proc._target is not event)):
+                if proc.target is not event:
                     self.get_q.pop()
                     continue
 
@@ -310,8 +311,7 @@ class Store(object):
                 event, proc = self.get_q.pop()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc._process not in event.callbacks) or
-                        (proc._target is not event)):
+                if proc.target is not event:
                     continue
 
                 get_item = self.item_q.pop()
@@ -337,8 +337,7 @@ class Store(object):
                 event, proc, put_item = self.put_q.pop()
 
                 # Try to find another process if proc is no longer waiting.
-                if ((proc._process not in event.callbacks) or
-                        (proc._target is not event)):
+                if proc._target is not event:
                     continue
 
                 self.item_q.push(put_item)
