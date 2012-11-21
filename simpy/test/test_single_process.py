@@ -6,7 +6,7 @@ resources).
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
-from simpy import Process, simulate
+from simpy import Process, simulate, peek, step
 
 
 def test_discrete_time_steps(env, log):
@@ -170,3 +170,19 @@ def test_shared_timeout(env, log):
 
     simulate(env)
     assert log == [(0, 1), (1, 1), (2, 1)]
+
+
+def test_process_target(env):
+    def pem(env, event):
+        yield event
+
+    event = env.timeout(5)
+    proc = env.start(pem(env, event))
+
+    assert proc.target is None
+    # Wait until "proc" is initialized and yielded the event
+    while peek(env) < 5:
+        step(env)
+    assert proc.target is event
+    proc.interrupt()
+    assert proc.target is None

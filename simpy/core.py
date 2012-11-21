@@ -204,6 +204,16 @@ class Process(BaseEvent):
         """Return a string "Process(pem_name)"."""
         return '%s(%s)' % (self.__class__.__name__, self.name)
 
+    @property
+    def target(self):
+        """The event that the process is currently waiting for.
+
+        May be ``None`` if the process was just started or interrupted
+        and did not yet yield a new event.
+
+        """
+        return self._target
+
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
 
