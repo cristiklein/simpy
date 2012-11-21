@@ -95,12 +95,6 @@ class BaseEvent(object):
         """List of functions that are called when the event is
         processed."""
         self._env = env
-        self._scheduled = False
-
-    @property
-    def is_alive(self):
-        """``True`` until the event has been processed."""
-        return self.callbacks is not None
 
 
 class Event(BaseEvent):
@@ -111,10 +105,13 @@ class Event(BaseEvent):
     method :meth:`Environment.event()` instead.
 
     """
-    __slots__ = ('callbacks', '_env', '_scheduled')
+    __slots__ = ('callbacks', '_env',)
 
     def __init__(self, env):
-        super(Event, self).__init__(env)
+        self.callbacks = []
+        """List of functions that are called when the event is
+        processed."""
+        self._env = env
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
@@ -156,12 +153,16 @@ class Timeout(BaseEvent):
     *success()* or *fail()* method.
 
     """
-    __slots__ = ('callbacks', '_env', '_scheduled')
+    __slots__ = ('callbacks', '_env',)
 
     def __init__(self, env, delay, value=None):
+        self.callbacks = []
+        """List of functions that are called when the event is
+        processed."""
+        self._env = env
+
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
-        super(Timeout, self).__init__(env)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
 
@@ -181,28 +182,27 @@ class Process(BaseEvent):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('callbacks', '_env', '_scheduled',
-                 'name', '_generator', '_target')
+    __slots__ = ('callbacks', '_env', '_scheduled', '_generator', '_target')
 
     def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
-        super(Process, self).__init__(env)
-
-        self.name = generator.__name__
-        """The process name."""
+        self.callbacks = []
+        """List of functions that are called when the event is
+        processed."""
+        self._env = env
 
         self._generator = generator
-        self._target = None
 
-        init_event = BaseEvent(env)
-        init_event.callbacks.append(self._process)
-        env._schedule(EVT_INIT, init_event, SUCCEED)
+        init = BaseEvent(env)
+        init.callbacks.append(self._process)
+        env._schedule(EVT_INIT, init, SUCCEED)
+        self._target = init
 
     def __repr__(self):
         """Return a string "Process(pem_name)"."""
-        return '%s(%s)' % (self.__class__.__name__, self.name)
+        return '%s(%s)' % (self.__class__.__name__, self._generator.__name__)
 
     @property
     def target(self):
@@ -213,6 +213,11 @@ class Process(BaseEvent):
 
         """
         return self._target
+
+    @property
+    def is_alive(self):
+        """``True`` until the event has been processed."""
+        return self._target is not None
 
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
@@ -228,11 +233,6 @@ class Process(BaseEvent):
 
         if self is self._env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
-
-        # Unsubscribe the event we were waiting for
-        if self._target:
-            self._target.callbacks.remove(self._process)
-            self._target = None
 
         # Schedule interrupt event
         event = BaseEvent(self._env)
@@ -251,57 +251,57 @@ class Process(BaseEvent):
         # interrupts cause this situation. If the process dies while
         # handling the first one, the remaining interrupts must be
         # discarded.
-        if not self.is_alive:
+        if self._target is None:
             return
+
+        # If the current target (e.g. an interrupt) isn't the one the process
+        # expects, remove it from the original events joiners list.
+        if self._target is not event:
+            self._target.callbacks.remove(self._process)
 
         # Mark the current process as active.
         self._env._active_proc = self
-        self._target = None
 
         # Get next event from process
         try:
-            new_event = self._generator.send(value) if success else \
+            next_evt = self._generator.send(value) if success else \
                         self._generator.throw(value)
 
-        # We should have been interrupted but already terminated.
-        except Interrupt:
-            return  # Ignore remaining interrupts.
-
-        # The generator exited or raised an exception.
-        except (StopIteration, BaseException) as err:
-            if type(err) is StopIteration:
-                success = SUCCEED
-                value = err.args[0] if len(err.args) else None
-
-            else:
-                if not self.callbacks:
-                    raise err
-                success = FAIL
-                # FIXME Isn't there a better way to obtain the exception
-                # type? For example using (type, value, traceback)
-                # tuple?
-                value = type(err)(*err.args)
-                value.__cause__ = err
-
-            self._env._schedule(EVT_RESUME, self, success, value)
-            self._env._active_proc = None
-            return
-
-        # Check yielded event
-        try:
-            if new_event.is_alive:
-                new_event.callbacks.append(self._process)
-                self._target = new_event
-            else:
-                # FIXME This is dangerous. If the process catches these
-                # exceptions it may yield another event, which will not get
-                # processed causing the process to become deadlocked.
+            # Check yielded event
+            try:
+                if next_evt.callbacks is not None:
+                    next_evt.callbacks.append(self._process)
+                    self._target = next_evt
+                else:
+                    # FIXME This is dangerous. If the process catches these
+                    # exceptions it may yield another event, which will not get
+                    # processed causing the process to become deadlocked.
+                    self._generator.throw(
+                            ValueError('%s already terminated.' % self._target))
+            except AttributeError:
+                # FIXME Same problem as above.
                 self._generator.throw(
-                        ValueError('%s already terminated.' % new_event))
-        except AttributeError:
-            # FIXME Same problem as above.
-            self._generator.throw(
-                    ValueError('Invalid yield value "%s"' % new_event))
+                        ValueError('Invalid yield value "%s"' % self._target))
+
+            self._env._active_proc = None
+
+            return
+        # The generator exited or raised an exception.
+        except StopIteration as e:
+            # Process has terminated.
+            evt_type = SUCCEED
+            result = e.args[0] if len(e.args) else None
+        except BaseException as e:
+            # Process has failed.
+            evt_type = FAIL
+            # FIXME Isn't there a better way to obtain the exception type? For
+            # example using (type, value, traceback) tuple?
+            result = type(e)(*e.args)
+            result.__cause__ = e
+
+        self._target = None
+
+        self._env._schedule(EVT_RESUME, self, evt_type, result)
 
         self._env._active_proc = None
 
@@ -372,7 +372,7 @@ class Environment(object):
         """
         return BaseEvent(self)
 
-    def _schedule(self, evt_type, event, succeed, value=None, delay=None):
+    def _schedule(self, evt_type, event, succeed, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
 
         ``evt_type`` should be one of the ``EVT_*`` constants defined on
@@ -391,21 +391,14 @@ class Environment(object):
         scheduled.
 
         """
-        if event._scheduled:
-            raise RuntimeError('BaseEvent %s already scheduled.' % event)
-
-        if delay is None:
-            delay = 0
-
         heappush(self._events, (
-            (self._now + delay),
+            self._now + delay,
             evt_type,
             next(self._eid),
             succeed,
             event,
             value,
         ))
-        event._scheduled = True
 
 
 def peek(env):
@@ -430,8 +423,13 @@ def step(env):
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
-    for callback in callbacks:
-        callback(event, succeed, value)
+    if callbacks:
+        for callback in callbacks:
+            callback(event, succeed, value)
+    elif succeed == FAIL:
+        # The event has failed, but there is no callback to handle this
+        # failure.
+        raise value
 
 
 def simulate(env, until=Infinity):
@@ -446,5 +444,8 @@ def simulate(env, until=Infinity):
     if until <= 0:
         raise ValueError('until(=%s) should be a number > 0.' % until)
 
-    while peek(env) < until:
-        step(env)
+    try:
+        while env._events[0][0] < until:
+            step(env)
+    except IndexError:
+        pass

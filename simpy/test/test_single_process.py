@@ -179,10 +179,8 @@ def test_process_target(env):
     event = env.timeout(5)
     proc = env.start(pem(env, event))
 
-    assert proc.target is None
     # Wait until "proc" is initialized and yielded the event
     while peek(env) < 5:
         step(env)
     assert proc.target is event
     proc.interrupt()
-    assert proc.target is None
