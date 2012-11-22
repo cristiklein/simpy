@@ -277,7 +277,7 @@ class Process(BaseEvent):
                     # exceptions it may yield another event, which will not get
                     # processed causing the process to become deadlocked.
                     self._generator.throw(
-                            ValueError('%s already terminated.' % self._target))
+                        ValueError('%s already terminated.' % self._target))
             except AttributeError:
                 # FIXME Same problem as above.
                 self._generator.throw(
@@ -286,6 +286,7 @@ class Process(BaseEvent):
             self._env._active_proc = None
 
             return
+
         # The generator exited or raised an exception.
         except StopIteration as e:
             # Process has terminated.
@@ -300,9 +301,7 @@ class Process(BaseEvent):
             result.__cause__ = e
 
         self._target = None
-
         self._env._schedule(EVT_RESUME, self, evt_type, result)
-
         self._env._active_proc = None
 
 
