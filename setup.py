@@ -15,7 +15,7 @@ setup(
         'stefan at sofa-rockers.org'),
     description='Event discrete, process based simulation for Python.',
     long_description=open('README.txt').read(),
-    url='http://simpy.sourceforge.net/',
+    url='https://simpy.readthedocs.org',
     download_url='https://bitbucket.org/simpy/simpy/downloads',
     license='GNU LGPL',
     packages=[
@@ -30,6 +30,7 @@ setup(
         'Programming Language :: Python :: 2.7',
         'Programming Language :: Python :: 3',
         'Programming Language :: Python :: 3.2',
+        'Programming Language :: Python :: 3.3',
         'Programming Language :: Python :: Implementation :: PyPy',
         'Operating System :: OS Independent',
         'License :: OSI Approved :: GNU Library or Lesser General Public ' + \

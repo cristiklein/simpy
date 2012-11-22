@@ -13,7 +13,7 @@
    :members: active_process, now, start, exit, event, timeout, suspend
 
 .. autoclass:: Process
-   :members: name, callbacks, is_alive, interrupt
+   :members: name, callbacks, is_alive, target, interrupt
 
 .. autoclass:: Interrupt
    :members: cause
