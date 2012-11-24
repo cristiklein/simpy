@@ -1,5 +1,5 @@
 Sphinx>=1.1
-mock>=0.8
-pytest>=2.2
+mock>=1.0.1
+pytest>=2.3.3
 pytest-cov>=1.5
 tox>=1.4
