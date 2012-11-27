@@ -8,10 +8,12 @@ will be able to implement a simple simulation using SimPy and you'll be able
 to make an educated decision if SimPy is what you need. We'll also give you
 some hints on how to proceed to implement more complex simulations.
 
-.. .. toctree::
-..
-..     installation
-..     first_process
+.. toctree::
+
+   installation
+   basic_concepts
+   process_interaction
+
 ..     adding_a_resource
 ..     monitoring
 ..     how_to_proceed
