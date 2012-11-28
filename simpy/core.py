@@ -88,7 +88,7 @@ class BaseEvent(object):
     attribute of an event.
 
     """
-    __slots__ = ('callbacks', '_env', '_scheduled')
+    __slots__ = ('callbacks', '_env')
 
     def __init__(self, env):
         self.callbacks = []
@@ -182,7 +182,7 @@ class Process(BaseEvent):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('callbacks', '_env', '_scheduled', '_generator', '_target')
+    __slots__ = ('callbacks', '_env', '_generator', '_target')
 
     def __init__(self, env, generator):
         if not isgenerator(generator):
