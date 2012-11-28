@@ -22,7 +22,7 @@ def test_wait_for_proc(env):
     simulate(env)
 
 
-def test_return_value(env):
+def test_exit(env):
     """Processes can set a return value via an ``exit()`` function,
     comparable to ``sys.exit()``.
 
@@ -30,6 +30,29 @@ def test_return_value(env):
     def child(env):
         yield env.timeout(1)
         env.exit(env.now)
+
+    def parent(env):
+        result1 = yield env.start(child(env))
+        result2 = yield env.start(child(env))
+
+        assert [result1, result2] == [1, 2]
+
+    env.start(parent(env))
+    simulate(env)
+
+
+@pytest.mark.skipif('sys.version_info[:2] < (3, 3)')
+def test_return_value(env):
+    """Processes can set a return value."""
+    # Python < 3.2 would raise a SyntaxError if this was real code ...
+    code = """def child(env):
+        yield env.timeout(1)
+        return env.now
+    """
+    globs, locs = {}, {}
+    code = compile(code, '<string>', 'exec')
+    eval(code, globs, locs)
+    child = locs['child']
 
     def parent(env):
         result1 = yield env.start(child(env))

@@ -342,6 +342,8 @@ class Environment(object):
         The ``result`` is sent to processes waiting for the current
         process.
 
+        From Python 3.3, you can use ``return result`` instead.
+
         """
         raise StopIteration(result)
 
