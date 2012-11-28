@@ -307,8 +307,11 @@ class Process(BaseEvent):
                 else:
                     msg = 'Invalid yield value "%s"' % next_evt
 
-                raise RuntimeError('\n%s%s' % (
-                        describe_frame(self._generator.gi_frame), msg))
+                descr = describe_frame(self._generator.gi_frame)
+                error = RuntimeError('\n%s%s' % (descr, msg))
+                # Drop the AttributeError as the cause for this exception.
+                error.__cause__ = None
+                raise error
 
             self._env._active_proc = None
             return
@@ -441,7 +444,7 @@ def step(env):
     elif succeed == FAIL:
         # The event has failed, but there is no callback to handle this
         # failure.
-        raise value
+        raise value.__cause__
 
 
 def simulate(env, until=Infinity):
