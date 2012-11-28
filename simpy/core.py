@@ -166,6 +166,20 @@ class Timeout(BaseEvent):
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
 
+def describe_frame(frame):
+    """Prints filename, linenumber and function name of a stackframe."""
+
+    filename, name = frame.f_code.co_filename, frame.f_code.co_name
+    lineno = frame.f_lineno
+
+    with open(filename) as f:
+        for no, line in enumerate(f):
+            if no + 1 == lineno: break
+
+    return '  File "%s", line %d, in %s\n    %s\n' % (filename, lineno, name,
+            line.strip())
+
+
 class Process(BaseEvent):
     """A *Process* is a wrapper for instantiated PEMs during their
     execution.
@@ -266,28 +280,6 @@ class Process(BaseEvent):
         try:
             next_evt = self._generator.send(value) if success else \
                         self._generator.throw(value)
-
-            # Check yielded event
-            try:
-                if next_evt.callbacks is not None:
-                    next_evt.callbacks.append(self._resume)
-                    self._target = next_evt
-                else:
-                    # FIXME This is dangerous. If the process catches these
-                    # exceptions it may yield another event, which will not get
-                    # processed causing the process to become deadlocked.
-                    self._generator.throw(
-                        ValueError('%s already terminated.' % self._target))
-            except AttributeError:
-                # FIXME Same problem as above.
-                self._generator.throw(
-                        ValueError('Invalid yield value "%s"' % self._target))
-
-            self._env._active_proc = None
-
-            return
-
-        # The generator exited or raised an exception.
         except StopIteration as e:
             # Process has terminated.
             evt_type = SUCCEED
@@ -299,6 +291,27 @@ class Process(BaseEvent):
             # example using (type, value, traceback) tuple?
             result = type(e)(*e.args)
             result.__cause__ = e
+        else:
+            # Process returned another event to wait upon.
+            try:
+                # Be optimistic and blindly try to register the process as a
+                # callbacks.
+                next_evt.callbacks.append(self._resume)
+                self._target = next_evt
+            except AttributeError:
+                # Our optimism didn't work out, figure out what went wrong and
+                # inform the user.
+                if (hasattr(next_evt, 'callbacks') and
+                        next_evt.callbacks is None):
+                    msg = 'Event already occured "%s"' % next_evt
+                else:
+                    msg = 'Invalid yield value "%s"' % next_evt
+
+                raise RuntimeError('\n%s%s' % (
+                        describe_frame(self._generator.gi_frame), msg))
+
+            self._env._active_proc = None
+            return
 
         self._target = None
         self._env._schedule(EVT_RESUME, self, evt_type, result)
