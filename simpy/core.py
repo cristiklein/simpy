@@ -196,7 +196,7 @@ class Process(BaseEvent):
         self._generator = generator
 
         init = BaseEvent(env)
-        init.callbacks.append(self._process)
+        init.callbacks.append(self._resume)
         env._schedule(EVT_INIT, init, SUCCEED)
         self._target = init
 
@@ -236,10 +236,10 @@ class Process(BaseEvent):
 
         # Schedule interrupt event
         event = BaseEvent(self._env)
-        event.callbacks.append(self._process)
+        event.callbacks.append(self._resume)
         self._env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
-    def _process(self, event, success, value):
+    def _resume(self, event, success, value):
         """Get the next event from this process and register as a callback.
 
         If the PEM generator exits or raises an exception, terminate
@@ -257,7 +257,7 @@ class Process(BaseEvent):
         # If the current target (e.g. an interrupt) isn't the one the process
         # expects, remove it from the original events joiners list.
         if self._target is not event:
-            self._target.callbacks.remove(self._process)
+            self._target.callbacks.remove(self._resume)
 
         # Mark the current process as active.
         self._env._active_proc = self
@@ -270,7 +270,7 @@ class Process(BaseEvent):
             # Check yielded event
             try:
                 if next_evt.callbacks is not None:
-                    next_evt.callbacks.append(self._process)
+                    next_evt.callbacks.append(self._resume)
                     self._target = next_evt
                 else:
                     # FIXME This is dangerous. If the process catches these
