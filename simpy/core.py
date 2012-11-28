@@ -166,20 +166,6 @@ class Timeout(BaseEvent):
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
 
-def describe_frame(frame):
-    """Prints filename, linenumber and function name of a stackframe."""
-
-    filename, name = frame.f_code.co_filename, frame.f_code.co_name
-    lineno = frame.f_lineno
-
-    with open(filename) as f:
-        for no, line in enumerate(f):
-            if no + 1 == lineno: break
-
-    return '  File "%s", line %d, in %s\n    %s\n' % (filename, lineno, name,
-            line.strip())
-
-
 class Process(BaseEvent):
     """A *Process* is a wrapper for instantiated PEMs during their
     execution.
@@ -307,7 +293,7 @@ class Process(BaseEvent):
                 else:
                     msg = 'Invalid yield value "%s"' % next_evt
 
-                descr = describe_frame(self._generator.gi_frame)
+                descr = _describe_frame(self._generator.gi_frame)
                 error = RuntimeError('\n%s%s' % (descr, msg))
                 # Drop the AttributeError as the cause for this exception.
                 error.__cause__ = None
@@ -464,3 +450,18 @@ def simulate(env, until=Infinity):
             step(env)
     except IndexError:
         pass
+
+
+def _describe_frame(frame):
+    """Prints filename, linenumber and function name of a stackframe."""
+
+    filename, name = frame.f_code.co_filename, frame.f_code.co_name
+    lineno = frame.f_lineno
+
+    with open(filename) as f:
+        for no, line in enumerate(f):
+            if no + 1 == lineno:
+                break
+
+    return '  File "%s", line %d, in %s\n    %s\n' % (filename, lineno, name,
+            line.strip())
