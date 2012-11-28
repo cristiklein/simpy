@@ -66,6 +66,33 @@ def test_crashing_child_traceback(env):
     simpy.simulate(env)
 
 
+def test_exception_chaining(env):
+    """Unhandled exceptions pass through the entire event stack. This must be
+    visible in the stacktrace of the exception."""
+    def child(env):
+        yield env.timeout(1)
+        raise RuntimeError('foo')
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield child_proc
+
+    def grandparent(env):
+        parent_proc = env.start(parent(env))
+        yield parent_proc
+
+    env.start(grandparent(env))
+    try:
+        simpy.simulate(env)
+        pytest.fail('There should have been an exception')
+    except RuntimeError as err:
+        import traceback
+        trace = traceback.format_exc()
+        assert 'raise RuntimeError(\'foo\')' in trace
+        assert 'yield child_proc' in trace
+        assert 'yield parent_proc' in trace
+
+
 def test_invalid_event(env):
     """Invalid yield values will cause the simulation to fail."""
 
