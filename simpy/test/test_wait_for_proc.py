@@ -41,25 +41,6 @@ def test_return_value(env):
     simulate(env)
 
 
-def test_join_after_terminate(env):
-    """Waiting for an already terminated process should return
-    immediately.
-
-    """
-    def child(env):
-        yield env.timeout(1)
-
-    def parent(env):
-        child_proc = env.start(child(env))
-        yield env.timeout(2)
-        yield child_proc
-
-        assert env.now == 2
-
-    env.start(parent(env))
-    pytest.raises(ValueError, simulate, env)
-
-
 def test_child_exception(env):
     """A child catches an exception and sends it to its parent."""
     def child(env):

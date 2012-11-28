@@ -52,25 +52,6 @@ def test_negative_timeout(env):
     pytest.raises(ValueError, simulate, env)
 
 
-def test_yield_none_forbidden(env):
-    """A process may not yield ``None``."""
-    def pem(env):
-        yield
-
-    env.start(pem(env))
-    pytest.raises(ValueError, simulate, env)
-
-
-def test_illegal_yield(env):
-    """There should be an error if a process neither yields an event
-    nor another process."""
-    def pem(env):
-        yield 'ohai'
-
-    env.start(pem(env))
-    pytest.raises(ValueError, simulate, env)
-
-
 def test_get_process_state(env):
     """A process is alive until it's generator has not terminated."""
     def pem_a(env):

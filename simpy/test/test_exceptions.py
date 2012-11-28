@@ -64,3 +64,36 @@ def test_crashing_child_traceback(env):
 
     env.start(root(env))
     simpy.simulate(env)
+
+
+def test_invalid_event(env):
+    """Invalid yield values will cause the simulation to fail."""
+
+    def root(env):
+        yield None
+
+    env.start(root(env))
+    try:
+        simpy.simulate(env)
+        pytest.fail('Hey, this is not allowed!')
+    except RuntimeError as err:
+        assert err.args[0].endswith('Invalid yield value "None"')
+
+
+def test_occured_event(env):
+    """A process cannot wait for an event that has already occured."""
+
+    def child(env):
+        yield env.timeout(1)
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        yield env.timeout(2)
+        yield child_proc
+
+    env.start(parent(env))
+    try:
+        simpy.simulate(env)
+        pytest.fail('Hey, this is not allowed!')
+    except RuntimeError as err:
+        assert err.args[0].endswith('Event already occured "Process(child)"')
