@@ -66,6 +66,7 @@ def test_crashing_child_traceback(env):
     simpy.simulate(env)
 
 
+@pytest.mark.skipif('sys.version_info[0] < 3')
 def test_exception_chaining(env):
     """Unhandled exceptions pass through the entire event stack. This must be
     visible in the stacktrace of the exception."""
@@ -85,7 +86,7 @@ def test_exception_chaining(env):
     try:
         simpy.simulate(env)
         pytest.fail('There should have been an exception')
-    except RuntimeError as err:
+    except RuntimeError:
         import traceback
         trace = traceback.format_exc()
         assert 'raise RuntimeError(\'foo\')' in trace
