@@ -40,6 +40,13 @@ So let's start::
 
     >>> def car(env):
     ...     while True:
+    ...         print('Start parking at %d' % env.now)
+    ...         parking_duration = 5
+    ...         yield env.timeout(parking_duration)
+    ...
+    ...         print('Start driving at %d' % env.now)
+    ...         trip_duration = 2
+    ...         yield env.timeout(trip_duration)
 
 Our *car* process requires a reference to an :class:`Environment` ``env`` to
 create new events. It also starts an infinite loop which defines the process'
@@ -50,19 +57,9 @@ process or not.
 
 As I said before, our car switches between the states *parking* and *driving*.
 It announces its new state by printing a message and the current simulation
-time. It then yields a :class:`Timeout` to hold the state for some time::
-
-    ...         print('Start parking at %d' % env.now)
-    ...         parking_duration = 5
-    ...         yield env.timeout(parking_duration)
-    ...
-    ...         print('Start driving at %d' % env.now)
-    ...         trip_duration = 2
-    ...         yield env.timeout(trip_duration)
-
-The property :attr:`Environment.now` contains the current simulation time (this
-is a read-only attribute, of course!). The events are created via the
-:meth:`Environment.timeout()` factory function.
+time (as returned by the :attr:`Environment.now` property). It then calls the
+:meth:`Environment.timeout()` factory function to create a :class:`Timeout`,
+which is then yielded to hold the current state for some time.
 
 Now that you have written your first PEM, you may want to start the
 simulation::
