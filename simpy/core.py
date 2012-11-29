@@ -351,6 +351,9 @@ class Environment(object):
         """Create and return a new :class:`Event`."""
         return Event(self)
 
+    suspend = event
+    """Convenience method. Alias for :meth:`~event`."""
+
     def timeout(self, delay, value=None):
         """Schedule (and return) a new :class:`Timeout` event for
         ``delay`` time units.
@@ -364,16 +367,6 @@ class Environment(object):
 
         """
         return Timeout(self, delay, value)
-
-    def suspend(self):
-        """Return a :class:`BaseEvent`.
-
-        That event can and will not be scheduled. Yielding that event
-        will suspend the processes until it is interrupted by another
-        one.
-
-        """
-        return BaseEvent(self)
 
     def _schedule(self, evt_type, event, succeed, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
