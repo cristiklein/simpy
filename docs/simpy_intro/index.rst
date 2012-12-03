@@ -9,11 +9,12 @@ to make an educated decision if SimPy is what you need. We'll also give you
 some hints on how to proceed to implement more complex simulations.
 
 .. toctree::
+   :maxdepth: 1
 
    installation
    basic_concepts
    process_interaction
+   shared_resources
 
-..     adding_a_resource
 ..     monitoring
 ..     how_to_proceed

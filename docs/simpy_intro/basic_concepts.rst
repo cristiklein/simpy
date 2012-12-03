@@ -29,7 +29,7 @@ other events can be created by calling the appropriate method of the
 for example).
 
 
-Our first process
+Our First Process
 =================
 
 Our first example will be a *car* process. The car will alternately drive and
@@ -94,7 +94,7 @@ it for now).
 Finally, we start the simulation by calling :func:`simulate()` and passing the
 environment as well as an end time to it.
 
-What's next?
+What's Next?
 ============
 
 You should now be familiar with Simpy's terminology and basic concepts. In the
