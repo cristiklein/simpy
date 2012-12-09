@@ -16,6 +16,20 @@ The package has been hosted on Sourceforge.net since September 15th,  2002.
 In June 2012, the project moved to Bitbucket.org.
 
 
+2013: Version 3.0
+=================
+
+- Completely rewritten from scratch.
+- Greatly simplified API and code base.
+- Stronger focus on events. Processes yield events and thus start waiting for
+  them. There are simple events, timeouts and even processes are now events
+  (you can wait until a process terminates).
+- SimPy can now be used for multi-agent systems (with real or simulated
+  communication) or other event-loop based applications more easily.
+- Removed plotting and GUI capabilities. *Pyside* and *matplotlib* are much
+  better with this.
+
+
 December 2011: Version 2.3
 ==========================
 
