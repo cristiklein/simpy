@@ -21,9 +21,9 @@ simulation (``SimPy.Simulation``), a real-time simulation
 ``Simulation`` (or ``SimulationRT``), ``Process`` and some of the SimPy
 keywords (``hold``, for example) from that package.
 
-In SimPy 3, everything you need is accessible via the ``simpy``. Furthermore,
-you don't need to import the :class:`~simpy.core.Process` class and the
-keywords anymore.
+In SimPy 3, everything you need is accessible via the ``simpy`` package.
+Furthermore, you don't need direct access to the :class:`~simpy.core.Process`
+class and the keywords anymore.
 
 
 **SimPy 2**
@@ -48,16 +48,16 @@ class also had a ``simulate()`` method that executed a normal simulation,
 a real-time simulation or something else (depending on the particular class).
 
 There was a global ``Simulation`` instance that was automatically created when
-you import SimPy. You could also instantiate it on your own to uses Simpy's
+you imported SimPy. You could also instantiate it on your own to uses Simpy's
 object-orient API. This led to some confusion and problems, because you had to
 pass the ``Simulation`` instance around when you were using the OO API but not
 if you were using the procedural API.
 
-In SimPy 3, the :class:`~simpy.core.Environment` replaces the various
+In SimPy 3, an :class:`~simpy.core.Environment` replaces the various
 ``Simulation*`` classes and you always need to explicitly instantiate it (no
 more global state).
 
-To execute a simulation, you call ``simpy.simulate()`` ans pass the environment
+To execute a simulation, you call ``simpy.simulate()`` and pass the environment
 that you want to simulate.
 
 **SimPy 2**
@@ -95,8 +95,8 @@ that you want to simulate.
 Defining a Process
 ==================
 
-Processes hat to inherit the ``Process`` base class in SimPy 2. Subclasses had
-to implement at least a so called :abbr:`Process Execution Method (PEM)` and in
+Processes had to inherit the ``Process`` base class in SimPy 2. Subclasses had
+to implement at least a so called *Process Execution Method (PEM)* and in
 most cases ``__init__()``. Each process needed to know the ``Simulation``
 instance it belonged to. This reference was passed implicitly in the procedural
 API and had to be passed explicitly in the object-oriented API. Apart from some
@@ -108,10 +108,10 @@ the PEM to either the global ``activate()`` function or the corresponding
 
 Process in SimPy 3 can be any Python generator function---normal functions or
 instance methods. Hence, they are now just called process functions or methods.
-A reference to the :class:`~simpy.core.Environment` that the process lives in
-must be passed to the process function.
+They usually require a reference to the :class:`~simpy.core.Environment` that
+they live in, but this is completely optional.
 
-Processes are now started by passing the process generator the environment's
+Processes are now started by passing the process generator to the environment's
 :meth:`~simpy.core.Environment.start()` method.
 
 
@@ -163,7 +163,7 @@ Processes are now started by passing the process generator the environment's
         """Implement the process' behavior."""
 
     env = simpy.Environment()
-    proc = env.start(my_process(env, 'Spam))
+    proc = env.start(my_process(env, 'Spam'))
 
 
 SimPy Keywords (``hold`` etc.)
@@ -175,15 +175,15 @@ additional parameters (at least ``self``). These keywords had to be import from
 to a function that generated the according event.
 
 SimPy 3 directly exposes these event-generating functions via the
-:class:`~simpy.core.Environment`, :~simpy.core.Process` or resource types,
-depending on were they made most sence. You don't need to import something
-separately anymore. Some of them were also renamed.
+:class:`~simpy.core.Environment`, :class:`~simpy.core.Process` or resource
+types, depending on were they make most sense. You don't need to import
+something separately anymore. Some of them have a new name.
 
 **SimPy 2**
 
 .. code-block:: python
 
-    yield hold, self, 5
+    yield hold, self, duration
     yield passivate, self
     yield request, self, resource
     yield release, self, resource
@@ -201,7 +201,7 @@ separately anymore. Some of them were also renamed.
 
     from simpy.util import wait_for_any, wait_for_all
 
-    yield env.timeout(5)             # hold: renamed
+    yield env.timeout(duration)      # hold: renamed
     yield env.suspend()              # passivate: renamed
     yield resource.request()         # Request is now bound to class Resource
     resource.release()               # Release is no longer yielded
@@ -230,7 +230,8 @@ You could manually set the ``interruptCause`` attribute of the victim.
 
 In SimPy 3, you call :meth:`~simpy.core.Process.interrupt()` on the victim
 process. You can optionally pass a cause. An :exc:`~simpy.core.Interrupt` is
-then thrown into the victim process, which has to be handled explicitly.
+then thrown into the victim process, which has to handle the interrupt via
+``try: ... except Interrupt: ...``.
 
 
 **SimPy 2**
@@ -268,3 +269,13 @@ then thrown into the victim process, which has to be handled explicitly.
             yield env.timeout(10)
         except Interrupt as interrupt:
             cause = interrupt.cause
+
+
+Conclusion
+==========
+
+This guide is by no means complete. If you run into problems, please have
+a look at the other :doc:`guides <index>`, the :doc:`examples
+<../examples/index>` or the :doc:`../api_reference/index`. You are also very
+welcome to submit improvements. Just create a pull request at `bitbucket
+<https://bitbucket.org/simpy/simpy/>`_.
