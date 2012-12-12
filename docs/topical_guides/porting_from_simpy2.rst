@@ -19,11 +19,11 @@ In SimPy 2, you had to decide at import-time whether you wanted to use a normal
 simulation (``SimPy.Simulation``), a real-time simulation
 (``SimPy.SimulationRT``) or something else. You usually had to import
 ``Simulation`` (or ``SimulationRT``), ``Process`` and some of the SimPy
-keywords (``hold``, for example) from that package.
+keywords (``hold`` or ``passivate``, for example) from that package.
 
-In SimPy 3, everything you need is accessible via the ``simpy`` package.
-Furthermore, you don't need direct access to the :class:`~simpy.core.Process`
-class and the keywords anymore.
+In SimPy 3, you usually need to import much less classes and modules (e.g., you
+don't need direct access to :class:`~simpy.core.Process` and the SimPy keywords
+anymore). In most use cases you will now only need to import :mod:`simpy`.
 
 
 **SimPy 2**
@@ -43,7 +43,8 @@ class and the keywords anymore.
 The ``Simulation*`` classes
 ===========================
 
-SimPy 2 encapsulated the simulation state in a ``Simulation*`` class. This
+SimPy 2 encapsulated the simulation state in a ``Simulation*`` class (e.g.,
+``Simulation``, ``SimulationRT`` or ``SimulationTrace``). This
 class also had a ``simulate()`` method that executed a normal simulation,
 a real-time simulation or something else (depending on the particular class).
 
@@ -100,16 +101,16 @@ to implement at least a so called *Process Execution Method (PEM)* and in
 most cases ``__init__()``. Each process needed to know the ``Simulation``
 instance it belonged to. This reference was passed implicitly in the procedural
 API and had to be passed explicitly in the object-oriented API. Apart from some
-internal problems, this made it quite verbose to define a simple process.
+internal problems, this made it quite cumbersome to define a simple process.
 
 Processes were started by passing the ``Process`` and the generator returned by
 the PEM to either the global ``activate()`` function or the corresponding
 ``Simulation`` method.
 
 Process in SimPy 3 can be any Python generator function---normal functions or
-instance methods. Hence, they are now just called process functions or methods.
-They usually require a reference to the :class:`~simpy.core.Environment` that
-they live in, but this is completely optional.
+instance methods. Hence, they are now just called process functions.  They
+usually require a reference to the :class:`~simpy.core.Environment` to interact
+with, but this is completely optional.
 
 Processes are now started by passing the process generator to the environment's
 :meth:`~simpy.core.Environment.start()` method.
@@ -177,7 +178,16 @@ to a function that generated the according event.
 SimPy 3 directly exposes these event-generating functions via the
 :class:`~simpy.core.Environment`, :class:`~simpy.core.Process` or resource
 types, depending on were they make most sense. You don't need to import
-something separately anymore. Some of them have a new name.
+something separately anymore.
+
+Generally, whenever you see a ``yield`` statement in a process, this process is
+going to wait for the event following the ``yield`` statement. To motivate this
+understanding, some of the events were renamed.
+
+For example the ``hold`` keyword meant to wait until some time has passed. In
+terms of events this means that a timeout has happened. Therefore ``hold`` has
+been replaced by a ``timeout`` event.
+
 
 **SimPy 2**
 
@@ -224,9 +234,11 @@ victim of the interrupt had to be passed as an argument.
 
 The victim was not directly notified of the interrupt but had to check if the
 ``interrupted`` flag was set. It then had to reset the interrupt via
-``interruptReset()``.
+``interruptReset()``. You could manually set the ``interruptCause`` attribute
+of the victim.
 
-You could manually set the ``interruptCause`` attribute of the victim.
+Explicitly checking for an interrupt is obviously error prone as it is too easy
+to be forgotten.
 
 In SimPy 3, you call :meth:`~simpy.core.Process.interrupt()` on the victim
 process. You can optionally pass a cause. An :exc:`~simpy.core.Interrupt` is

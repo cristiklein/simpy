@@ -9,10 +9,10 @@ and SimPy, in Simscript style (Tony Vignaux and Chang Chui).
 SimPy was based on efficient implementation of co-routines using Python's
 generators capability.
 
-SimPy 3 introduced a completely new API but still relied on Python's generators
-as they proved to work very well.
+SimPy 3 introduced a completely new and easier-to-use API, but still relied on
+Python's generators as they proved to work very well.
 
-The package has been hosted on Sourceforge.net since September 15th,  2002.
+The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
 
@@ -22,10 +22,8 @@ In June 2012, the project moved to Bitbucket.org.
 - Completely rewritten from scratch.
 - Greatly simplified API and code base.
 - Stronger focus on events. Processes yield events and thus start waiting for
-  them. There are simple events, timeouts and even processes are now events
-  (you can wait until a process terminates).
-- SimPy can now be used for multi-agent systems (with real or simulated
-  communication) or other event-loop based applications more easily.
+  them. An example for an event is a timeout, but even processes are now
+  events, too (you can wait until a process terminates).
 - Removed plotting and GUI capabilities. *Pyside* and *matplotlib* are much
   better with this.
 

@@ -13,7 +13,8 @@ while it is waiting for an event.
 Waiting for a Process
 =====================
 
-As it happens, a SimPy :class:`Process` can be used like an event. If you yield
+As it happens, a SimPy :class:`Process` can be used like an event( technically,
+a process actually *is* an event). If you yield
 it, you are resumed once the process has finished. Imagine a car-wash
 simulation where cars enter the car-wash and wait for the washing process to
 finish. Or an airport simulation where passengers have to wait until a security
@@ -83,7 +84,7 @@ SimPy allows you to interrupt a running process by calling its
 
     >>> def driver(env, car):
     ...     yield env.timeout(3)
-    ...     car.interrupt()
+    ...     car.action.interrupt()
 
 The ``driver`` process has a reference to the car's ``run`` process. After
 waiting for 3 time steps, it interrupts that process.
@@ -96,7 +97,7 @@ yielding a new event)::
     >>> class Car(object):
     ...     def __init__(self, env):
     ...         self.env = env
-    ...         self.run_proc = env.start(self.run())
+    ...         self.action = env.start(self.run())
     ...
     ...     def run(self):
     ...         while True:
@@ -122,7 +123,7 @@ you'll notice that the car no starts driving at time ``3`` instead of ``5``::
 
     >>> env = simpy.Environment()
     >>> car = Car(env)
-    >>> env.start(driver(env, car.run_proc))
+    >>> env.start(driver(env, car))
     Process(driver)
     >>> simpy.simulate(env, until=15)
     Start parking and charging at 0
