@@ -23,10 +23,10 @@ order in which they yielded that event.
 
 An important event type is the :class:`Timeout`. Events of this type are
 activated after a certain amount of (simulated) time has passed. They allow
-a process to hold its state for the given interval. A :class:`Timeout` and all
-other events can be created by calling the appropriate method of the
-:class:`Environment` that the process lives in (:meth:`Environment.timeout()`
-for example).
+a process to to sleep (or hold its state) for the given duration.
+A :class:`Timeout` and all other events can be created by calling the
+appropriate method of the :class:`Environment` that the process lives in
+(:meth:`Environment.timeout()` for example).
 
 
 Our First Process
@@ -52,7 +52,7 @@ Our *car* process requires a reference to an :class:`Environment` (``env``) to
 create new events. The *car*'s behaviour is described in an infinite loop.
 Remember, this function is a generator. Though it will never terminate, it will
 pass the control flow back to the simulation once a ``yield`` statement is
-reached. If the yielded event is activate (it occurs), the simulation will
+reached. Once the yielded event is activate ("it occurs"), the simulation will
 resume the function at this statement.
 
 
@@ -85,7 +85,6 @@ environment via :meth:`Environment.start()`.
 
 Note, that at this time, none of the code in your PEM is being executed. It's
 execution is merely scheduled at the current simulation time.
-
 
 The :class:`Process` returned by :meth:`~Environment.start()` can be used for
 process interactions (we will cover that in the next section, so we will ignore
