@@ -51,8 +51,8 @@ def subscribe_at(proc):
     Raise a :exc:`RuntimeError` if ``proc`` has already terminated.
 
     """
-    env = proc._env
-    subscriber = env._active_proc
+    env = proc.env
+    subscriber = env.active_process
 
     def signaller(signaller, receiver):
         result = yield signaller
@@ -77,7 +77,7 @@ def wait_for_all(procs):
     if not procs:
         raise ValueError('No processes were passed.')
 
-    env = procs[0]._env
+    env = procs[0].env
 
     def waiter():
         # We cannot simply wait for each process because they might
@@ -112,7 +112,7 @@ def wait_for_any(procs):
     if not procs:
         raise ValueError('No processes were passed.')
 
-    env = procs[0]._env
+    env = procs[0].env
 
     def waiter():
         for proc in list(procs):
