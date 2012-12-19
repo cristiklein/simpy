@@ -44,14 +44,16 @@ def start_delayed(env, peg, delay):
     return env.start(starter())
 
 
-def subscribe_at(proc):
-    """Register at the process ``proc`` to receive an interrupt when it
-    terminates.
+def subscribe_at(event):
+    """Register at the ``event`` to receive an interrupt when it occurs.
 
-    Raise a :exc:`RuntimeError` if ``proc`` has already terminated.
+    The most common use case for this is to pass
+    a :class:`~simpy.core.Process` to get notified when it terminates.
+
+    Raise a :exc:`RuntimeError` if ``event`` has already occurred.
 
     """
-    env = proc.env
+    env = event.env
     subscriber = env.active_process
 
     def signaller(signaller, receiver):
@@ -59,35 +61,37 @@ def subscribe_at(proc):
         if receiver.is_alive:
             receiver.interrupt((signaller, result))
 
-    if proc.is_alive:
-        env.start(signaller(proc, subscriber))
+    if event.callbacks is not None:
+        env.start(signaller(event, subscriber))
     else:
-        raise RuntimeError('%s has already terminated.' % proc)
+        raise RuntimeError('%s has already terminated.' % event)
 
 
-def wait_for_all(procs):
-    """Return a process that waits for all ``procs``.
+def wait_for_all(events):
+    """Return a process that waits for all ``events``.
 
     The result of the helper process will be a list with the results
-    of ``procs`` in their respective order.
+    of ``events`` in their respective order. The results are either
+    the values that can be passed to an event or the return value of a
+    :class:`~simpy.core.Process`.
 
-    Raise a :exc:`ValueError` if no processes are passed.
+    Raise a :exc:`ValueError` if no events are passed.
 
     """
-    if not procs:
+    if not events:
         raise ValueError('No processes were passed.')
 
-    env = procs[0].env
+    env = events[0].env
 
     def waiter():
         # We cannot simply wait for each process because they might
         # terminate in random order which may cause us to wait for an
         # already terminated process.
-        for proc in list(procs):
+        for proc in list(events):
             subscribe_at(proc)
 
         results = []
-        while len(results) < len(procs):
+        while len(results) < len(events):
             try:
                 yield env.suspend()
             except Interrupt as interrupt:
@@ -99,30 +103,30 @@ def wait_for_all(procs):
     return env.start(waiter())
 
 
-def wait_for_any(procs):
-    """Return a process that waits for the first of ``procs`` to finish.
+def wait_for_any(events):
+    """Return a process that waits for the first of ``events`` to finish.
 
-    The result of the helper process will be a tuple ``(finished_proc,
-    remaining_procs)``. You can pass the list of remaining procs to
+    The result of the helper process will be a tuple ``((event, result),
+    remaining_events)``. You can pass the list of remaining events to
     another call to this method to wait for the next of them.
 
-    Raise a :exc:`ValueError` if no processes are passed.
+    Raise a :exc:`ValueError` if no events are passed.
 
     """
-    if not procs:
+    if not events:
         raise ValueError('No processes were passed.')
 
-    env = procs[0].env
+    env = events[0].env
 
     def waiter():
-        for proc in list(procs):
+        for proc in list(events):
             subscribe_at(proc)
 
         try:
             yield env.suspend()
         except Interrupt as interrupt:
-            finished_proc, result = interrupt.cause
-            procs.remove(finished_proc)
-            env.exit(((finished_proc, result), procs))
+            finished_event, result = interrupt.cause
+            events.remove(finished_event)
+            env.exit(((finished_event, result), events))
 
     return env.start(waiter())
