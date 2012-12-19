@@ -306,6 +306,7 @@ class Process(BaseEvent):
             self.env._active_proc = None
             return
 
+        # The process terminated. Schedule this event.
         self._target = None
         self.env._schedule(EVT_RESUME, self, evt_type, result)
         self.env._active_proc = None

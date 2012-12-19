@@ -85,6 +85,37 @@ def test_subscribe_with_join(env):
     simulate(env)
 
 
+def test_subscribe_at_timeout(env):
+    """You should be able to subscribe at arbitrary events."""
+    def pem(env):
+        to = env.timeout(2)
+        subscribe_at(to)
+        try:
+            yield env.timeout(10)
+        except Interrupt as interrupt:
+            assert interrupt.cause == (to, None)
+            assert env.now == 2
+
+    env.start(pem(env))
+    simulate(env)
+
+
+def test_subscribe_at_timeout_with_value(env):
+    """An event's value should be accessible via the interrupt cause."""
+    def pem(env):
+        val = 'ohai'
+        to = env.timeout(2, value=val)
+        subscribe_at(to)
+        try:
+            yield env.timeout(10)
+        except Interrupt as interrupt:
+            assert interrupt.cause == (to, val)
+            assert env.now == 2
+
+    env.start(pem(env))
+    simulate(env)
+
+
 def test_join_any(env):
     def child(env, i):
         yield env.timeout(i)
@@ -159,3 +190,34 @@ def test_start_delayed_with_wait_for_all(env):
                     start_delayed(env, child(env), i) for i in range(3))
         for proc in procs:
             assert proc.name == 'child'
+
+
+def test_wait_for_any_with_mixed_events(env):
+    """wait_for_any should work with processes and normal events."""
+    def child(env):
+        yield env.timeout(2)
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        timeout = env.timeout(1)
+        result = yield wait_for_any([child_proc, timeout])
+        assert result == ((timeout, None), [child_proc])
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_wait_for_all_with_mixed_events(env):
+    """wait_for_any should work with processes and normal events."""
+    def child(env):
+        yield env.timeout(2)
+        env.exit('eggs')
+
+    def parent(env):
+        child_proc = env.start(child(env))
+        timeout = env.timeout(1, 'spam')
+        result = yield wait_for_all([child_proc, timeout])
+        assert result == ['spam', 'eggs']
+
+    env.start(parent(env))
+    simulate(env)
