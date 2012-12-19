@@ -88,13 +88,14 @@ class BaseEvent(object):
     attribute of an event.
 
     """
-    __slots__ = ('callbacks', '_env')
+    __slots__ = ('callbacks', 'env')
 
     def __init__(self, env):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self._env = env
+        self.env = env
+        """The :class:`Environment` the event lives in."""
 
 
 class Event(BaseEvent):
@@ -105,13 +106,14 @@ class Event(BaseEvent):
     method :meth:`Environment.event()` instead.
 
     """
-    __slots__ = ('callbacks', '_env',)
+    __slots__ = ('callbacks', 'env')
 
     def __init__(self, env):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self._env = env
+        self.env = env
+        """The :class:`Environment` the event lives in."""
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
@@ -123,7 +125,7 @@ class Event(BaseEvent):
         scheduled.
 
         """
-        self._env._schedule(EVT_RESUME, self, SUCCEED, value)
+        self.env._schedule(EVT_RESUME, self, SUCCEED, value)
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -140,7 +142,7 @@ class Event(BaseEvent):
         """
         if not isinstance(exception, Exception):
             raise ValueError('%s is not an exception.' % exception)
-        self._env._schedule(EVT_RESUME, self, FAIL, exception)
+        self.env._schedule(EVT_RESUME, self, FAIL, exception)
 
 
 class Timeout(BaseEvent):
@@ -153,13 +155,14 @@ class Timeout(BaseEvent):
     *success()* or *fail()* method.
 
     """
-    __slots__ = ('callbacks', '_env',)
+    __slots__ = ('callbacks', 'env')
 
     def __init__(self, env, delay, value=None):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self._env = env
+        self.env = env
+        """The :class:`Environment` the timeout lives in."""
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
@@ -182,7 +185,7 @@ class Process(BaseEvent):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('callbacks', '_env', '_generator', '_target')
+    __slots__ = ('callbacks', 'env', '_generator', '_target')
 
     def __init__(self, env, generator):
         if not isgenerator(generator):
@@ -191,7 +194,8 @@ class Process(BaseEvent):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self._env = env
+        self.env = env
+        """The :class:`Environment` the process lives in."""
 
         self._generator = generator
 
@@ -231,13 +235,13 @@ class Process(BaseEvent):
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
 
-        if self is self._env.active_process:
+        if self is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
 
         # Schedule interrupt event
-        event = BaseEvent(self._env)
+        event = BaseEvent(self.env)
         event.callbacks.append(self._resume)
-        self._env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
+        self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
     def _resume(self, event, success, value):
         """Get the next event from this process and register as a callback.
@@ -260,7 +264,7 @@ class Process(BaseEvent):
             self._target.callbacks.remove(self._resume)
 
         # Mark the current process as active.
-        self._env._active_proc = self
+        self.env._active_proc = self
 
         # Get next event from process
         try:
@@ -299,12 +303,12 @@ class Process(BaseEvent):
                 error.__cause__ = None
                 raise error
 
-            self._env._active_proc = None
+            self.env._active_proc = None
             return
 
         self._target = None
-        self._env._schedule(EVT_RESUME, self, evt_type, result)
-        self._env._active_proc = None
+        self.env._schedule(EVT_RESUME, self, evt_type, result)
+        self.env._active_proc = None
 
 
 class Environment(object):
