@@ -7,6 +7,7 @@ import random
 import pytest
 
 from simpy import Interrupt, simulate
+from simpy.core import WaitForAll
 from simpy.util import start_delayed, subscribe_at, wait_for_all, wait_for_any
 
 
@@ -153,9 +154,9 @@ def test_wait_for_all(env):
         # Wait for all children and ensure that the order of the results does
         # depend on the order they were passed into wait_for_all and not on the
         # order in which they terminated.
-        results = yield wait_for_all(children)
+        results = yield WaitForAll(children)
 
-        assert results == list(range(10))
+        assert results == {children[i]: i for i in range(10)}
         assert env.now == 10
 
     env.start(parent(env))
@@ -180,7 +181,7 @@ def test_wait_for_all_with_errors(env):
         # By default wait_for_all will terminate immediately if one of the
         # events has failed.
         try:
-            results = yield wait_for_all(children)
+            results = yield WaitForAll(children)
             assert False, 'There should have been an exception'
         except RuntimeError as e:
             assert e.args[0] == 'crashing'
@@ -254,7 +255,7 @@ def test_start_delayed_with_wait_for_all(env):
         yield env.timeout(1)
 
     def parent(env):
-        procs = wait_for_all(
+        procs = WaitForAll(
                     start_delayed(env, child(env), i) for i in range(3))
         for proc in procs:
             assert proc.name == 'child'
@@ -288,4 +289,112 @@ def test_wait_for_all_with_mixed_events(env):
         assert result == ['eggs', 'spam']
 
     env.start(parent(env))
+    simulate(env)
+
+
+def test_operator_and(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(3)]
+        results = yield timeout[0] & timeout[1] & timeout[2]
+
+        assert results == {
+                timeout[0]: None,
+                timeout[1]: None,
+                timeout[2]: None,
+        }
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_operator_and_merge(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(4)]
+        condition_1 = timeout[0] & timeout[1]
+        condition_2 = timeout[2] & timeout[3]
+        condition = condition_1 & condition_2
+
+        # Wait for all conditions are merged.
+        assert condition is condition_1
+        results = yield condition
+
+        assert results == {
+                timeout[0]: None,
+                timeout[1]: None,
+                timeout[2]: None,
+                timeout[3]: None,
+        }
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_operator_and_extend(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(4)]
+        condition = timeout[0] & timeout[1] & timeout[2]
+        yield env.timeout(1)
+        assert condition.results == {
+                timeout[0]: None,
+                timeout[1]: None,
+        }
+
+        condition &= timeout[3]
+        results = yield condition
+
+        assert results == {
+                timeout[0]: None,
+                timeout[1]: None,
+                timeout[2]: None,
+                timeout[3]: None,
+        }
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_operator_or(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(3)]
+        results = yield timeout[0] | timeout[1] | timeout[2]
+
+        assert results == {
+                timeout[0]: None,
+        }
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_operator_or_extend(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(4)]
+        condition = timeout[0] | timeout[1] | timeout[2]
+        yield env.timeout(1)
+        assert condition.results == {
+                timeout[0]: None,
+        }
+
+        try:
+            condition |= timeout[3]
+            assert False, 'Expected an exception'
+        except RuntimeError as e:
+            assert e.args[0] == ('Event WaitForAny(Timeout, Timeout, Timeout) '
+                    'has already been triggered')
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_operator_nested(env):
+    def process(env):
+        timeout = [env.timeout(delay) for delay in range(3)]
+        results = yield (timeout[0] & timeout[2]) | timeout[1]
+
+        assert results == {
+                timeout[0]: None,
+                timeout[1]: None,
+        }
+
+    env.start(process(env))
     simulate(env)
