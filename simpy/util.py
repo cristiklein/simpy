@@ -7,7 +7,7 @@ This modules contains various utility functions:
   terminated.
 
 """
-from simpy.core import Interrupt
+from simpy.core import Interrupt, FAIL
 
 
 def start_delayed(env, peg, delay):
@@ -67,7 +67,7 @@ def subscribe_at(event):
         raise RuntimeError('%s has already terminated.' % event)
 
 
-def wait_for_all(events):
+def wait_for_all(events, fail_on_error=True, timeout=None):
     """Return a process that waits for all ``events``.
 
     The result of the helper process will be a list with the results
@@ -78,32 +78,56 @@ def wait_for_all(events):
     Raise a :exc:`ValueError` if no events are passed.
 
     """
+    # FIXME This is ugly. It should be allowed to pass in an empty list. This
+    # should trigger the wait_for_all event immediately. But there is no
+    # environment available without events. Maybe require to pass in env into
+    # wait_for_all?
     if not events:
         raise ValueError('No processes were passed.')
 
     env = events[0].env
+    wait_event = env.event()
+    pending = {event: idx for idx, event in enumerate(events)}
+    results = [None for event in events]
 
-    def waiter():
-        # We cannot simply wait for each process because they might
-        # terminate in random order which may cause us to wait for an
-        # already terminated process.
-        for proc in list(events):
-            subscribe_at(proc)
+    def waiter(event, evt_type, value):
+        idx = pending.pop(event)
+        results[idx] = value
 
-        results = []
-        while len(results) < len(events):
-            try:
-                yield env.suspend()
-            except Interrupt as interrupt:
-                finished_proc, result = interrupt.cause
-                results.append(result)
+        if evt_type is FAIL and fail_on_error:
+            # Remove waiter callbacks from remaining pending events.
+            for event in pending:
+                event.callbacks.remove(waiter)
 
-        env.exit(results)
+            wait_event.fail(value)
+            return
 
-    return env.start(waiter())
+        if not pending:
+            wait_event.succeed(results)
+
+    # Register callbacks.
+    # FIXME What should happen if one of the events has already been triggered?
+    for event in events:
+        event.callbacks.append(waiter)
+
+    if timeout is not None:
+        def cancel(event, evt_type, value):
+            if wait_event.callbacks is None:
+                # Ignore the timeout if all events did already occur.
+                return
+
+            # Remove waiter callbacks from remaining pending events.
+            for event in pending:
+                event.callbacks.remove(waiter)
+
+            wait_event.succeed(results)
+
+        env.timeout(timeout).callbacks.append(cancel)
+
+    return wait_event
 
 
-def wait_for_any(events):
+def wait_for_any(events, timeout=None):
     """Return a process that waits for the first of ``events`` to finish.
 
     The result of the helper process will be a tuple ``((event, result),
@@ -113,20 +137,45 @@ def wait_for_any(events):
     Raise a :exc:`ValueError` if no events are passed.
 
     """
+    # FIXME See wait_for_all.
     if not events:
         raise ValueError('No processes were passed.')
 
     env = events[0].env
 
-    def waiter():
-        for proc in list(events):
-            subscribe_at(proc)
+    wait_event = env.event()
+    pending = set(events)
+    def waiter(event, evt_type, value):
+        if evt_type is not FAIL:
+            wait_event.succeed((event, value))
+        else:
+            # FIXME What should we do in this case? fail only accepts an
+            # exception and we can't return the information on which event has
+            # failed.
+            wait_event.fail(value)
 
-        try:
-            yield env.suspend()
-        except Interrupt as interrupt:
-            finished_event, result = interrupt.cause
-            events.remove(finished_event)
-            env.exit(((finished_event, result), events))
+        # Remove waiter callbacks from remaining pending events.
+        pending.remove(event)
+        for event in pending:
+            event.callbacks.remove(waiter)
 
-    return env.start(waiter())
+    # Register callbacks.
+    # FIXME What should happen if one of the events has already been triggered?
+    for event in events:
+        event.callbacks.append(waiter)
+
+    if timeout is not None:
+        def cancel(event, evt_type, value):
+            if wait_event.callbacks is None:
+                # Ignore the timeout if all events did already occur.
+                return
+
+            # Remove waiter callbacks from remaining pending events.
+            for event in pending:
+                event.callbacks.remove(waiter)
+
+            wait_event.succeed(None)
+
+        env.timeout(timeout).callbacks.append(cancel)
+
+    return wait_event
