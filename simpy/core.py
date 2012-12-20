@@ -177,28 +177,17 @@ class Condition(BaseEvent):
         return '%s(%s)' % (self.__class__.__name__,
                 ', '.join([str(target) for target in self.targets]))
 
-
-class WaitForAll(Condition):
-    def _trigger(self, event, evt_type, value):
-        if evt_type is FAIL:
-            # FIXME Optionally collect errors too?
-            self.env._schedule(EVT_RESUME, self, FAIL, value)
-            return
-
-        self.results[event] = value
-
-        if len(self.results) == len(self.targets):
-            self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
-
     def add_target(self, other):
         if self.env != other.env:
             raise RuntimeError('It is not allowed to mix events from '
                     'different environments')
+        if self.callbacks is None:
+            raise RuntimeError('Event %s has already been triggered' % self)
         if other.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % other)
 
-        if type(other) is WaitForAll:
-            # other is also an WaitForAll condition. Merge it into self.
+        if type(other) is type(self):
+            # other is also the same condition type. Merge it into self.
             # FIXME This is an optimization and possibly not required.
 
             # Replace triggers of other with our own.
@@ -226,8 +215,22 @@ class WaitForAll(Condition):
 
         return self
 
-    __and__ = add_target
-    __iand__ = add_target
+
+
+class WaitForAll(Condition):
+    def _trigger(self, event, evt_type, value):
+        if evt_type is FAIL:
+            # FIXME Optionally collect errors too?
+            self.env._schedule(EVT_RESUME, self, FAIL, value)
+            return
+
+        self.results[event] = value
+
+        if len(self.results) == len(self.targets):
+            self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
+
+    __and__ = Condition.add_target
+    __iand__ = Condition.add_target
 
 
 class WaitForAny(Condition):
@@ -245,46 +248,8 @@ class WaitForAny(Condition):
 
         self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
 
-    def add_target(self, other):
-        if self.env != other.env:
-            raise RuntimeError('It is not allowed to mix events from '
-                    'different environments')
-        if self.callbacks is None:
-            raise RuntimeError('Event %s has already been triggered' % self)
-        if other.callbacks is None:
-            raise RuntimeError('Event %s has already been triggered' % other)
-
-        if type(other) is WaitForAny:
-            # other is also an WaitForAny condition. Merge it into self.
-            # FIXME This is an optimization and possibly not required.
-
-            # Replace triggers of other with our own.
-            for target in other.targets:
-                callbacks = target.callbacks
-                # Only replace triggers of untriggered events. The results of
-                # already triggered events are collected anyhow.
-                if callbacks is not None:
-                    for idx in range(len(callbacks)):
-                        if callbacks[idx] != other._trigger: continue
-                        callbacks[idx] = self._trigger
-
-            self.targets.extend(other.targets)
-            self.results.update(other.results)
-        elif isinstance(other, Condition):
-            other.callbacks.append(self._trigger)
-            # Ensure that the result of the condition are collected in our
-            # result dictionary.
-            self.results.update(other.results)
-            self.targets.extend(other.targets)
-            other.results = self.results
-        else:
-            other.callbacks.append(self._trigger)
-            self.targets.append(other)
-
-        return self
-
-    __or__ = add_target
-    __ior__ = add_target
+    __or__ = Condition.add_target
+    __ior__ = Condition.add_target
 
 
 class Timeout(BaseEvent):
