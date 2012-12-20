@@ -97,6 +97,20 @@ class BaseEvent(object):
         self.env = env
         """The :class:`Environment` the event lives in."""
 
+    def __and__(self, other):
+        if type(other) is WaitForAll:
+            other &= self
+            return other
+        else:
+            return WaitForAll([self, other])
+
+    def __or__(self, other):
+        if type(other) is WaitForAny:
+            other |= self
+            return other
+        else:
+            return WaitForAny([self, other])
+
 
 class Event(BaseEvent):
     """A simple event that can be scheduled by calling its
@@ -145,6 +159,134 @@ class Event(BaseEvent):
         self.env._schedule(EVT_RESUME, self, FAIL, exception)
 
 
+class Condition(BaseEvent):
+    def __init__(self, targets, results=None):
+        BaseEvent.__init__(self, targets[0].env)
+
+        self.targets = []
+
+        if results is None:
+            results = {}
+        self.results = results
+
+        for target in targets:
+            self.add_target(target)
+
+    def __repr__(self):
+        # FIXME Include terms.
+        return '%s(%s)' % (self.__class__.__name__,
+                ', '.join([str(target) for target in self.targets]))
+
+
+class WaitForAll(Condition):
+    def _trigger(self, event, evt_type, value):
+        if evt_type is FAIL:
+            # FIXME Optionally collect errors too?
+            self.env._schedule(EVT_RESUME, self, FAIL, value)
+            return
+
+        self.results[event] = value
+
+        if len(self.results) == len(self.targets):
+            self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
+
+    def add_target(self, other):
+        if self.env != other.env:
+            raise RuntimeError('It is not allowed to mix events from '
+                    'different environments')
+        if other.callbacks is None:
+            raise RuntimeError('Event %s has already been triggered' % other)
+
+        if type(other) is WaitForAll:
+            # other is also an WaitForAll condition. Merge it into self.
+            # FIXME This is an optimization and possibly not required.
+
+            # Replace triggers of other with our own.
+            for target in other.targets:
+                callbacks = target.callbacks
+                # Only replace triggers of untriggered events. The results of
+                # already triggered events are collected anyhow.
+                if callbacks is not None:
+                    for idx in range(len(callbacks)):
+                        if callbacks[idx] != other._trigger: continue
+                        callbacks[idx] = self._trigger
+
+            self.targets.extend(other.targets)
+            self.results.update(other.results)
+        elif isinstance(other, Condition):
+            other.callbacks.append(self._trigger)
+            # Ensure that the result of the condition are collected in our
+            # result dictionary.
+            self.results.update(other.results)
+            self.targets.extend(other.targets)
+            other.results = self.results
+        else:
+            other.callbacks.append(self._trigger)
+            self.targets.append(other)
+
+        return self
+
+    __and__ = add_target
+    __iand__ = add_target
+
+
+class WaitForAny(Condition):
+    def _trigger(self, event, evt_type, value):
+        if self.callbacks is None:
+            # Ignore event if we were already triggered.
+            return
+
+        if evt_type is FAIL:
+            # FIXME Optionally collect errors too?
+            self.env._schedule(EVT_RESUME, self, FAIL, exception)
+            return
+
+        self.results[event] = value
+
+        self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
+
+    def add_target(self, other):
+        if self.env != other.env:
+            raise RuntimeError('It is not allowed to mix events from '
+                    'different environments')
+        if self.callbacks is None:
+            raise RuntimeError('Event %s has already been triggered' % self)
+        if other.callbacks is None:
+            raise RuntimeError('Event %s has already been triggered' % other)
+
+        if type(other) is WaitForAny:
+            # other is also an WaitForAny condition. Merge it into self.
+            # FIXME This is an optimization and possibly not required.
+
+            # Replace triggers of other with our own.
+            for target in other.targets:
+                callbacks = target.callbacks
+                # Only replace triggers of untriggered events. The results of
+                # already triggered events are collected anyhow.
+                if callbacks is not None:
+                    for idx in range(len(callbacks)):
+                        if callbacks[idx] != other._trigger: continue
+                        callbacks[idx] = self._trigger
+
+            self.targets.extend(other.targets)
+            self.results.update(other.results)
+        elif isinstance(other, Condition):
+            other.callbacks.append(self._trigger)
+            # Ensure that the result of the condition are collected in our
+            # result dictionary.
+            self.results.update(other.results)
+            self.targets.extend(other.targets)
+            other.results = self.results
+        else:
+            other.callbacks.append(self._trigger)
+            self.targets.append(other)
+
+        return self
+
+    __or__ = add_target
+    __ior__ = add_target
+
+
 class Timeout(BaseEvent):
     """An event that is scheduled with a certain ``delay`` after its
     creation.
@@ -167,6 +309,10 @@ class Timeout(BaseEvent):
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+
+    def __repr__(self):
+        # FIXME Include delay?.
+        return '%s' % (self.__class__.__name__)
 
 
 class Process(BaseEvent):
