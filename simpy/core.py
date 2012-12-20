@@ -445,11 +445,9 @@ def simulate(env, until=Infinity):
     if until <= 0:
         raise ValueError('until(=%s) should be a number > 0.' % until)
 
-    try:
-        while env._events[0][0] < until:
-            step(env)
-    except IndexError:
-        pass
+    events = env._events
+    while events and events[0][0] < until:
+        step(env)
 
 
 def _describe_frame(frame):
