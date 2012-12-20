@@ -140,28 +140,79 @@ def test_join_any(env):
     simulate(env)
 
 
-def test_join_all_shortcut(env):
+def test_wait_for_all(env):
     """Test the shortcut function to wait until a number of procs finish."""
-    def child(env, i):
-        yield env.timeout(i)
-        env.exit(i)
+    def child(env, value, delay):
+        yield env.timeout(delay)
+        env.exit(value)
 
     def parent(env):
-        # Shuffle range so that processes terminate in a random order.
-        rrange = list(range(10))
-        random.shuffle(rrange)
-        processes = [env.start(child(env, i)) for i in rrange]
+        # Start 10 children. The children wait a decreasing amount of time.
+        children = [env.start(child(env, i, 10 - i)) for i in range(10)]
 
-        results = yield wait_for_all(processes)
+        # Wait for all children and ensure that the order of the results does
+        # depend on the order they were passed into wait_for_all and not on the
+        # order in which they terminated.
+        results = yield wait_for_all(children)
 
         assert results == list(range(10))
-        assert env.now == 9
+        assert env.now == 10
 
     env.start(parent(env))
     simulate(env)
 
 
-def test_join_any_shortcut(env):
+def test_wait_for_all_with_errors(env):
+    """Test the shortcut function to wait until a number of procs finish."""
+    def child(env, value, delay):
+        yield env.timeout(delay)
+        env.exit(value)
+
+    def child_with_error(env, delay):
+        yield env.timeout(delay)
+        raise RuntimeError('crashing')
+
+    def parent(env):
+        children = [env.start(child(env, 1, 1)),
+            env.start(child_with_error(env, 2)),
+            env.start(child(env, 2, 2))]
+
+        # By default wait_for_all will terminate immediately if one of the
+        # events has failed.
+        try:
+            results = yield wait_for_all(children)
+            assert False, 'There should have been an exception'
+        except RuntimeError as e:
+            assert e.args[0] == 'crashing'
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_wait_for_all_with_timeout(env):
+    """wait_for_all may optionally cancel after a given timeout. After the
+    timeout all intermediate results are returned."""
+    def child(env, value, delay):
+        yield env.timeout(delay)
+        env.exit(value)
+
+    def parent(env):
+        # Start four children which wait up to three time units.
+        children = [env.start(child(env, i, i)) for i in range(4)]
+
+        # Wait until all children have terminated or two time units have
+        # passed.
+        # FIXME Should we raise an exception on timeout instead?
+        # FIXME Should we declare a special value for untriggered events? None
+        # is also a valid result of an event.
+        results = yield wait_for_all(children, timeout=2)
+        assert results == [0, 1, None, None]
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_wait_for_any(env):
     """Test the shortcut function to wait for any of a number of procs."""
     def child(env, i):
         yield env.timeout(i)
@@ -171,10 +222,27 @@ def test_join_any_shortcut(env):
         processes = [env.start(child(env, i)) for i in [4, 1, 2, 0, 3]]
 
         for i in range(5):
-            (finished_proc, result), processes = yield wait_for_any(processes)
+            finished_proc, result = yield wait_for_any(processes)
+            processes.remove(finished_proc)
             assert result == i
-            assert len(processes) == (5 - i - 1)
             assert env.now == i
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_wait_for_any_timeout(env):
+    def child(env, i):
+        yield env.timeout(i)
+        env.exit(i)
+
+    def parent(env):
+        events = [env.timeout(2)]
+
+        # FIXME A timeout exception is probably really better...
+        result = yield wait_for_any(events, timeout=1)
+        assert result == None
+        assert env.now == 1
 
     env.start(parent(env))
     simulate(env)
@@ -201,7 +269,7 @@ def test_wait_for_any_with_mixed_events(env):
         child_proc = env.start(child(env))
         timeout = env.timeout(1)
         result = yield wait_for_any([child_proc, timeout])
-        assert result == ((timeout, None), [child_proc])
+        assert result == (timeout, None)
 
     env.start(parent(env))
     simulate(env)
@@ -217,7 +285,7 @@ def test_wait_for_all_with_mixed_events(env):
         child_proc = env.start(child(env))
         timeout = env.timeout(1, 'spam')
         result = yield wait_for_all([child_proc, timeout])
-        assert result == ['spam', 'eggs']
+        assert result == ['eggs', 'spam']
 
     env.start(parent(env))
     simulate(env)
