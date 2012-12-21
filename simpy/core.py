@@ -98,18 +98,18 @@ class BaseEvent(object):
         """The :class:`Environment` the event lives in."""
 
     def __and__(self, other):
-        if type(other) is WaitForAll:
+        if type(other) is Condition and other.evaluate is all_events:
             other &= self
             return other
         else:
-            return WaitForAll([self, other])
+            return Condition(self.env, all_events, [self, other])
 
     def __or__(self, other):
-        if type(other) is WaitForAny:
+        if type(other) is Condition and other.evaluate is any_event:
             other |= self
             return other
         else:
-            return WaitForAny([self, other])
+            return Condition(self.env, any_event, [self, other])
 
 
 class Event(BaseEvent):
@@ -160,22 +160,37 @@ class Event(BaseEvent):
 
 
 class Condition(BaseEvent):
-    def __init__(self, targets, results=None):
-        BaseEvent.__init__(self, targets[0].env)
+    # FIXME Should fail_on_error really be allowed? It is very likely that
+    # an uncausious user will miss exceptions by using fail_on_error and get
+    # himself into hard to debug situations.
 
+    def __init__(self, env, evaluate, targets, fail_on_error=True):
+        BaseEvent.__init__(self, env)
+        self.evaluate = evaluate
         self.targets = []
-
-        if results is None:
-            results = {}
-        self.results = results
+        self.fail_on_error = fail_on_error
+        self.target_results = {}
+        self.sub_conditions = []
+        self._triggered = False
 
         for target in targets:
             self.add_target(target)
 
     def __repr__(self):
-        # FIXME Include terms.
-        return '%s(%s)' % (self.__class__.__name__,
+        return '%s<%s>[%s]' % (self.__class__.__name__, self.evaluate.__name__,
                 ', '.join([str(target) for target in self.targets]))
+
+    @property
+    def results(self):
+        results = dict(self.target_results)
+
+        # Collect results of subconditions.
+        for condition in self.sub_conditions:
+            if condition in results:
+                del results[condition]
+            results.update(condition.results)
+
+        return results
 
     def add_target(self, other):
         if self.env != other.env:
@@ -186,70 +201,63 @@ class Condition(BaseEvent):
         if other.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % other)
 
-        if type(other) is type(self):
-            # other is also the same condition type. Merge it into self.
-            # FIXME This is an optimization and possibly not required.
+        if type(other) is Condition:
+            self.sub_conditions.append(other)
 
-            # Replace triggers of other with our own.
-            for target in other.targets:
-                callbacks = target.callbacks
-                # Only replace triggers of untriggered events. The results of
-                # already triggered events are collected anyhow.
-                if callbacks is not None:
-                    for idx in range(len(callbacks)):
-                        if callbacks[idx] != other._trigger: continue
-                        callbacks[idx] = self._trigger
-
-            self.targets.extend(other.targets)
-            self.results.update(other.results)
-        elif isinstance(other, Condition):
-            other.callbacks.append(self._trigger)
-            # Ensure that the result of the condition are collected in our
-            # result dictionary.
-            self.results.update(other.results)
-            self.targets.extend(other.targets)
-            other.results = self.results
-        else:
-            other.callbacks.append(self._trigger)
-            self.targets.append(other)
+        self.targets.append(other)
+        other.callbacks.append(self._check)
 
         return self
 
+    def _check(self, event, evt_type, value):
+        if self.callbacks is None or self._triggered:
+            # Ignore events which were triggered after the condition was met.
+            return
 
+        self.target_results[event] = value
 
-class WaitForAll(Condition):
-    def _trigger(self, event, evt_type, value):
-        if evt_type is FAIL:
-            # FIXME Optionally collect errors too?
+        # Abort if the event has failed.
+        if evt_type is FAIL and self.fail_on_error:
+            self._triggered = True
+
             self.env._schedule(EVT_RESUME, self, FAIL, value)
             return
 
-        self.results[event] = value
-
-        if len(self.results) == len(self.targets):
+        if self.evaluate(self.targets, self.target_results):
+            self._triggered = True
             self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
 
-    __and__ = Condition.add_target
-    __iand__ = Condition.add_target
+    def __iand__(self, other):
+        if self.evaluate is not all_events:
+            return NotImplemented
+
+        return self.add_target(other)
+
+    def __ior__(self, other):
+        if self.evaluate is not any_event:
+            return NotImplemented
+
+        return self.add_target(other)
 
 
-class WaitForAny(Condition):
-    def _trigger(self, event, evt_type, value):
-        if self.callbacks is None:
-            # Ignore event if we were already triggered.
-            return
+def all_events(targets, results):
+    return len(targets) == len(results)
 
-        if evt_type is FAIL:
-            # FIXME Optionally collect errors too?
-            self.env._schedule(EVT_RESUME, self, FAIL, exception)
-            return
 
-        self.results[event] = value
+def any_event(targets, results):
+    return len(results) > 0
 
-        self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
 
-    __or__ = Condition.add_target
-    __ior__ = Condition.add_target
+def wait_for_all(targets, fail_on_error=True):
+    # FIXME Shouldn't we at this method into the environment?
+    env = targets[0].env
+    return Condition(env, all_events, targets, fail_on_error=fail_on_error)
+
+def wait_for_any(targets, fail_on_error=True):
+    # FIXME Shouldn't we at this method into the environment?
+    env = targets[0].env
+    return Condition(env, any_event, targets, fail_on_error=fail_on_error)
+
 
 
 class Timeout(BaseEvent):
