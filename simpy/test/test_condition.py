@@ -207,6 +207,31 @@ def test_wait_for_any_with_triggered_events(env):
     simulate(env)
 
 
+def test_immutable_results(env):
+    """Results of conditions should not change after they have been
+    triggered."""
+    def process(env):
+        timeout = [env.timeout(delay, value=delay) for delay in range(3)]
+        # The or condition in this expression will trigger immediately. The and
+        # condition will trigger later on.
+        condition = timeout[0] | (timeout[1] & timeout[2])
+
+        yield condition
+        assert condition.results == {
+                timeout[0]: 0,
+        }
+
+        # Make sure that the results of condition were frozen. The results of
+        # the nested and condition do not become visible afterwards.
+        yield env.timeout(2)
+        assert condition.results == {
+                timeout[0]: 0,
+        }
+
+    env.start(process(env))
+    simulate(env)
+
+
 def test_operator_and(env):
     def process(env):
         timeout = [env.timeout(delay, value=delay) for delay in range(3)]
