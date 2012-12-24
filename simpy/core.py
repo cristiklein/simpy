@@ -169,9 +169,8 @@ class Condition(BaseEvent):
         self.evaluate = evaluate
         self.targets = []
         self.fail_on_error = fail_on_error
-        self.target_results = {}
+        self._results = {}
         self.sub_conditions = []
-        self._triggered = False
 
         for target in targets:
             self.add_target(target)
@@ -182,7 +181,10 @@ class Condition(BaseEvent):
 
     @property
     def results(self):
-        results = dict(self.target_results)
+        if self.sub_conditions is None:
+            return self._results
+
+        results = dict(self._results)
 
         # Collect results of subconditions.
         for condition in self.sub_conditions:
@@ -210,21 +212,22 @@ class Condition(BaseEvent):
         return self
 
     def _check(self, event, evt_type, value):
-        if self.callbacks is None or self._triggered:
+        if self.callbacks is None or self.sub_conditions is None:
             # Ignore events which were triggered after the condition was met.
             return
 
-        self.target_results[event] = value
+        self._results[event] = value
 
         # Abort if the event has failed.
         if evt_type is FAIL and self.fail_on_error:
-            self._triggered = True
-
+            self.sub_conditions = None
             self.env._schedule(EVT_RESUME, self, FAIL, value)
             return
 
-        if self.evaluate(self.targets, self.target_results):
-            self._triggered = True
+        if self.evaluate(self.targets, self._results):
+            # The condition has been met. Freeze the state of the results.
+            self._results = self.results
+            self.sub_conditions = None
             self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
 
     def __iand__(self, other):
