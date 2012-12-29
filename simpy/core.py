@@ -170,33 +170,35 @@ class Condition(BaseEvent):
         self.targets = []
         self.fail_on_error = fail_on_error
         self._results = {}
-        self._value = {}
         self.sub_conditions = []
 
         for target in targets:
             self.add_target(target)
 
-        self.callbacks.append(self._set_value)
+        # Register a callback which will update the value of this condition
+        # once it is being processed.
+        self.callbacks.append(self._collect_results)
 
     def __repr__(self):
         return '%s<%s>[%s]' % (self.__class__.__name__, self.evaluate.__name__,
                 ', '.join([str(target) for target in self.targets]))
 
-    def _collect_results(self):
-        """Recursively collects the current results of all nested
-        conditions into a flat dictionary."""
+    def _get_results(self):
+        """Recursively collects the current results of all nested conditions
+        into a flat dictionary."""
         results = dict(self._results)
 
         for condition in self.sub_conditions:
             if condition in results:
                 del results[condition]
-            results.update(condition._collect_results())
+            results.update(condition._get_results())
 
         return results
 
-    def _set_value(self, event, type, value):
-        """Sets the final value of this condition by collecting all results."""
-        self._value.update(self._collect_results())
+    def _collect_results(self, event, type, value):
+        """Populates the final value of this condition."""
+        if type is not FAIL:
+            value.update(self._get_results())
 
     def add_target(self, other):
         if self.env != other.env:
@@ -228,8 +230,10 @@ class Condition(BaseEvent):
             # trigger, because this callback is present.
             self.env._schedule(EVT_RESUME, self, FAIL, value)
         elif self.evaluate(self.targets, self._results):
-            # The condition has been met.
-            self.env._schedule(EVT_RESUME, self, SUCCEED, self._value)
+            # The condition has been met. Schedule the event with an empty
+            # dictionary as value. The _collect_results callback will populate
+            # this dictionary once this condition gets processed.
+            self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
     def __iand__(self, other):
         if self.evaluate is not all_events:
