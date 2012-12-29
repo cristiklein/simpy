@@ -93,7 +93,7 @@ def test_wait_for_all_chaining_intermediate_results(env):
         yield env.timeout(0)
 
         condition = condition_A & condition_B
-        assert sorted(condition._collect_results().values()) == [0, 0]
+        assert sorted(condition._get_results().values()) == [0, 0]
 
         results = yield condition
         assert sorted(results.values()) == [0, 0, 1, 1]
