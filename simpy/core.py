@@ -170,29 +170,33 @@ class Condition(BaseEvent):
         self.targets = []
         self.fail_on_error = fail_on_error
         self._results = {}
+        self._value = {}
         self.sub_conditions = []
 
         for target in targets:
             self.add_target(target)
 
+        self.callbacks.append(self._set_value)
+
     def __repr__(self):
         return '%s<%s>[%s]' % (self.__class__.__name__, self.evaluate.__name__,
                 ', '.join([str(target) for target in self.targets]))
 
-    @property
-    def results(self):
-        if self.sub_conditions is None:
-            return self._results
-
+    def _collect_results(self):
+        """Recursively collects the current results of all nested
+        conditions into a flat dictionary."""
         results = dict(self._results)
 
-        # Collect results of subconditions.
         for condition in self.sub_conditions:
             if condition in results:
                 del results[condition]
-            results.update(condition.results)
+            results.update(condition._collect_results())
 
         return results
+
+    def _set_value(self, event, type, value):
+        """Sets the final value of this condition by collecting all results."""
+        self._value.update(self._collect_results())
 
     def add_target(self, other):
         if self.env != other.env:
@@ -212,23 +216,20 @@ class Condition(BaseEvent):
         return self
 
     def _check(self, event, evt_type, value):
-        if self.callbacks is None or self.sub_conditions is None:
-            # Ignore events which were triggered after the condition was met.
-            return
-
         self._results[event] = value
 
-        # Abort if the event has failed.
-        if evt_type is FAIL and self.fail_on_error:
-            self.sub_conditions = None
-            self.env._schedule(EVT_RESUME, self, FAIL, value)
+        if self.callbacks is None:
+            # The condition has already been processed.
             return
 
-        if self.evaluate(self.targets, self._results):
-            # The condition has been met. Freeze the state of the results.
-            self._results = self.results
-            self.sub_conditions = None
-            self.env._schedule(EVT_RESUME, self, SUCCEED, self.results)
+        if evt_type is FAIL and self.fail_on_error:
+            # Abort if the event has failed.
+            # FIXME This may hide failures. The check in step() will not
+            # trigger, because this callback is present.
+            self.env._schedule(EVT_RESUME, self, FAIL, value)
+        elif self.evaluate(self.targets, self._results):
+            # The condition has been met.
+            self.env._schedule(EVT_RESUME, self, SUCCEED, self._value)
 
     def __iand__(self, other):
         if self.evaluate is not all_events:
