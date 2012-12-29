@@ -39,10 +39,10 @@ def test_wait_for_all_with_errors(env):
 
         # Although the condition has failed, intermediate results are
         # available.
-        assert condition.results[events[0]] == 1
-        assert condition.results[events[1]].args[0] == 'crashing'
+        assert condition._results[events[0]] == 1
+        assert condition._results[events[1]].args[0] == 'crashing'
         # The last child has not terminated yet.
-        assert events[2] not in condition.results
+        assert events[2] not in condition._results
 
     env.start(parent(env))
     simulate(env)
@@ -93,7 +93,7 @@ def test_wait_for_all_chaining_intermediate_results(env):
         yield env.timeout(0)
 
         condition = condition_A & condition_B
-        assert sorted(condition.results.values()) == [0, 0]
+        assert sorted(condition._collect_results().values()) == [0, 0]
 
         results = yield condition
         assert sorted(results.values()) == [0, 0, 1, 1]
@@ -149,9 +149,9 @@ def test_wait_for_any_with_errors(env):
         except RuntimeError as e:
             assert e.args[0] == 'crashing'
 
-        assert condition.results[events[0]].args[0] == 'crashing'
+        assert condition._results[events[0]].args[0] == 'crashing'
         # The last event has not terminated yet.
-        assert events[1] not in condition.results
+        assert events[1] not in condition._results
 
     env.start(parent(env))
     simulate(env)
@@ -185,7 +185,7 @@ def test_wait_for_any_chaining(env):
         condition_A |= condition_B
 
         results = yield condition_A
-        assert sorted(results.values()) == [0]
+        assert sorted(results.values()) == [0, 0]
 
     env.start(parent(env))
     simulate(env)
@@ -216,17 +216,13 @@ def test_immutable_results(env):
         # condition will trigger later on.
         condition = timeout[0] | (timeout[1] & timeout[2])
 
-        yield condition
-        assert condition.results == {
-                timeout[0]: 0,
-        }
+        results = yield condition
+        assert results == {timeout[0]: 0,}
 
         # Make sure that the results of condition were frozen. The results of
         # the nested and condition do not become visible afterwards.
         yield env.timeout(2)
-        assert condition.results == {
-                timeout[0]: 0,
-        }
+        assert results == {timeout[0]: 0,}
 
     env.start(process(env))
     simulate(env)
@@ -282,6 +278,7 @@ def test_operator_nested_or(env):
 
         assert results == {
                 timeout[0]: 0,
+                timeout[1]: 1,
                 timeout[2]: 2,
         }
         assert env.now == 2
@@ -301,7 +298,7 @@ def test_shared_condition(env):
 
     def p2(env, condition):
         results = yield condition
-        assert results == {timeout[0]: 0, timeout[2]: 2}
+        assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
 
     env.start(p1(env, c1))
     env.start(p2(env, c2))
