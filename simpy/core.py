@@ -168,7 +168,7 @@ class Condition(BaseEvent):
         self.sub_conditions = []
 
         for target in targets:
-            self.add_target(target)
+            self._add_target(target)
 
         # Register a callback which will update the value of this condition
         # once it is being processed.
@@ -195,7 +195,7 @@ class Condition(BaseEvent):
         if type is not FAIL:
             value.update(self._get_results())
 
-    def add_target(self, other):
+    def _add_target(self, other):
         if self.env != other.env:
             raise RuntimeError('It is not allowed to mix events from '
                     'different environments')
@@ -232,15 +232,17 @@ class Condition(BaseEvent):
 
     def __iand__(self, other):
         if self.evaluate is not all_events:
+            # Use BaseEvent.__and__
             return NotImplemented
 
-        return self.add_target(other)
+        return self._add_target(other)
 
     def __ior__(self, other):
         if self.evaluate is not any_event:
+            # Use BaseEvent.__or__
             return NotImplemented
 
-        return self.add_target(other)
+        return self._add_target(other)
 
 
 def all_events(targets, results):
