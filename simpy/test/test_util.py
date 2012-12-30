@@ -204,7 +204,7 @@ def test_all_of_with_triggered_events(env):
             all_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert e.args[0] == 'Event Timeout has already been triggered'
+            assert e.args[0] == 'Event Timeout(1) has already been triggered'
 
     env.start(parent(env))
     simulate(env)
@@ -275,7 +275,7 @@ def test_any_of_with_triggered_events(env):
             any_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert e.args[0] == 'Event Timeout has already been triggered'
+            assert e.args[0] == 'Event Timeout(1) has already been triggered'
 
     env.start(parent(env))
     simulate(env)
