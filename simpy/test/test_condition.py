@@ -3,9 +3,6 @@ import pytest
 from simpy import simulate
 
 
-# TODO Test behaviour of errors in nested expressions.
-
-
 def test_operator_and(env):
     def process(env):
         timeout = [env.timeout(delay, value=delay) for delay in range(3)]
@@ -81,7 +78,6 @@ def test_nested_cond_with_error(env):
     simulate(env)
 
 
-@pytest.mark.xfail
 def test_cond_with_uncaught_error(env):
     def explode(env, delay):
         yield env.timeout(delay)
