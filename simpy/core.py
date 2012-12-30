@@ -1,24 +1,31 @@
 """
-This module contains the implementation of SimPy's core classes. Not
-all of them are intended for direct use and are thus not importable
-directly via ``from simpy import ...``.
+This module contains the implementation of SimPy's core classes. The
+most important ones are directly importable via :mod:`simpy`.
 
 - :class:`Environment`: SimPy's central class. It contains the
   simulation's state and lets the PEMs interact with it (i.e., schedule
   events).
+
 - :class:`~simpy.core.Process`: This class represents a PEM while
   it is executed in an environment. An instance of it is returned by
   :meth:`Environment.start()`. It inherits :class:`BaseEvent`.
+
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 
-The following classes should not be imported directly:
-
 - :class:`BaseEvent`: Base class for all events.
-- :class:`Timeout`: Can be yielded by a PEM to hold its state or wait
-  for a certain amount of time.
+
 - :class:`Event`: A simple event that can be used to implement things
   like shared resources.
+
+- :class:`Timeout`: Can be yielded by a PEM to hold its state or wait
+  for a certain amount of time.
+
+- :class:`Condition`: Groups multiple events and is triggered if a
+  custom condition on them evaluates to true. There are two default
+  evaluation functions (:func:`all_events()` and :func:`any_event()`
+  that are used for :class:`BaseEvent`'s implementation of ``__and__``
+  and ``__or__``.
 
 This module also contains a few functions to simulate an
 :class:`Environment`: :func:`peek()`, :func:`step()` and the shortcut
@@ -87,6 +94,11 @@ class BaseEvent(object):
     You can add callbacks by appending them to the ``callbacks``
     attribute of an event.
 
+    This class also implements ``__and__()`` (``&``) and ``__or__()``
+    (``|``). If you concatenate two events using one of these operators,
+    a :class:`Condition` event is generated that lets you wait for both
+    or one of them.
+
     """
     __slots__ = ('callbacks', 'env')
 
@@ -97,15 +109,18 @@ class BaseEvent(object):
         self.env = env
         """The :class:`Environment` the event lives in."""
 
+    def __str__(self):
+        return '%s()' % self.__class__.__name__
+
     def __and__(self, other):
-        if type(other) is Condition and other.evaluate is all_events:
+        if type(other) is Condition and other._evaluate is all_events:
             other &= self
             return other
         else:
             return Condition(self.env, all_events, [self, other])
 
     def __or__(self, other):
-        if type(other) is Condition and other.evaluate is any_event:
+        if type(other) is Condition and other._evaluate is any_event:
             other |= self
             return other
         else:
@@ -160,59 +175,88 @@ class Event(BaseEvent):
 
 
 class Condition(BaseEvent):
-    def __init__(self, env, evaluate, targets):
+    """A *Condition* event groups several ``events`` and is triggered if
+    a given condition (implemented by the ``evaluate`` function) becomes
+    true.
+
+    The result of the condition is a dictionary that maps the input
+    events to their respective results. It only contains entries for
+    those events that occurred until the condition was met.
+
+    If one of the ``events`` fails, the condition also fails and
+    forwards the exception of the failing event.
+
+    The ``evaluate`` function receives the list of target events and the
+    dictionary with all results currently available. If it returns
+    ``True``, the condition is scheduled. SimPy provides the
+    :func:`all_events()` and :func:`any_event()` functions that are used
+    for the implementation of *and* (``&``) and *or* (``|``) of all
+    SimPy event types.
+
+    Since condition are normal events, too, they can also be used as
+    sub- or nested conditions.
+
+    """
+    __slots__ = ('callbacks', 'env', '_evaluate', '_results', '_events',
+                 '_sub_conditions')
+
+    def __init__(self, env, evaluate, events):
         BaseEvent.__init__(self, env)
-        self.evaluate = evaluate
-        self.targets = []
+        self._evaluate = evaluate
         self._results = {}
-        self.sub_conditions = []
+        self._events = []
+        self._sub_conditions = []
 
-        for target in targets:
-            self._add_target(target)
+        for event in events:
+            self._add_target(event)
 
-        # Register a callback which will update the value of this condition
-        # once it is being processed.
+        # Register a callback which will update the value of this
+        # condition once it is being processed.
         self.callbacks.append(self._collect_results)
 
-    def __repr__(self):
-        return '%s<%s>[%s]' % (self.__class__.__name__, self.evaluate.__name__,
+    def __str__(self):
+        return '%s(%s, [%s])' % (self.__class__.__name__,
+                self._evaluate.__name__,
                 ', '.join([str(target) for target in self.targets]))
 
     def _get_results(self):
-        """Recursively collects the current results of all nested conditions
-        into a flat dictionary."""
+        """Recursively collects the current results of all nested
+        conditions into a flat dictionary."""
         results = dict(self._results)
 
-        for condition in self.sub_conditions:
+        for condition in self._sub_conditions:
             if condition in results:
                 del results[condition]
             results.update(condition._get_results())
 
         return results
 
-    def _collect_results(self, event, type, value):
+    def _collect_results(self, event, evt_type, value):
         """Populates the final value of this condition."""
-        if type is not FAIL:
+        if evt_type is not FAIL:
             value.update(self._get_results())
 
     def _add_target(self, other):
+        """Add another event to the condition."""
         if self.env != other.env:
             raise RuntimeError('It is not allowed to mix events from '
-                    'different environments')
+                               'different environments')
         if self.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % self)
         if other.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % other)
 
         if type(other) is Condition:
-            self.sub_conditions.append(other)
+            self._sub_conditions.append(other)
 
-        self.targets.append(other)
+        self._events.append(other)
         other.callbacks.append(self._check)
 
         return self
 
     def _check(self, event, evt_type, value):
+        """Check if the condition was already met and schedule the event
+        if so."""
         self._results[event] = value
 
         if self.callbacks is None:
@@ -224,32 +268,36 @@ class Condition(BaseEvent):
             # FIXME This may hide failures. The check in step() will not
             # trigger, because this callback is present.
             self.env._schedule(EVT_RESUME, self, FAIL, value)
-        elif self.evaluate(self.targets, self._results):
+        elif self._evaluate(self._events, self._results):
             # The condition has been met. Schedule the event with an empty
             # dictionary as value. The _collect_results callback will populate
             # this dictionary once this condition gets processed.
             self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
     def __iand__(self, other):
-        if self.evaluate is not all_events:
-            # Use BaseEvent.__and__
+        if self._evaluate is not all_events:
+            # Use self.__and__
             return NotImplemented
 
         return self._add_target(other)
 
     def __ior__(self, other):
-        if self.evaluate is not any_event:
-            # Use BaseEvent.__or__
+        if self._evaluate is not any_event:
+            # Use self.__or__
             return NotImplemented
 
         return self._add_target(other)
 
 
-def all_events(targets, results):
-    return len(targets) == len(results)
+def all_events(events, results):
+    """Helper for :class:`Condition`. Return ``True`` if there are
+    results for all ``events``."""
+    return len(events) == len(results)
 
 
-def any_event(targets, results):
+def any_event(events, results):
+    """Helper for :class:`Condition`. Return ``True`` if there is at
+    least one result available from ``events``."""
     return len(results) > 0
 
 
@@ -263,7 +311,7 @@ class Timeout(BaseEvent):
     *success()* or *fail()* method.
 
     """
-    __slots__ = ('callbacks', 'env')
+    __slots__ = ('callbacks', 'env', '_delay', '_value')
 
     def __init__(self, env, delay, value=None):
         self.callbacks = []
@@ -272,13 +320,16 @@ class Timeout(BaseEvent):
         self.env = env
         """The :class:`Environment` the timeout lives in."""
 
+        self._delay = delay
+        self._value = value
+
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
 
-    def __repr__(self):
-        # FIXME Include delay?.
-        return '%s' % (self.__class__.__name__)
+    def __str__(self):
+        return '%s(%s%s)' % (self.__class__.__name__, self._delay,
+                    '' if self._value is None else (', value=' + self._value))
 
 
 class Process(BaseEvent):
@@ -316,7 +367,7 @@ class Process(BaseEvent):
         env._schedule(EVT_INIT, init, SUCCEED)
         self._target = init
 
-    def __repr__(self):
+    def __str__(self):
         """Return a string "Process(pem_name)"."""
         return '%s(%s)' % (self.__class__.__name__, self._generator.__name__)
 
@@ -389,8 +440,6 @@ class Process(BaseEvent):
         except BaseException as e:
             # Process has failed.
             evt_type = FAIL
-            # FIXME Isn't there a better way to obtain the exception type? For
-            # example using (type, value, traceback) tuple?
             result = type(e)(*e.args)
             result.__cause__ = e
         else:
