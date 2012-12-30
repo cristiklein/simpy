@@ -160,15 +160,10 @@ class Event(BaseEvent):
 
 
 class Condition(BaseEvent):
-    # FIXME Should fail_on_error really be allowed? It is very likely that
-    # an uncausious user will miss exceptions by using fail_on_error and get
-    # himself into hard to debug situations.
-
-    def __init__(self, env, evaluate, targets, fail_on_error=True):
+    def __init__(self, env, evaluate, targets):
         BaseEvent.__init__(self, env)
         self.evaluate = evaluate
         self.targets = []
-        self.fail_on_error = fail_on_error
         self._results = {}
         self.sub_conditions = []
 
@@ -224,7 +219,7 @@ class Condition(BaseEvent):
             # The condition has already been processed.
             return
 
-        if evt_type is FAIL and self.fail_on_error:
+        if evt_type is FAIL:
             # Abort if the event has failed.
             # FIXME This may hide failures. The check in step() will not
             # trigger, because this callback is present.
