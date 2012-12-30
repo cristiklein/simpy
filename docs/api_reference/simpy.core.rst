@@ -26,3 +26,9 @@
 
 .. autoclass:: Timeout
    :members: callbacks, env
+
+.. autoclass:: Condition
+   :members: callbacks, env
+
+.. autofunction:: all_events
+.. autofunction:: any_event
