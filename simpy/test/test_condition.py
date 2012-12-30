@@ -73,7 +73,7 @@ def test_nested_cond_with_error(env):
     def process(env):
         try:
             yield env.start(explode(env)) & env.timeout(1)
-            pytest.fail('The yield should have raised a ValueError')
+            pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes!',)
 
@@ -81,18 +81,30 @@ def test_nested_cond_with_error(env):
     simulate(env)
 
 
+@pytest.mark.xfail
 def test_cond_with_uncaught_error(env):
-    def explode(env):
-        yield env.timeout(1)
-        raise ValueError('Onoes!')
+    def explode(env, delay):
+        yield env.timeout(delay)
+        raise ValueError('Onoes, failed after %d!' % delay)
 
     def process(env):
-            yield env.start(explode(env)) & env.timeout(1)
-            pytest.fail('The yield should have raised a ValueError')
+        try:
+            yield (
+                env.start(explode(env, 1)) &
+                env.start(explode(env, 2)) &
+                env.timeout(3)
+            )
+            pytest.fail('The condition should have raised a ValueError')
+        except ValueError as err:
+            assert err.args == ('Onoes, failed after 1!',)
 
-    env.start(process(env))
-    err = pytest.raises(ValueError, simulate, env)
-    assert err.value.args == ('Onoes!',)
+    try:
+        env.start(process(env))
+        simulate(env)
+        pytest.fail('The failure of the second explode process has not been '
+                'caught')
+    except ValueError as err:
+        assert err.args == ('Onoes, failed after 2!',)
 
 
 def test_iand_with_and_cond(env):
