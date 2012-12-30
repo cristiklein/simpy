@@ -208,7 +208,7 @@ class Condition(BaseEvent):
         self._sub_conditions = []
 
         for event in events:
-            self._add_target(event)
+            self._add_event(event)
 
         # Register a callback which will update the value of this
         # condition once it is being processed.
@@ -236,21 +236,21 @@ class Condition(BaseEvent):
         if evt_type is not FAIL:
             value.update(self._get_results())
 
-    def _add_target(self, other):
+    def _add_event(self, event):
         """Add another event to the condition."""
-        if self.env != other.env:
+        if self.env != event.env:
             raise RuntimeError('It is not allowed to mix events from '
                                'different environments')
         if self.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % self)
-        if other.callbacks is None:
-            raise RuntimeError('Event %s has already been triggered' % other)
+        if event.callbacks is None:
+            raise RuntimeError('Event %s has already been triggered' % event)
 
-        if type(other) is Condition:
-            self._sub_conditions.append(other)
+        if type(event) is Condition:
+            self._sub_conditions.append(event)
 
-        self._events.append(other)
-        other.callbacks.append(self._check)
+        self._events.append(event)
+        event.callbacks.append(self._check)
 
         return self
 
@@ -265,8 +265,7 @@ class Condition(BaseEvent):
 
         if evt_type is FAIL:
             # Abort if the event has failed.
-            # FIXME This may hide failures. The check in step() will not
-            # trigger, because this callback is present.
+            self._remove_callbacks()
             self.env._schedule(EVT_RESUME, self, FAIL, value)
         elif self._evaluate(self._events, self._results):
             # The condition has been met. Schedule the event with an empty
@@ -274,19 +273,28 @@ class Condition(BaseEvent):
             # this dictionary once this condition gets processed.
             self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
+    def _remove_callbacks(self):
+        """Recursively remove :meth:`self._check` from all event's
+        callbacks."""
+        for event in self._events:
+            if event.callbacks:
+                event.callbacks.remove(self._check)
+            if type(event) is Condition:
+                event._remove_callbacks()
+
     def __iand__(self, other):
         if self._evaluate is not all_events:
             # Use self.__and__
             return NotImplemented
 
-        return self._add_target(other)
+        return self._add_event(other)
 
     def __ior__(self, other):
         if self._evaluate is not any_event:
             # Use self.__or__
             return NotImplemented
 
-        return self._add_target(other)
+        return self._add_event(other)
 
 
 def all_events(events, results):
