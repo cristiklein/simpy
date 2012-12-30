@@ -256,18 +256,6 @@ def any_event(targets, results):
     return len(results) > 0
 
 
-def wait_for_all(targets, fail_on_error=True):
-    # FIXME Shouldn't we at this method into the environment?
-    env = targets[0].env
-    return Condition(env, all_events, targets, fail_on_error=fail_on_error)
-
-def wait_for_any(targets, fail_on_error=True):
-    # FIXME Shouldn't we at this method into the environment?
-    env = targets[0].env
-    return Condition(env, any_event, targets, fail_on_error=fail_on_error)
-
-
-
 class Timeout(BaseEvent):
     """An event that is scheduled with a certain ``delay`` after its
     creation.

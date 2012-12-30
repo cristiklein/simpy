@@ -2,12 +2,9 @@
 Tests for the utility functions from :mod:`simpy.util`.
 
 """
-import random
-
 import pytest
 
 from simpy import Interrupt, simulate
-from simpy.core import wait_for_all, wait_for_any
 from simpy.util import start_delayed, subscribe_at
 
 
@@ -114,75 +111,4 @@ def test_subscribe_at_timeout_with_value(env):
             assert env.now == 2
 
     env.start(pem(env))
-    simulate(env)
-
-
-def test_join_any(env):
-    def child(env, i):
-        yield env.timeout(i)
-        env.exit(i)
-
-    def parent(env):
-        processes = [env.start(child(env, i)) for i in range(1, -1, -1)]
-
-        for proc in processes:
-            subscribe_at(proc)
-
-        try:
-            yield env.suspend()
-            pytest.fail('There should have been an interrupt')
-        except Interrupt as interrupt:
-            first_dead, result = interrupt.cause
-            assert first_dead is processes[-1]
-            assert result == 0
-            assert env.now == 0
-
-    env.start(parent(env))
-    simulate(env)
-
-
-def test_wait_for_any(env):
-    """Test the shortcut function to wait for any of a number of procs."""
-    def child(env, i):
-        yield env.timeout(i)
-        env.exit(i)
-
-    def parent(env):
-        processes = [env.start(child(env, i)) for i in [4, 1, 2, 0, 3]]
-
-        for i in range(5):
-            results = yield wait_for_any(processes)
-            for proc in results:
-                processes.remove(proc)
-            assert sorted(results.values()) == [i]
-            assert env.now == i
-
-    env.start(parent(env))
-    simulate(env)
-
-
-def test_start_delayed_with_wait_for_all(env):
-    """Test waiting for all instances of delayed processes."""
-    def child(env):
-        yield env.timeout(1)
-
-    def parent(env):
-        procs = wait_for_all(
-                    start_delayed(env, child(env), i) for i in range(3))
-        for proc in procs:
-            assert proc.name == 'child'
-
-
-def test_wait_for_any_with_mixed_events(env):
-    """wait_for_any should work with processes and normal events."""
-    def child(env):
-        yield env.timeout(2)
-
-    def parent(env):
-        child_proc = env.start(child(env))
-        timeout = env.timeout(1)
-        results = yield wait_for_any([child_proc, timeout])
-        assert results == {timeout: None}
-
-    env.start(parent(env))
     simulate(env)
