@@ -261,14 +261,16 @@ class Condition(BaseEvent):
 
         if self.callbacks is None:
             # The condition has already been processed.
-            if evt_type is FAIL:
-                # Error should never be silently ignored.
-                raise value
             return
 
         if evt_type is FAIL:
             # Abort if the event has failed.
             self.env._schedule(EVT_RESUME, self, FAIL, value)
+
+            # Do not listen to any of the remaining events.
+            for event in self._events:
+                if event.callbacks:
+                    event.callbacks.remove(self._check)
         elif self._evaluate(self._events, self._results):
             # The condition has been met. Schedule the event with an empty
             # dictionary as value. The _collect_results callback will populate
