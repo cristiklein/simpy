@@ -261,26 +261,19 @@ class Condition(BaseEvent):
 
         if self.callbacks is None:
             # The condition has already been processed.
+            if evt_type is FAIL:
+                # Error should never be silently ignored.
+                raise value
             return
 
         if evt_type is FAIL:
             # Abort if the event has failed.
-            self._remove_callbacks()
             self.env._schedule(EVT_RESUME, self, FAIL, value)
         elif self._evaluate(self._events, self._results):
             # The condition has been met. Schedule the event with an empty
             # dictionary as value. The _collect_results callback will populate
             # this dictionary once this condition gets processed.
             self.env._schedule(EVT_RESUME, self, SUCCEED, {})
-
-    def _remove_callbacks(self):
-        """Recursively remove :meth:`self._check` from all event's
-        callbacks."""
-        for event in self._events:
-            if event.callbacks:
-                event.callbacks.remove(self._check)
-            if type(event) is Condition:
-                event._remove_callbacks()
 
     def __iand__(self, other):
         if self._evaluate is not all_events:
