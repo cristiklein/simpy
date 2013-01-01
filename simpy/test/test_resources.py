@@ -118,29 +118,6 @@ def test_resource_illegal_release(env):
     assert excinfo.value.args[0].startswith('Cannot release resource')
 
 
-def test_resource_not_released(env):
-    """An error should be thrown if the resource detects that a process
-    didn't release it."""
-    def pem(env, res):
-        yield res.request()
-        res.release()
-
-    def evil_knievel(env, res):
-        try:
-            yield res.request()
-        except simpy.Interrupt:
-            pass  # Onoes, resource no can haz release!
-
-    res = simpy.Resource(env, 1)
-    env.start(pem(env, res))
-    ek = env.start(evil_knievel(env, res))
-    ek.interrupt()
-    with pytest.raises(RuntimeError) as excinfo:
-        simpy.simulate(env)
-    assert excinfo.value.args[0] == ('Process(evil_knievel) did not release '
-                                     'the resource.')
-
-
 def test_container(env, log):
     """A *container* is a resource (of optinally limited capacity) where
     you can put in our take out a discrete or continuous amount of
@@ -197,4 +174,47 @@ def test_store(env):
     # NOTE: Does the start order matter? Need to test this.
     env.start(putter(env, store, item))
     env.start(getter(env, store, item))
+    simpy.simulate(env)
+
+
+def test_resource_with_condition(env):
+    def process(env, resource):
+        res_event = resource.request()
+        result = yield res_event | env.timeout(1)
+        assert res_event in result
+        resource.release()
+
+    resource = simpy.Resource(env, 1)
+    env.start(process(env, resource))
+    env.start(process(env, resource))
+    simpy.simulate(env)
+
+
+def test_resource_with_lifo_queue(env):
+    def process(env, delay, resource, res_time):
+        yield env.timeout(delay)
+        yield resource.request()
+        assert env.now == res_time
+        yield env.timeout(5)
+        resource.release()
+
+    resource = simpy.Resource(env, capacity=1, queue=simpy.LIFO())
+    env.start(process(env, 0, resource, 0))
+    env.start(process(env, 2, resource, 10))
+    env.start(process(env, 4, resource, 5))
+    simpy.simulate(env)
+
+
+def test_resource_with_priority_queue(env):
+    def process(env, delay, resource, priority, res_time):
+        yield env.timeout(delay)
+        yield resource.request(priority=priority)
+        assert env.now == res_time
+        yield env.timeout(5)
+        resource.release()
+
+    resource = simpy.Resource(env, capacity=1, queue=simpy.Priority())
+    env.start(process(env, 0, resource, 1, 0))
+    env.start(process(env, 2, resource, 4, 10))
+    env.start(process(env, 4, resource, 2, 5))
     simpy.simulate(env)

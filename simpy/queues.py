@@ -79,6 +79,9 @@ class Priority(object):
     def __len__(self):
         return len(self._heap)
 
+    def __bool__(self):
+        return bool(self._heap)
+
     def pop(self):
         """Remove and return the smallest element from the queue.
 
@@ -87,7 +90,7 @@ class Priority(object):
         """
         return heappop(self._heap)[1]
 
-    def push(self, item, priority):
+    def push(self, item, priority=1):
         """Push *item* with *priority* onto the heap, maintain the heap
         invariant.
 
@@ -100,4 +103,4 @@ class Priority(object):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._heap[0]
+        return self._heap[0][1]

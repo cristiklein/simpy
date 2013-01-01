@@ -53,13 +53,13 @@ class Resource(object):
         self.capacity = capacity
         """The resource's maximum capacity."""
 
-        self.queue = queue if queue else FIFO()
+        self.queue = queue if queue is not None else FIFO()
         """The queue of waiting processes. Read only."""
 
         self.users = []
         """The list of the resource's users. Read only."""
 
-    def request(self):
+    def request(self, *q_args, **q_kwargs):
         """Request the resource.
 
         If the maximum capacity of users is not reached, the requesting
@@ -79,7 +79,7 @@ class Resource(object):
             self.users.append(proc)
             event.succeed()
         else:
-            self.queue.append((event, proc))
+            self.queue.push((event, proc), *q_args, **q_kwargs)
 
         return event
 
@@ -109,9 +109,6 @@ class Resource(object):
 
         if self.queue:
             event, next_user = self.queue.pop()
-            if next_user.target is not event:
-                raise RuntimeError('%s did not release the resource.' %
-                                   next_user)
             self.users.append(next_user)
             event.succeed()
 
