@@ -78,29 +78,33 @@ def test_nested_cond_with_error(env):
     simulate(env)
 
 
-def test_cond_with_uncaught_error(env):
+@pytest.mark.parametrize('fail_in_sub', [
+    True,
+    False,
+])
+def test_cond_with_uncaught_error(env, fail_in_sub):
     def explode(env, delay):
         yield env.timeout(delay)
         raise ValueError('Onoes, failed after %d!' % delay)
 
     def process(env):
         try:
-            yield (
-                env.start(explode(env, 1)) &
-                env.start(explode(env, 2)) &
-                env.timeout(3)
-            )
+            if fail_in_sub:
+                cond = env.start(explode(env, 1)) & env.timeout(2)
+                cond |= env.start(explode(env, 2))
+            else:
+                cond = (env.timeout(0) | env.timeout(1))
+                cond &= env.start(explode(env, 1)) & env.start(explode(env, 2))
+
+            yield cond
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes, failed after 1!',)
 
-    try:
-        env.start(process(env))
-        simulate(env)
-        pytest.fail('The failure of the second explode process has not been '
-                'caught')
-    except ValueError as err:
-        assert err.args == ('Onoes, failed after 2!',)
+    env.start(process(env))
+    # The failure of the second explode process has not been caught
+    err = pytest.raises(ValueError, simulate, env)
+    assert err.value.args == ('Onoes, failed after 2!',)
 
 
 def test_iand_with_and_cond(env):
