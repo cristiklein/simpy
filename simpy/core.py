@@ -217,7 +217,7 @@ class Condition(BaseEvent):
     def __str__(self):
         return '%s(%s, [%s])' % (self.__class__.__name__,
                 self._evaluate.__name__,
-                ', '.join([str(target) for target in self.targets]))
+                ', '.join([str(event) for event in self._events]))
 
     def _get_results(self):
         """Recursively collects the current results of all nested
