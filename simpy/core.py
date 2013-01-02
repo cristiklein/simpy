@@ -37,11 +37,6 @@ from inspect import isgenerator
 from itertools import count
 
 
-# BaseEvent types/priorities
-EVT_INIT = 0       # First event after a proc was started
-EVT_INTERRUPT = 1  # Throw an interrupt into the PEG
-EVT_RESUME = 2     # Default event, send value into the PEG
-
 # Constants for successful and failed events
 SUCCEED = True
 FAIL = False
@@ -154,7 +149,7 @@ class Event(BaseEvent):
         scheduled.
 
         """
-        self.env._schedule(EVT_RESUME, self, SUCCEED, value)
+        self.env._schedule(self, SUCCEED, value)
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -171,7 +166,7 @@ class Event(BaseEvent):
         """
         if not isinstance(exception, Exception):
             raise ValueError('%s is not an exception.' % exception)
-        self.env._schedule(EVT_RESUME, self, FAIL, exception)
+        self.env._schedule(self, FAIL, exception)
 
 
 class Condition(BaseEvent):
@@ -264,12 +259,12 @@ class Condition(BaseEvent):
             self._triggered = True
             if evt_type is FAIL:
                 # Abort if the event has failed.
-                self.env._schedule(EVT_RESUME, self, FAIL, value)
+                self.env._schedule(self, FAIL, value)
             elif self._evaluate(self._events, self._results):
                 # The condition has been met. Schedule the event with an empty
                 # dictionary as value. The _collect_results callback will
                 # populate this dictionary once this condition gets processed.
-                self.env._schedule(EVT_RESUME, self, SUCCEED, {})
+                self.env._schedule(self, SUCCEED, {})
 
     def __iand__(self, other):
         if self._evaluate is not all_events:
@@ -322,7 +317,7 @@ class Timeout(BaseEvent):
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
-        env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+        env._schedule(self, SUCCEED, value, delay)
 
     def __str__(self):
         return '%s(%s%s)' % (self.__class__.__name__, self._delay,
@@ -361,7 +356,7 @@ class Process(BaseEvent):
 
         init = BaseEvent(env)
         init.callbacks.append(self._resume)
-        env._schedule(EVT_INIT, init, SUCCEED)
+        env._schedule(init, SUCCEED)
         self._target = init
 
     def __str__(self):
@@ -401,7 +396,7 @@ class Process(BaseEvent):
         # Schedule interrupt event
         event = BaseEvent(self.env)
         event.callbacks.append(self._resume)
-        self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
+        self.env._schedule(event, FAIL, Interrupt(cause))
 
     def _resume(self, event, success, value):
         """Get the next event from this process and register as a callback.
@@ -466,7 +461,7 @@ class Process(BaseEvent):
 
         # The process terminated. Schedule this event.
         self._target = None
-        self.env._schedule(EVT_RESUME, self, evt_type, result)
+        self.env._schedule(self, evt_type, result)
         self.env._active_proc = None
 
 
@@ -531,16 +526,13 @@ class Environment(object):
         """
         return Timeout(self, delay, value)
 
-    def _schedule(self, evt_type, event, succeed, value=None, delay=0):
+    def _schedule(self, event, evt_type, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
-
-        ``evt_type`` should be one of the ``EVT_*`` constants defined on
-        top of this module.
 
         If ``succeed`` is ``True``, the optional ``value`` will be sent
         into all processes waiting for that event.
 
-        If ``succeed`` is ``False``, the exception in ``value`` is
+        If ``evt_type`` is ``False``, the exception in ``value`` is
         thrown into all processes waiting for that event.
 
         The event will be scheduled at the simulation time ``self._now
@@ -552,9 +544,8 @@ class Environment(object):
         """
         heappush(self._events, (
             self._now + delay,
-            evt_type,
             next(self._eid),
-            succeed,
+            evt_type,
             event,
             value,
         ))
@@ -577,15 +568,15 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
+    env._now, eid, evt_type, event, value = heappop(env._events)
 
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
     if callbacks:
         for callback in callbacks:
-            callback(event, succeed, value)
-    elif succeed == FAIL:
+            callback(event, evt_type, value)
+    elif evt_type == FAIL:
         # The event has failed, but there is no callback to handle this
         # failure.
         raise value.__cause__
