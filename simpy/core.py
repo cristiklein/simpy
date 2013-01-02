@@ -198,13 +198,14 @@ class Condition(BaseEvent):
 
     """
     __slots__ = ('callbacks', 'env', '_evaluate', '_results', '_events',
-                 '_sub_conditions')
+                 '_triggered', '_sub_conditions')
 
     def __init__(self, env, evaluate, events):
         BaseEvent.__init__(self, env)
         self._evaluate = evaluate
         self._results = {}
         self._events = []
+        self._triggered = False
         self._sub_conditions = []
 
         for event in events:
@@ -259,23 +260,16 @@ class Condition(BaseEvent):
         if so."""
         self._results[event] = value
 
-        if self.callbacks is None:
-            # The condition has already been processed.
-            return
-
-        if evt_type is FAIL:
-            # Abort if the event has failed.
-            self.env._schedule(EVT_RESUME, self, FAIL, value)
-
-            # Do not listen to any of the remaining events.
-            for event in self._events:
-                if event.callbacks:
-                    event.callbacks.remove(self._check)
-        elif self._evaluate(self._events, self._results):
-            # The condition has been met. Schedule the event with an empty
-            # dictionary as value. The _collect_results callback will populate
-            # this dictionary once this condition gets processed.
-            self.env._schedule(EVT_RESUME, self, SUCCEED, {})
+        if not self._triggered:
+            self._triggered = True
+            if evt_type is FAIL:
+                # Abort if the event has failed.
+                self.env._schedule(EVT_RESUME, self, FAIL, value)
+            elif self._evaluate(self._events, self._results):
+                # The condition has been met. Schedule the event with an empty
+                # dictionary as value. The _collect_results callback will
+                # populate this dictionary once this condition gets processed.
+                self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
     def __iand__(self, other):
         if self._evaluate is not all_events:
