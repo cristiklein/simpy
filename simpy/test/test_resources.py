@@ -53,6 +53,11 @@ def test_resource_continue_after_interrupt(env):
     """A process may be interrupted while waiting for a resource but
     should be able to continue waiting afterwards."""
     def pem(env, res):
+        yield res.request()
+        yield env.timeout(1)
+        res.release()
+
+    def victim(env, res):
         try:
             evt = res.request()
             yield evt
@@ -60,15 +65,15 @@ def test_resource_continue_after_interrupt(env):
         except simpy.Interrupt:
             yield evt
             res.release()
-            assert env.now == 0
+            assert env.now == 1
 
     def interruptor(env, proc):
         proc.interrupt()
-        env.exit(0)
-        yield
+        yield env.exit(0)
 
     res = simpy.Resource(env, 1)
-    proc = env.start(pem(env, res))
+    env.start(pem(env, res))
+    proc = env.start(victim(env, res))
     env.start(interruptor(env, proc))
     simpy.simulate(env)
 
@@ -76,6 +81,11 @@ def test_resource_continue_after_interrupt(env):
 def test_resource_release_after_interrupt(env):
     """A process needs to release a resource, even it it was interrupted
     and does not continue to wait for it."""
+    def pem(env, res):
+        yield res.request()
+        yield env.timeout(1)
+        res.release()
+
     def victim(env, res):
         try:
             evt = res.request()
@@ -87,19 +97,14 @@ def test_resource_release_after_interrupt(env):
             assert env.now == 0
             env.exit()
 
-    def pem(env, res):
-        yield res.request()
-        assert env.now == 0
-        res.release()
-
     def interruptor(env, proc):
         proc.interrupt()
-        env.exit(0)
-        yield
+        yield env.exit(0)
 
     res = simpy.Resource(env, 1)
-    victim_proc = env.start(victim(env, res))
-    env.start(interruptor(env, victim_proc))
+    env.start(pem(env, res))
+    proc = env.start(victim(env, res))
+    env.start(interruptor(env, proc))
     env.start(pem(env, res))
     simpy.simulate(env)
 
