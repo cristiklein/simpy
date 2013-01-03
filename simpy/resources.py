@@ -53,7 +53,7 @@ class Resource(object):
         self.capacity = capacity
         """The resource's maximum capacity."""
 
-        self.queue = queue if queue is not None else FIFO()
+        self.queue = FIFO() if queue is None else queue
         """The queue of waiting processes. Read only."""
 
         self.users = []
@@ -97,16 +97,16 @@ class Resource(object):
         try:
             self.users.remove(proc)
         except ValueError:
-            # Check if the process is still waiting and remove it
-            for i in range(len(self.queue)):
-                if self.queue[i][1] is proc:
-                    del self.queue[i]
-                break
-            else:
+            # Check if the process is still waiting and remove it (this
+            # happens if the process is interrupted while waiting).
+            try:
+                self.queue.remove(proc)
+            except ValueError:
                 # The process is neither in the users list nor in the queue
                 raise ValueError('Cannot release resource for %s since it was '
                                  'not previously requested by it.' % proc)
 
+        # Resume the next user if there is one
         if self.queue:
             event, next_user = self.queue.pop()
             self.users.append(next_user)
