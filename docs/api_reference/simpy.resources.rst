@@ -4,4 +4,4 @@
 
 
 .. automodule:: simpy.resources
-   :members: Resource, Container, Store
+   :members: ResourceEvent, Resource, Container, Store
