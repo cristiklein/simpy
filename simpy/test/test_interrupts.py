@@ -60,7 +60,7 @@ def test_init_interrupt(env):
     def child(env):
         try:
             yield env.timeout(10)
-            pytest.fail('Should have been interrrupted.')
+            pytest.fail('Should have been interrupted.')
         except simpy.Interrupt:
             assert env.now == 0
 
