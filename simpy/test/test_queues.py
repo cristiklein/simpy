@@ -5,14 +5,16 @@ from simpy.queues import FIFO, LIFO, Priority
 
 IN = 0
 OUT = 1
-REMOVE = 2
+ITER = 2
+REMOVE = 3
 
 seq_fifo = [
     (OUT, IndexError),
     (IN, 2), (IN, 3), (IN, 1),
+    (ITER, [2, 3, 1]),
     (OUT, 2), (OUT, 3),
     (IN, 4), (IN, 5),
-    (REMOVE, 4),
+    (REMOVE, 1),
     (OUT, 1), (OUT, 5),
     (OUT, IndexError),
 ]
@@ -20,9 +22,10 @@ seq_fifo = [
 seq_lifo = [
     (OUT, IndexError),
     (IN, 2), (IN, 3), (IN, 1),
+    (ITER, [2, 3, 1]),
     (OUT, 1), (OUT, 3),
     (IN, 4), (IN, 5),
-    (REMOVE, 4),
+    (REMOVE, 1),
     (OUT, 5), (OUT, 2),
     (OUT, IndexError),
 ]
@@ -30,9 +33,10 @@ seq_lifo = [
 seq_priority = [
     (OUT, IndexError),
     (IN, 2), (IN, 3), (IN, 1),
+    (ITER, [1, 3, 2]),
     (OUT, 1), (OUT, 2),
     (IN, 4), (IN, 1), (IN, 5),
-    (REMOVE, 3),
+    (REMOVE, 2),
     (OUT, 1), (OUT, 4), (OUT, 5),
     (OUT, IndexError),
 ]
@@ -64,9 +68,11 @@ def test_queues(Queue, seq):
                 q.push(item)
             assert item in q
             assert len(q) == orig_len + 1
+        elif action is ITER:
+            assert [i for i in q] == item
         elif action is REMOVE:
             orig_len = len(q)
-            q.remove(item)
+            del q[item]
             assert len(q) == orig_len - 1
         else:
             val = q.pop()

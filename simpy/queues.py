@@ -16,7 +16,9 @@ class Queue(object):
 
     Its internal data store is a :class:`~collections.deque`.
 
-    The Queue supports Python's ``in`` keyword and :func:`len()`.
+    The Queue implements the :meth:`~object.__len__()`,
+    :meth:`~object.__iter__()` and :meth:`~object.__delitem__()`
+    methods.
 
     """
     def __init__(self):
@@ -25,8 +27,11 @@ class Queue(object):
     def __len__(self):
         return len(self._data)
 
-    def __contains__(self, item):
-        return item in self._data
+    def __iter__(self):
+        return iter(self._data)
+
+    def __delitem__(self, key):
+        del self._data[key]
 
     def remove(self, item):
         """Remove ``item`` from the queue.
@@ -117,18 +122,17 @@ class Priority(Queue):
         super(Priority, self).__init__()
         self._data = []
 
-    def __contains__(self, item):
-        for prio, elem in self._data:
-            if elem == item:
-                return True
-        return False
+    def __iter__(self):
+        return (item for priority, item in self._data)
 
-    def remove(self, item):
-        for i in range(len(self._data)):
-            if self._data[i][1] == item:
-                del self._data[i]
-                return
-        raise ValueError('Priority.remove(x): x not in list.')
+    def __delitem__(self, key):
+        del self._data[key]
+        # Recreate the heap, because the "del" might have corrupted the
+        # heap order.
+        new_heap = []
+        for item in self._data:
+            heappush(new_heap, item)
+        self._data = new_heap
 
     def pop(self):
         """Remove and return the smallest element from the queue.
