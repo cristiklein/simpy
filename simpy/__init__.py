@@ -13,8 +13,7 @@ Core classes and functions
   schedule events).
 - :class:`Process`: This class represents a PEM while
   it is executed in an environment. An instance of it is returned by
-  :meth:`Environment.start()`. It inherits
-  :class:`BaseEvent`.
+  :meth:`Environment.start()`. It inherits :class:`Event`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 - :func:`peek()`: Return the next event's time.

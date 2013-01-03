@@ -33,14 +33,6 @@ class Queue(object):
     def __delitem__(self, key):
         del self._data[key]
 
-    def remove(self, item):
-        """Remove ``item`` from the queue.
-
-        Raise a :exc:`ValueError` if ``item`` is not in the queue.
-
-        """
-        self._data.remove(item)
-
     def pop(self):
         """Get and remove an item from the Queue.
 
