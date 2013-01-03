@@ -1,6 +1,7 @@
 """
 This modules contains simpy's resource types:
 
+- :class:`ResourceEvent`: Event type used by :class:`Resource`.
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
 - :class:`Container`: Models the production and consumption of a
@@ -12,10 +13,35 @@ This modules contains simpy's resource types:
   TODO: add more documentation.
 
 """
+from simpy.core import Event
 from simpy.queues import FIFO
 
 
 Infinity = float('inf')
+
+
+class ResourceEvent(Event):
+    """A normal :class:`~simpy.core.Event` that can be used as a
+    context manager.
+
+    A *ResourceEvent* is returned by :meth:`Resource.request()`:
+
+    .. code-block:: python
+
+        with resource.request() as request:
+            yield request
+
+    """
+    def __init__(self, env, resource):
+        super(ResourceEvent, self).__init__(env)
+        self._resource = resource
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, value, traceback):
+        self._resource.release()
+        return exc_type
 
 
 class Resource(object):
@@ -72,7 +98,7 @@ class Resource(object):
         process until another process releases the resource again.
 
         """
-        event = self._env.event()
+        event = ResourceEvent(self._env, self)
         proc = self._env.active_process
 
         if len(self.users) < self.capacity:
@@ -99,9 +125,11 @@ class Resource(object):
         except ValueError:
             # Check if the process is still waiting and remove it (this
             # happens if the process is interrupted while waiting).
-            try:
-                self.queue.remove(proc)
-            except ValueError:
+            for i, (evt, q_proc) in enumerate(self.queue):
+                if q_proc is proc:
+                    del self.queue[i]
+                    break
+            else:
                 # The process is neither in the users list nor in the queue
                 raise ValueError('Cannot release resource for %s since it was '
                                  'not previously requested by it.' % proc)
