@@ -13,8 +13,6 @@ most important ones are directly importable via :mod:`simpy`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 
-- :class:`BaseEvent`: Base class for all events.
-
 - :class:`Event`: A simple event that can be used to implement things
   like shared resources.
 
@@ -36,11 +34,6 @@ from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
 
-
-# BaseEvent types/priorities
-EVT_INIT = 0       # First event after a proc was started
-EVT_INTERRUPT = 1  # Throw an interrupt into the PEG
-EVT_RESUME = 2     # Default event, send value into the PEG
 
 # Constants for successful and failed events
 SUCCEED = True
@@ -75,7 +68,7 @@ class Interrupt(Exception):
         return self.args[0]
 
 
-class BaseEvent(object):
+class Event(object):
     """Base class for all events.
 
     Every event is bound to an :class:`Environment` ``env`` and has a
@@ -100,7 +93,7 @@ class BaseEvent(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env')
+    __slots__ = ('callbacks', 'env', '_triggered')
 
     def __init__(self, env):
         self.callbacks = []
@@ -108,41 +101,10 @@ class BaseEvent(object):
         processed."""
         self.env = env
         """The :class:`Environment` the event lives in."""
+        self._triggered = False
 
     def __str__(self):
         return '%s()' % self.__class__.__name__
-
-    def __and__(self, other):
-        if type(other) is Condition and other._evaluate is all_events:
-            other &= self
-            return other
-        else:
-            return Condition(self.env, all_events, [self, other])
-
-    def __or__(self, other):
-        if type(other) is Condition and other._evaluate is any_event:
-            other |= self
-            return other
-        else:
-            return Condition(self.env, any_event, [self, other])
-
-
-class Event(BaseEvent):
-    """A simple event that can be scheduled by calling its
-    :meth:`succeed()` or :meth:`fail()` method.
-
-    You should not instantiate this class directly, but call the factory
-    method :meth:`Environment.event()` instead.
-
-    """
-    __slots__ = ('callbacks', 'env')
-
-    def __init__(self, env):
-        self.callbacks = []
-        """List of functions that are called when the event is
-        processed."""
-        self.env = env
-        """The :class:`Environment` the event lives in."""
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
@@ -154,7 +116,7 @@ class Event(BaseEvent):
         scheduled.
 
         """
-        self.env._schedule(EVT_RESUME, self, SUCCEED, value)
+        self.env._schedule(self, SUCCEED, value)
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -171,10 +133,16 @@ class Event(BaseEvent):
         """
         if not isinstance(exception, Exception):
             raise ValueError('%s is not an exception.' % exception)
-        self.env._schedule(EVT_RESUME, self, FAIL, exception)
+        self.env._schedule(self, FAIL, exception)
+
+    def __and__(self, other):
+        return Condition(self.env, all_events, [self, other])
+
+    def __or__(self, other):
+        return Condition(self.env, any_event, [self, other])
 
 
-class Condition(BaseEvent):
+class Condition(Event):
     """A *Condition* event groups several ``events`` and is triggered if
     a given condition (implemented by the ``evaluate`` function) becomes
     true.
@@ -201,7 +169,7 @@ class Condition(BaseEvent):
                  '_sub_conditions')
 
     def __init__(self, env, evaluate, events):
-        BaseEvent.__init__(self, env)
+        Event.__init__(self, env)
         self._evaluate = evaluate
         self._results = {}
         self._events = []
@@ -217,7 +185,7 @@ class Condition(BaseEvent):
     def __str__(self):
         return '%s(%s, [%s])' % (self.__class__.__name__,
                 self._evaluate.__name__,
-                ', '.join([str(target) for target in self.targets]))
+                ', '.join([str(event) for event in self._events]))
 
     def _get_results(self):
         """Recursively collects the current results of all nested
@@ -259,23 +227,15 @@ class Condition(BaseEvent):
         if so."""
         self._results[event] = value
 
-        if self.callbacks is None:
-            # The condition has already been processed.
-            return
-
-        if evt_type is FAIL:
-            # Abort if the event has failed.
-            self.env._schedule(EVT_RESUME, self, FAIL, value)
-
-            # Do not listen to any of the remaining events.
-            for event in self._events:
-                if event.callbacks:
-                    event.callbacks.remove(self._check)
-        elif self._evaluate(self._events, self._results):
-            # The condition has been met. Schedule the event with an empty
-            # dictionary as value. The _collect_results callback will populate
-            # this dictionary once this condition gets processed.
-            self.env._schedule(EVT_RESUME, self, SUCCEED, {})
+        if not self._triggered:
+            if evt_type is FAIL:
+                # Abort if the event has failed.
+                self.env._schedule(self, FAIL, value)
+            elif self._evaluate(self._events, self._results):
+                # The condition has been met. Schedule the event with an empty
+                # dictionary as value. The _collect_results callback will
+                # populate this dictionary once this condition gets processed.
+                self.env._schedule(self, SUCCEED, {})
 
     def __iand__(self, other):
         if self._evaluate is not all_events:
@@ -304,7 +264,7 @@ def any_event(events, results):
     return len(results) > 0
 
 
-class Timeout(BaseEvent):
+class Timeout(Event):
     """An event that is scheduled with a certain ``delay`` after its
     creation.
 
@@ -322,20 +282,22 @@ class Timeout(BaseEvent):
         processed."""
         self.env = env
         """The :class:`Environment` the timeout lives in."""
+        self._triggered = False
 
         self._delay = delay
         self._value = value
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
-        env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+        env._schedule(self, SUCCEED, value, delay)
 
     def __str__(self):
         return '%s(%s%s)' % (self.__class__.__name__, self._delay,
-                    '' if self._value is None else (', value=' + self._value))
+                    '' if self._value is None else
+                    (', value=' + str(self._value)))
 
 
-class Process(BaseEvent):
+class Process(Event):
     """A *Process* is a wrapper for instantiated PEMs during their
     execution.
 
@@ -362,12 +324,13 @@ class Process(BaseEvent):
         processed."""
         self.env = env
         """The :class:`Environment` the process lives in."""
+        self._triggered = False
 
         self._generator = generator
 
-        init = BaseEvent(env)
+        init = Event(env)
         init.callbacks.append(self._resume)
-        env._schedule(EVT_INIT, init, SUCCEED)
+        env._schedule(init, SUCCEED)
         self._target = init
 
     def __str__(self):
@@ -387,7 +350,7 @@ class Process(BaseEvent):
     @property
     def is_alive(self):
         """``True`` until the event has been processed."""
-        return self._target is not None
+        return not self._triggered
 
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
@@ -405,9 +368,9 @@ class Process(BaseEvent):
             raise RuntimeError('A process is not allowed to interrupt itself.')
 
         # Schedule interrupt event
-        event = BaseEvent(self.env)
+        event = Event(self.env)
         event.callbacks.append(self._resume)
-        self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
+        self.env._schedule(event, FAIL, Interrupt(cause))
 
     def _resume(self, event, success, value):
         """Get the next event from this process and register as a callback.
@@ -421,7 +384,7 @@ class Process(BaseEvent):
         # interrupts cause this situation. If the process dies while
         # handling the first one, the remaining interrupts must be
         # discarded.
-        if self._target is None:
+        if self._triggered:
             return
 
         # If the current target (e.g. an interrupt) isn't the one the process
@@ -471,8 +434,9 @@ class Process(BaseEvent):
             return
 
         # The process terminated. Schedule this event.
+        # FIXME Setting target to None is only needed for resources.
         self._target = None
-        self.env._schedule(EVT_RESUME, self, evt_type, result)
+        self.env._schedule(self, evt_type, result)
         self.env._active_proc = None
 
 
@@ -537,16 +501,13 @@ class Environment(object):
         """
         return Timeout(self, delay, value)
 
-    def _schedule(self, evt_type, event, succeed, value=None, delay=0):
+    def _schedule(self, event, evt_type, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
-
-        ``evt_type`` should be one of the ``EVT_*`` constants defined on
-        top of this module.
 
         If ``succeed`` is ``True``, the optional ``value`` will be sent
         into all processes waiting for that event.
 
-        If ``succeed`` is ``False``, the exception in ``value`` is
+        If ``evt_type`` is ``False``, the exception in ``value`` is
         thrown into all processes waiting for that event.
 
         The event will be scheduled at the simulation time ``self._now
@@ -556,11 +517,15 @@ class Environment(object):
         scheduled.
 
         """
+        if event._triggered:
+            raise RuntimeError('Event %s has already been triggered' % event)
+
+        event._triggered = True
+
         heappush(self._events, (
             self._now + delay,
-            evt_type,
             next(self._eid),
-            succeed,
+            evt_type,
             event,
             value,
         ))
@@ -583,15 +548,15 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
+    env._now, eid, evt_type, event, value = heappop(env._events)
 
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
     if callbacks:
         for callback in callbacks:
-            callback(event, succeed, value)
-    elif succeed == FAIL:
+            callback(event, evt_type, value)
+    elif evt_type == FAIL:
         # The event has failed, but there is no callback to handle this
         # failure.
         raise value.__cause__

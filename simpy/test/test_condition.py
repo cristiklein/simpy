@@ -78,33 +78,53 @@ def test_nested_cond_with_error(env):
     simulate(env)
 
 
-@pytest.mark.parametrize('fail_in_sub', [
-    True,
-    False,
-])
-def test_cond_with_uncaught_error(env, fail_in_sub):
+def test_cond_with_error(env):
     def explode(env, delay):
         yield env.timeout(delay)
         raise ValueError('Onoes, failed after %d!' % delay)
 
     def process(env):
         try:
-            if fail_in_sub:
-                cond = env.start(explode(env, 1)) & env.timeout(2)
-                cond |= env.start(explode(env, 2))
-            else:
-                cond = (env.timeout(0) | env.timeout(1))
-                cond &= env.start(explode(env, 1)) & env.start(explode(env, 2))
-
-            yield cond
+            yield env.start(explode(env, 0)) | env.timeout(1)
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
-            assert err.args == ('Onoes, failed after 1!',)
+            assert err.args == ('Onoes, failed after 0!',)
 
     env.start(process(env))
-    # The failure of the second explode process has not been caught
-    err = pytest.raises(ValueError, simulate, env)
-    assert err.value.args == ('Onoes, failed after 2!',)
+    simulate(env)
+
+
+def test_cond_with_nested_error(env):
+    def explode(env, delay):
+        yield env.timeout(delay)
+        raise ValueError('Onoes, failed after %d!' % delay)
+
+    def process(env):
+        try:
+            yield env.start(explode(env, 0)) & env.timeout(1) | env.timeout(1)
+            pytest.fail('The condition should have raised a ValueError')
+        except ValueError as err:
+            assert err.args == ('Onoes, failed after 0!',)
+
+    env.start(process(env))
+    simulate(env)
+
+
+def test_cond_with_uncaught_error(env):
+    """Errors that happen after the condition has been triggered are ignored
+    and do not cause the simulation to crash.
+
+    TODO Explain the reason for this behaviour."""
+    def explode(env, delay):
+        yield env.timeout(delay)
+        raise ValueError('Onoes, failed after %d!' % delay)
+
+    def process(env):
+        yield env.timeout(1) | env.start(explode(env, 2))
+
+    env.start(process(env))
+    simulate(env)
+    assert env.now == 2
 
 
 def test_iand_with_and_cond(env):
@@ -188,10 +208,28 @@ def test_immutable_results(env):
     simulate(env)
 
 
-def test_shared_condition(env):
+def test_shared_and_condition(env):
+    timeout = [env.timeout(delay, value=delay) for delay in range(3)]
+    c1 = timeout[0] & timeout[1]
+    c2 = c1 & timeout[2]
+
+    def p1(env, condition):
+        results = yield condition
+        assert results == {timeout[0]: 0, timeout[1]: 1}
+
+    def p2(env, condition):
+        results = yield condition
+        assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
+
+    env.start(p1(env, c1))
+    env.start(p2(env, c2))
+    simulate(env)
+
+
+def test_shared_or_condition(env):
     timeout = [env.timeout(delay, value=delay) for delay in range(3)]
     c1 = timeout[0] | timeout[1]
-    c2 = c1 & timeout[2]
+    c2 = c1 | timeout[2]
 
     def p1(env, condition):
         results = yield condition
@@ -199,7 +237,7 @@ def test_shared_condition(env):
 
     def p2(env, condition):
         results = yield condition
-        assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
+        assert results == {timeout[0]: 0}
 
     env.start(p1(env, c1))
     env.start(p2(env, c2))
