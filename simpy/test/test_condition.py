@@ -208,10 +208,28 @@ def test_immutable_results(env):
     simulate(env)
 
 
-def test_shared_condition(env):
+def test_shared_and_condition(env):
+    timeout = [env.timeout(delay, value=delay) for delay in range(3)]
+    c1 = timeout[0] & timeout[1]
+    c2 = c1 & timeout[2]
+
+    def p1(env, condition):
+        results = yield condition
+        assert results == {timeout[0]: 0, timeout[1]: 1}
+
+    def p2(env, condition):
+        results = yield condition
+        assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
+
+    env.start(p1(env, c1))
+    env.start(p2(env, c2))
+    simulate(env)
+
+
+def test_shared_or_condition(env):
     timeout = [env.timeout(delay, value=delay) for delay in range(3)]
     c1 = timeout[0] | timeout[1]
-    c2 = c1 & timeout[2]
+    c2 = c1 | timeout[2]
 
     def p1(env, condition):
         results = yield condition
@@ -219,7 +237,7 @@ def test_shared_condition(env):
 
     def p2(env, condition):
         results = yield condition
-        assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
+        assert results == {timeout[0]: 0}
 
     env.start(p1(env, c1))
     env.start(p2(env, c2))

@@ -13,8 +13,6 @@ most important ones are directly importable via :mod:`simpy`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 
-- :class:`BaseEvent`: Base class for all events.
-
 - :class:`Event`: A simple event that can be used to implement things
   like shared resources.
 
@@ -138,18 +136,10 @@ class Event(object):
         self.env._schedule(self, FAIL, exception)
 
     def __and__(self, other):
-        if type(other) is Condition and other._evaluate is all_events:
-            other &= self
-            return other
-        else:
-            return Condition(self.env, all_events, [self, other])
+        return Condition(self.env, all_events, [self, other])
 
     def __or__(self, other):
-        if type(other) is Condition and other._evaluate is any_event:
-            other |= self
-            return other
-        else:
-            return Condition(self.env, any_event, [self, other])
+        return Condition(self.env, any_event, [self, other])
 
 
 class Condition(Event):
