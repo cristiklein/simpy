@@ -12,6 +12,7 @@ contents of the ``*.out`` file.
 """
 import subprocess
 import sys
+import os
 
 from _pytest.assertion.util import _diff_text
 from py._code.code import TerminalRepr
@@ -60,9 +61,11 @@ class ExampleItem(pytest.Item):
         if not hasattr(subprocess, 'check_output'):  # The case on Python 2.6
             pytest.skip('subprocess has no check_output() method.')
 
+        # Add current working directory to PYTHONPATH.
+        env = dict(os.environ)
+        env['PYTHONPATH'] = '.'
         output = subprocess.check_output([sys.executable, str(self.pyfile)],
-                                         stderr=subprocess.STDOUT,
-                                         universal_newlines=True)
+                stderr=subprocess.STDOUT, universal_newlines=True, env=env)
 
         # if isinstance(output, bytes):  # The case on Python 3
         #     output = output.decode('utf8')
