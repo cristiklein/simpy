@@ -32,12 +32,12 @@ seq_lifo = [
 
 seq_priority = [
     (OUT, IndexError),
-    (IN, 2), (IN, 3), (IN, 1),
-    (ITER, [1, 3, 2]),
-    (OUT, 1), (OUT, 2),
+    (IN, 2), (IN, 1), (IN, 3),
+    (ITER, [3, 1, 2]),
+    (OUT, 3), (OUT, 2),
     (IN, 4), (IN, 1), (IN, 5),
     (REMOVE, 2),
-    (OUT, 1), (OUT, 4), (OUT, 5),
+    (OUT, 5), (OUT, 4), (OUT, 1),
     (OUT, IndexError),
 ]
 

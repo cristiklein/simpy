@@ -205,9 +205,10 @@ def test_resource_with_priority_queue(env):
         resource.release()
 
     resource = simpy.Resource(env, capacity=1, queue=simpy.Priority())
-    env.start(process(env, 0, resource, 1, 0))
-    env.start(process(env, 2, resource, 4, 10))
-    env.start(process(env, 4, resource, 2, 5))
+    env.start(process(env, 0, resource, 2, 0))
+    env.start(process(env, 2, resource, 1, 10))
+    env.start(process(env, 2, resource, 1, 15))  # Test equal priority
+    env.start(process(env, 4, resource, 4, 5))
     simpy.simulate(env)
 
 
