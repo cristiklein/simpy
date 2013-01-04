@@ -5,7 +5,8 @@ resources, namely a :class:`FIFO` and a :class:`LIFO` queue as well as a
 
 """
 from collections import deque
-from heapq import heappop, heappush
+from heapq import heappop, heappush, heapify
+from itertools import count
 
 
 class Queue(object):
@@ -113,18 +114,14 @@ class Priority(Queue):
     def __init__(self):
         super(Priority, self).__init__()
         self._data = []
+        self._item_id = count()
 
     def __iter__(self):
-        return (item for priority, item in self._data)
+        return (item for _, _, item in self._data)
 
     def __delitem__(self, key):
         del self._data[key]
-        # Recreate the heap, because the "del" might have corrupted the
-        # heap order.
-        new_heap = []
-        for item in self._data:
-            heappush(new_heap, item)
-        self._data = new_heap
+        heapify(self._data)  # "del" might have corrupted the heap order
 
     def pop(self):
         """Remove and return the smallest element from the queue.
@@ -132,14 +129,17 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return heappop(self._data)[1]
+        return heappop(self._data)[-1]
 
-    def push(self, item, priority=1):
+    def push(self, item, priority=0):
         """Push ``item`` with ``priority`` onto the heap, maintain the
         heap invariant.
 
+        A higher value for ``priority`` means a higher priority. The
+        default is ``0``.
+
         """
-        heappush(self._data, (priority, item))
+        heappush(self._data, (-priority, next(self._item_id), item))
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
@@ -147,4 +147,4 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._data[0][1]
+        return self._data[0][-1]
