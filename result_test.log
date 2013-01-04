@@ -1,0 +1,26 @@
+E simpy/test/test_single_process.py::test_discrete_time_steps[0]
+ request = <FixtureRequest for <Function 'test_discrete_time_steps[0]'>>
+ 
+     @pytest.fixture(params=[0, 1])
+     def param(request):
+ >       return request.params
+ E       AttributeError: 'FixtureRequest' object has no attribute 'params'
+ 
+ simpy/test/test_single_process.py:14: AttributeError
+E simpy/test/test_single_process.py::test_discrete_time_steps[1]
+ request = <FixtureRequest for <Function 'test_discrete_time_steps[1]'>>
+ 
+     @pytest.fixture(params=[0, 1])
+     def param(request):
+ >       return request.params
+ E       AttributeError: 'FixtureRequest' object has no attribute 'params'
+ 
+ simpy/test/test_single_process.py:14: AttributeError
+. simpy/test/test_single_process.py::test_stop_self
+. simpy/test/test_single_process.py::test_start_non_process
+. simpy/test/test_single_process.py::test_negative_hold
+. simpy/test/test_single_process.py::test_yield_none_forbidden
+. simpy/test/test_single_process.py::test_illegal_yield
+. simpy/test/test_single_process.py::test_get_process_state
+. simpy/test/test_single_process.py::test_simulate_negative_until
+. simpy/test/test_single_process.py::test_hold_value
