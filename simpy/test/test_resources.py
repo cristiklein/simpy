@@ -133,20 +133,6 @@ def test_resource_release_after_interrupt(env):
     simpy.simulate(env)
 
 
-def test_resource_illegal_release(env):
-    """A process must be either waiting for or using a resource in order
-    to release it."""
-    def pem(env, res):
-        res.release()
-        yield
-
-    res = simpy.Resource(env, 1)
-    env.start(pem(env, res))
-    with pytest.raises(ValueError) as excinfo:
-        simpy.simulate(env)
-    assert excinfo.value.args[0].startswith('Cannot release resource')
-
-
 def test_resource_cm_exception(env, log):
     """Resource with context manager receives an exception."""
     def process(env, resource, log, raise_):
@@ -213,8 +199,34 @@ def test_resource_with_priority_queue(env):
 
 
 #
-# Tests for Container
+# Tests for PreemptiveResource
 #
+
+
+def test_preemptive_resource(env, log):
+    def process(id, env, res, delay, prio, log):
+        yield env.timeout(delay)
+        with res.request(prio) as req:
+            try:
+                yield req
+                yield env.timeout(5)
+                log.append((env.now, id))
+            except simpy.Interrupt as ir:
+                log.append((env.now, id, tuple(ir.cause)))
+
+    res = simpy.PreemptiveResource(env, 2)
+    p0 = env.start(process(0, env, res, 0, 1, log))
+    p1 = env.start(process(1, env, res, 0, 1, log))
+    p2 = env.start(process(2, env, res, 1, 2, log))
+    p3 = env.start(process(3, env, res, 2, 0, log))
+
+    simpy.simulate(env)
+
+    assert log == [(1, 0, (p2, 0)), (5, 1), (6, 2), (10, 3)]
+
+
+#
+# Tests for Container
 #
 
 def test_container(env, log):
