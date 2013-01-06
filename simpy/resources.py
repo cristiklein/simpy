@@ -4,6 +4,8 @@ This modules contains simpy's resource types:
 - :class:`ResourceEvent`: Event type used by :class:`Resource`.
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
+- :class:`PreemptiveResource`: Like :class:`Resource`, but with
+  preemption.
 - :class:`Container`: Models the production and consumption of a
   homogeneous, undifferentiated bulk. It may either be continuous (like
   water) or discrete (like apples).
@@ -13,11 +15,15 @@ This modules contains simpy's resource types:
   TODO: add more documentation.
 
 """
+from collections import namedtuple
+from itertools import count
+
 from simpy.core import Event
-from simpy.queues import FIFO
+from simpy.queues import FIFO, Priority
 
 
 Infinity = float('inf')
+Preempted = namedtuple('Preempted', 'by, usage_since')
 
 
 class ResourceEvent(Event):
@@ -85,7 +91,7 @@ class Resource(object):
         self.users = []
         """The list of the resource's users. Read only."""
 
-    def request(self, *q_args, **q_kwargs):
+    def request(self, **kwargs):
         """Request the resource.
 
         If the maximum capacity of users is not reached, the requesting
@@ -105,15 +111,12 @@ class Resource(object):
             self.users.append(proc)
             event.succeed()
         else:
-            self.queue.push((event, proc), *q_args, **q_kwargs)
+            self.queue.push((event, proc), **kwargs)
 
         return event
 
     def release(self):
         """Release the resource for the active process.
-
-        Raise a :exc:`ValueError` if the process did not request the
-        resource in the first place.
 
         If another process is waiting for the resource, resume that
         process.
@@ -129,16 +132,110 @@ class Resource(object):
                 if q_proc is proc:
                     del self.queue[i]
                     break
-            else:
-                # The process is neither in the users list nor in the queue
-                raise ValueError('Cannot release resource for %s since it was '
-                                 'not previously requested by it.' % proc)
 
         # Resume the next user if there is one
         if self.queue:
             event, next_user = self.queue.pop()
             self.users.append(next_user)
             event.succeed()
+
+
+class PreemptiveResource(object):
+    """This resource mostly works like :class:`Resource`, but users of
+    the resource can be preempted by higher prioritized processes.
+
+    The resources uses a :class:`simpy.queues.Priority` queue by
+    default. If you pass a custom ``queue`` instance, its ``push()``
+    method needs to take a ``priority`` argument.
+
+    See :meth:`request()` for more information.
+
+    """
+    def __init__(self, env, capacity, queue=None):
+        self._env = env
+
+        self.capacity = capacity
+        """The resource's maximum capacity."""
+
+        self.queue = Priority() if queue is None else queue
+        """The queue of waiting processes. Read only."""
+
+        self.users = {}
+        """The list of the resource's users. Read only."""
+
+        self._user_counter = count()
+
+    def request(self, priority, **kwargs):
+        """Request the resource.
+
+        If the maximum capacity of users is not reached, the requesting
+        process obtains the resource immediately (that is, a new event
+        for it will be scheduled at the current time. That means that
+        all other events also scheduled for the current time will be
+        processed before that new event.).
+
+        If the maximum capacity is reached, check if some users of the
+        resource have a lower priority as the requesting process.
+        Preempt the user with the lowest priorities of them. If multiple
+        users have the same priority, preempt the longest user.
+
+        If no users has a lower priority, queue the requesting process.
+
+        """
+        event = ResourceEvent(self._env, self)
+        proc = self._env.active_process
+
+        if len(self.users) < self.capacity:
+            self._acquire_resource(event, priority, proc)
+        else:
+            # Check if we can preempt another process
+            users = (p_value + (p_proc,)
+                        for p_proc, p_value in self.users.items())
+            p_prio, p_time, p_userid, p_proc = sorted(users)[0]
+            # NOTE: Allow users to pass a custom "key" function to "sorted()"?
+
+            if p_prio < priority:
+                # Preempt it
+                del self.users[p_proc]
+                p_proc.interrupt(Preempted(by=proc, usage_since=p_time))
+                self._acquire_resource(event, priority, proc)
+            else:
+                # No preemption possible
+                self.queue.push((event, priority, proc), priority=priority,
+                                **kwargs)
+
+        return event
+
+    def release(self):
+        """Release the resource for the active process.
+
+        If another process is waiting for the resource, resume that
+        process.
+
+        """
+        proc = self._env.active_process
+        try:
+            del self.users[proc]
+        except KeyError:
+            # Check if the process is still waiting and remove it (this
+            # happens if the process is interrupted while waiting).
+            for i, (q_event, q_priority, q_proc) in enumerate(self.queue):
+                if q_proc is proc:
+                    del self.queue[i]
+                    break
+
+        # Resume the next user if there is one. Also check if a slot is
+        # free. This might not be the case when a preempted process
+        # calls release().
+        if self.queue and (len(self.users) < self.capacity):
+            event, priority, next_user = self.queue.pop()
+            self._acquire_resource(event, priority, next_user)
+
+    def _acquire_resource(self, event, priority, proc):
+        """Set the given process ``proc`` with ``priority`` as user of
+        the resource. Trigger the ``event`` as successful."""
+        self.users[proc] = (priority, self._env.now, next(self._user_counter))
+        event.succeed()
 
 
 class Container(object):

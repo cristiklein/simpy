@@ -28,6 +28,8 @@ Resources
 
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
+- :class:`PreemptiveResource`: Version of :class:`Resource` with
+  preemption.
 - :class:`Container`: Models the production and consumption of a
   homogeneous, undifferentiated bulk. It may either be continuous (like
   water) or discrete (like apples).
@@ -65,7 +67,7 @@ Other
 """
 from simpy.core import Environment, Interrupt, Process, peek, step, simulate
 from simpy.queues import FIFO, LIFO, Priority
-from simpy.resources import Resource, Container, Store
+from simpy.resources import Resource, PreemptiveResource, Container, Store
 
 
 __all__ = [
