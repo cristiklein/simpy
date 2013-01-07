@@ -148,6 +148,8 @@ def test_resource_cm_exception(env, log):
 
     resource = simpy.Resource(env, 1)
     env.start(process(env, resource, log, True))
+    # The second process is used to check if it was able to access the
+    # resource:
     env.start(process(env, resource, log, False))
     simpy.simulate(env)
 
@@ -162,7 +164,6 @@ def test_resource_with_condition(env):
         resource.release()
 
     resource = simpy.Resource(env, 1)
-    env.start(process(env, resource))
     env.start(process(env, resource))
     simpy.simulate(env)
 

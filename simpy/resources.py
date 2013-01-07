@@ -47,7 +47,6 @@ class ResourceEvent(Event):
 
     def __exit__(self, exc_type, value, traceback):
         self._resource.release()
-        return exc_type
 
 
 class Resource(object):
