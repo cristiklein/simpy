@@ -12,6 +12,9 @@ from itertools import count
 class Queue(object):
     """Abstract base queue class for SimPy. It can't be used directly.
 
+    Queues can have a maxium length that can be specified via the
+    ``maxlen`` parameter which defaults to ``0`` (unbound).
+
     Deriving classes have to implement :meth:`pop()`, :meth:`push()` and
     :meth:`peek()`.
 
@@ -22,7 +25,10 @@ class Queue(object):
     methods.
 
     """
-    def __init__(self):
+    def __init__(self, maxlen=0):
+        self.maxlen = maxlen
+        """The maximum length of the queue."""
+
         self._data = deque()
 
     def __len__(self):
@@ -37,19 +43,34 @@ class Queue(object):
     def pop(self):
         """Get and remove an item from the Queue.
 
-        Raise a :exc:`IndexError` if the Queue is empty.
+        Must be implemented by subclasses.
+
+        Raise an :exc:`IndexError` if the Queue is empty.
 
         """
         raise NotImplemented
 
     def push(self, item):
-        """Append ``item`` to the queue."""
+        """Append ``item`` to the queue.
+
+        Must be implemented by subclasses.
+
+        Raise a :exc:`ValueError` if the queue's max. length is reached.
+
+        """
         raise NotImplemented
+
+    def _check_push(self):
+        """Raise a :exc:`ValueError` if the queue's max. length is reached."""
+        if self.maxlen and len(self._data) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
 
     def peek(self):
         """Get (but don't remove) the same item as :meth:`pop()` would do.
 
-        Raise a :exc:`IndexError` if Queue is empty.
+        Must be implemented by subclasses.
+
+        Raise an :exc:`IndexError` if Queue is empty.
 
         """
         raise NotImplemented
@@ -68,7 +89,8 @@ class FIFO(Queue):
 
     def push(self, item):
         """Append ``item`` to the right side of the queue."""
-        return self._data.append(item)
+        super(FIFO, self)._check_push()
+        self._data.append(item)
 
     def peek(self):
         """Return, but don't remove, an element from the left side of
@@ -93,6 +115,7 @@ class LIFO(Queue):
 
     def push(self, item):
         """Append ``item`` to the right side of the queue."""
+        super(LIFO, self)._check_push()
         return self._data.append(item)
 
     def peek(self):
@@ -111,8 +134,8 @@ class Priority(Queue):
     It uses a heap queue (:mod:`heapq`) as internal data store.
 
     """
-    def __init__(self):
-        super(Priority, self).__init__()
+    def __init__(self, maxlen=0):
+        super(Priority, self).__init__(maxlen)
         self._data = []
         self._item_id = count()
 
@@ -139,6 +162,7 @@ class Priority(Queue):
         default is ``0``.
 
         """
+        super(Priority, self)._check_push()
         heappush(self._data, (-priority, next(self._item_id), item))
 
     def peek(self):

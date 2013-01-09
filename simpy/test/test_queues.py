@@ -77,3 +77,15 @@ def test_queues(Queue, seq):
         else:
             val = q.pop()
             assert val == item
+
+
+@pytest.mark.parametrize('Queue', [
+    FIFO,
+    LIFO,
+    Priority,
+])
+def test_maxlen(Queue):
+    q = Queue(maxlen=2)
+    q.push(1)
+    q.push(2)
+    pytest.raises(ValueError, q.push, 3)
