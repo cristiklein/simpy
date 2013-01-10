@@ -1,7 +1,6 @@
 """
 This modules contains simpy's resource types:
 
-- :class:`ResourceEvent`: Event type used by :class:`Resource`.
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
 - :class:`PreemptiveResource`: Like :class:`Resource`, but with
@@ -11,12 +10,10 @@ This modules contains simpy's resource types:
   water) or discrete (like apples).
 - :class:`Store`: Allows the production and consumption of discrete
   Python objects.
-
-  TODO: add more documentation.
+- :class:`ResourceEvent`: Event type used by :class:`Resource`.
 
 """
 from collections import namedtuple
-from itertools import count
 
 from simpy.core import Event
 from simpy.queues import FIFO, Priority
@@ -38,19 +35,122 @@ class ResourceEvent(Event):
             yield request
 
     """
-    def __init__(self, env, resource, proc, data):
+    def __init__(self, resource, proc, kwargs, key):
+        env = resource._env
         super(ResourceEvent, self).__init__(env)
-        self._resource = resource
 
-        # These attributes are used by the resource implementations.
-        self.proc = proc
-        self.data = data
+        self._resource = resource
+        self._proc = proc
+
+        self.time = env.now
+        """Time that this event was created on."""
+
+        self.kwargs = kwargs
+        """``**kwargs`` that were passed to :meth:`Resource.request()`."""
+
+        self.key = key(self)
+        """Value that is used for sorting resource events."""
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, value, traceback):
-        self._resource.release()
+        self.release()
+
+    def release(self):
+        """Release the resource for this event.
+
+        If another process is waiting for the resource, resume that
+        process.
+
+        """
+        users = self._resource.users
+        queue = self._resource.queue
+        try:
+            users.remove(self)
+        except ValueError:
+            try:
+                queue.remove(self)
+            except ValueError:
+                pass
+        else:
+            # Resume the next user if there is one
+            if queue:
+                event = queue.pop()
+                users.add(event)
+
+
+class UserQueue(object):
+    """Default user queue implementation used by :class:`Resource`.
+
+    Upon request, it adds a user if a slot is available and does nothing
+    if not.
+
+    """
+    def __init__(self, capacity):
+        self._capacity = capacity
+        self._users = []
+
+    def add(self, event):
+        """Add ``event`` to the user queue if a slot is available.
+
+        Return ``True`` if the event could be added, ``False`` if not.
+
+        """
+        if len(self._users) < self._capacity:
+            self._users.append(event)
+            event.succeed()
+            return True
+
+        return False
+
+    def remove(self, event):
+        """Remove ``event`` from the users queue.
+
+        Raise a :exc:`ValueError` if the event is not in the queue.
+
+        """
+        self._users.remove(event)
+
+
+class PreemptiveUserQueue(UserQueue):
+    """Inherits :class:`UserQueue` and adds preemption to it.
+
+    If no slot is available for a new user, it checks if it can preempt
+    another user.
+
+    """
+    def add(self, event):
+        """Try to add ``event`` to the user queue. If this fails, try to
+        preempt another user.
+
+        The preemption is done by comparing the
+        :attr:`~ResourceEvent.key` attributes of all users. If one of
+        them is greater than the key of ``event``, it will be preempted
+        and an :class:`~simpy.core.Interrupt` is thrown into the
+        corresponding process.
+
+        Return ``True`` if ``event`` could be added to the users (either
+        normally or by preemption), ``False`` if not.
+
+        """
+        acquired = super(PreemptiveUserQueue, self).add(event)
+        if acquired:
+            return True
+
+        # Check if we can preempt another process
+        preempt = sorted(self._users, key=lambda evt: evt.key)[-1]
+
+        if preempt.key > event.key:
+            self._users.remove(preempt)
+            preempt._proc.interrupt(Preempted(by=event._proc,
+                                              usage_since=preempt.time))
+            acquired = super(PreemptiveUserQueue, self).add(event)
+            if not acquired:
+                raise RuntimeError('Preemption failed.')
+            return True
+
+        return False
 
 
 class Resource(object):
@@ -77,22 +177,48 @@ class Resource(object):
     :class:`~simpy.queues.LIFO` and a :class:`~simpy.queues.Priority`
     queue.
 
-    You can get the list of users via the :attr:`users` attribute and
-    the queue of waiting processes via :attr:`queue`. You should not
-    change these, though.
+    ``user_queue`` defines the user queue to use. A user queue
+    implements how and if a process can acquire the resource. The
+    default user queue (:class:`UserQueue`) only adds a user if a slot
+    is free and causes it to be pushed to the waiters queue if not. The
+    :class:`PreemptiveUserQueue` on the other side may preempt another
+    user if its priority is lower than that of the requesting user.
+
+    You can specify the way users (or :class:`ResourceEvent`, to be
+    precise) are compared by passing a ``key`` function that extracts
+    the comparison key from the :class:`ResourceEvent` (see
+    :func:`sorted()` for more details). `Smaller` events are favored by
+    the :class:`~simpy.queues.Priority` queue and are less likely to be
+    preempted.
+
+    Note, that the ``key`` function is not used by all queues and users
+    queues. Built-in classes that use it: :class:`PreemptiveUserQueue`,
+    :class:`~simpy.queues.Priority`. By default, events are sorted by
+    the time that they requested the resource (``key=lambda event:
+    event.time``).
 
     """
-    def __init__(self, env, capacity, queue=None):
+    def __init__(self, env, capacity, queue=None, user_queue=None, key=None):
         self._env = env
-
-        self.capacity = capacity
-        """The resource's maximum capacity."""
 
         self.queue = FIFO() if queue is None else queue
         """The queue of waiting processes. Read only."""
 
-        self.users = {}
+        self.users = user_queue if user_queue else UserQueue(capacity)
         """The list of the resource's users. Read only."""
+
+        self.key = key if key else lambda evt: evt.time
+        """Function that can be used for ``key`` in :func:`sorted()`."""
+
+    @property
+    def count(self):
+        """Number of users currently using the resource."""
+        return len(self.users._users)
+
+    @property
+    def capacity(self):
+        """Maximum capacity of the resource."""
+        return self.users._capacity
 
     def request(self, **kwargs):
         """Request the resource.
@@ -108,108 +234,35 @@ class Resource(object):
 
         """
         proc = self._env.active_process
-        event = ResourceEvent(self._env, self, proc, self._get_data(kwargs))
+        event = ResourceEvent(self, proc, kwargs, self.key)
 
-        if len(self.users) < self.capacity:
-            self._acquire_resource(event, **kwargs)
-        else:
-            self._resource_occupied(event, kwargs)
+        acquired = self.users.add(event)
+        if not acquired:
+            self.queue.push(event)
 
         return event
-
-    def release(self):
-        """Release the resource for the active process.
-
-        If another process is waiting for the resource, resume that
-        process.
-
-        """
-        proc = self._env.active_process
-        try:
-            del self.users[proc]
-        except KeyError:
-            # Check if the process is still waiting and remove it (this
-            # happens if the process is interrupted while waiting).
-            for i, evt in enumerate(self.queue):
-                if evt.proc is proc:
-                    del self.queue[i]
-                    break
-
-        # Resume the next user if there is one
-        if self.queue and (len(self.users) < self.capacity):
-            event = self.queue.pop()
-            self._acquire_resource(event)
-
-    def _acquire_resource(self, event, **kwargs):
-        self.users[event.proc] = event.data
-        event.succeed()
-
-    def _get_data(self, kwargs):
-        return None
-
-    def _resource_occupied(self, event, kwargs):
-        self.queue.push(event, **kwargs)
 
 
 class PreemptiveResource(Resource):
     """This resource mostly works like :class:`Resource`, but users of
     the resource can be preempted by higher prioritized processes.
 
-    The resources uses a :class:`simpy.queues.Priority` queue by
-    default. If you pass a custom ``queue`` instance, its ``push()``
-    method needs to take a ``priority`` argument.
+    The resources uses a :class:`simpy.queues.Priority` queue and the
+    :class:`PreemptiveUserQueue` by default. The default ``key``
+    function sorts by the ``priority`` keyword (that has to be passed to
+    every :meth:`Resource.request()` call and the time of the request:
+    ``key=lambda event: (event.kwargs['prioriy'], evt.time)`` (A lower
+    number means a higher priority!))
 
-    See :meth:`request()` for more information.
+    See :meth:`Resource.request()` for more information.
 
     """
-    def __init__(self, env, capacity, queue=None):
+    def __init__(self, env, capacity, queue=None, key=None):
         queue = Priority() if queue is None else queue
-        super(PreemptiveResource, self).__init__(env, capacity, queue)
-        self._user_counter = count()
-
-    def request(self, priority, **kwargs):
-        """Request the resource.
-
-        If the maximum capacity of users is not reached, the requesting
-        process obtains the resource immediately (that is, a new event
-        for it will be scheduled at the current time. That means that
-        all other events also scheduled for the current time will be
-        processed before that new event.).
-
-        If the maximum capacity is reached, check if some users of the
-        resource have a lower priority as the requesting process.
-        Preempt the user with the lowest priorities of them. If multiple
-        users have the same priority, preempt the longest user.
-
-        If no users has a lower priority, queue the requesting process.
-
-        """
-        kwargs.update(priority=priority)
-        return super(PreemptiveResource, self).request(**kwargs)
-
-    def _get_data(self, kwargs):
-        return (
-            kwargs['priority'],
-            self._env.now,
-            next(self._user_counter),
-        )
-
-    def _resource_occupied(self, event, kwargs):
-        # Check if we can preempt another process
-        users = (u_data + (u_proc,) for u_proc, u_data in self.users.items())
-        p_prio, p_time, p_userid, p_proc = sorted(users)[0]
-        # NOTE: Allow users to pass a custom "key" function to "sorted()"?
-
-        priority = kwargs['priority']
-        proc = event.proc
-        if p_prio < priority:
-            # Preempt it
-            del self.users[p_proc]
-            p_proc.interrupt(Preempted(by=proc, usage_since=p_time))
-            self._acquire_resource(event, **kwargs)
-        else:
-            # No preemption possible
-            self.queue.push(event, **kwargs)
+        users = PreemptiveUserQueue(capacity)
+        key = lambda evt: (evt.kwargs['priority'], evt.time)
+        super(PreemptiveResource, self).__init__(env, capacity, queue, users,
+                                                 key)
 
 
 class Container(object):
