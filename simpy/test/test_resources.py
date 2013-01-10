@@ -207,7 +207,7 @@ def test_resource_with_priority_queue(env):
 def test_preemptive_resource(env, log):
     def process(id, env, res, delay, prio, log):
         yield env.timeout(delay)
-        with res.request(prio) as req:
+        with res.request(priority=prio) as req:
             try:
                 yield req
                 yield env.timeout(5)

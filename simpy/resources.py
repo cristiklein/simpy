@@ -38,9 +38,13 @@ class ResourceEvent(Event):
             yield request
 
     """
-    def __init__(self, env, resource):
+    def __init__(self, env, resource, proc, data):
         super(ResourceEvent, self).__init__(env)
         self._resource = resource
+
+        # These attributes are used by the resource implementations.
+        self.proc = proc
+        self.data = data
 
     def __enter__(self):
         return self
@@ -87,7 +91,7 @@ class Resource(object):
         self.queue = FIFO() if queue is None else queue
         """The queue of waiting processes. Read only."""
 
-        self.users = []
+        self.users = {}
         """The list of the resource's users. Read only."""
 
     def request(self, **kwargs):
@@ -103,14 +107,13 @@ class Resource(object):
         process until another process releases the resource again.
 
         """
-        event = ResourceEvent(self._env, self)
         proc = self._env.active_process
+        event = ResourceEvent(self._env, self, proc, self._get_data(kwargs))
 
         if len(self.users) < self.capacity:
-            self.users.append(proc)
-            event.succeed()
+            self._acquire_resource(event, **kwargs)
         else:
-            self.queue.push((event, proc), **kwargs)
+            self._resource_occupied(event, kwargs)
 
         return event
 
@@ -123,23 +126,32 @@ class Resource(object):
         """
         proc = self._env.active_process
         try:
-            self.users.remove(proc)
-        except ValueError:
+            del self.users[proc]
+        except KeyError:
             # Check if the process is still waiting and remove it (this
             # happens if the process is interrupted while waiting).
-            for i, (evt, q_proc) in enumerate(self.queue):
-                if q_proc is proc:
+            for i, evt in enumerate(self.queue):
+                if evt.proc is proc:
                     del self.queue[i]
                     break
 
         # Resume the next user if there is one
-        if self.queue:
-            event, next_user = self.queue.pop()
-            self.users.append(next_user)
-            event.succeed()
+        if self.queue and (len(self.users) < self.capacity):
+            event = self.queue.pop()
+            self._acquire_resource(event)
+
+    def _acquire_resource(self, event, **kwargs):
+        self.users[event.proc] = event.data
+        event.succeed()
+
+    def _get_data(self, kwargs):
+        return None
+
+    def _resource_occupied(self, event, kwargs):
+        self.queue.push(event, **kwargs)
 
 
-class PreemptiveResource(object):
+class PreemptiveResource(Resource):
     """This resource mostly works like :class:`Resource`, but users of
     the resource can be preempted by higher prioritized processes.
 
@@ -151,17 +163,8 @@ class PreemptiveResource(object):
 
     """
     def __init__(self, env, capacity, queue=None):
-        self._env = env
-
-        self.capacity = capacity
-        """The resource's maximum capacity."""
-
-        self.queue = Priority() if queue is None else queue
-        """The queue of waiting processes. Read only."""
-
-        self.users = {}
-        """The list of the resource's users. Read only."""
-
+        queue = Priority() if queue is None else queue
+        super(PreemptiveResource, self).__init__(env, capacity, queue)
         self._user_counter = count()
 
     def request(self, priority, **kwargs):
@@ -181,60 +184,32 @@ class PreemptiveResource(object):
         If no users has a lower priority, queue the requesting process.
 
         """
-        event = ResourceEvent(self._env, self)
-        proc = self._env.active_process
+        kwargs.update(priority=priority)
+        return super(PreemptiveResource, self).request(**kwargs)
 
-        if len(self.users) < self.capacity:
-            self._acquire_resource(event, priority, proc)
+    def _get_data(self, kwargs):
+        return (
+            kwargs['priority'],
+            self._env.now,
+            next(self._user_counter),
+        )
+
+    def _resource_occupied(self, event, kwargs):
+        # Check if we can preempt another process
+        users = (u_data + (u_proc,) for u_proc, u_data in self.users.items())
+        p_prio, p_time, p_userid, p_proc = sorted(users)[0]
+        # NOTE: Allow users to pass a custom "key" function to "sorted()"?
+
+        priority = kwargs['priority']
+        proc = event.proc
+        if p_prio < priority:
+            # Preempt it
+            del self.users[p_proc]
+            p_proc.interrupt(Preempted(by=proc, usage_since=p_time))
+            self._acquire_resource(event, **kwargs)
         else:
-            # Check if we can preempt another process
-            users = (p_value + (p_proc,)
-                        for p_proc, p_value in self.users.items())
-            p_prio, p_time, p_userid, p_proc = sorted(users)[0]
-            # NOTE: Allow users to pass a custom "key" function to "sorted()"?
-
-            if p_prio < priority:
-                # Preempt it
-                del self.users[p_proc]
-                p_proc.interrupt(Preempted(by=proc, usage_since=p_time))
-                self._acquire_resource(event, priority, proc)
-            else:
-                # No preemption possible
-                self.queue.push((event, priority, proc), priority=priority,
-                                **kwargs)
-
-        return event
-
-    def release(self):
-        """Release the resource for the active process.
-
-        If another process is waiting for the resource, resume that
-        process.
-
-        """
-        proc = self._env.active_process
-        try:
-            del self.users[proc]
-        except KeyError:
-            # Check if the process is still waiting and remove it (this
-            # happens if the process is interrupted while waiting).
-            for i, (q_event, q_priority, q_proc) in enumerate(self.queue):
-                if q_proc is proc:
-                    del self.queue[i]
-                    break
-
-        # Resume the next user if there is one. Also check if a slot is
-        # free. This might not be the case when a preempted process
-        # calls release().
-        if self.queue and (len(self.users) < self.capacity):
-            event, priority, next_user = self.queue.pop()
-            self._acquire_resource(event, priority, next_user)
-
-    def _acquire_resource(self, event, priority, proc):
-        """Set the given process ``proc`` with ``priority`` as user of
-        the resource. Trigger the ``event`` as successful."""
-        self.users[proc] = (priority, self._env.now, next(self._user_counter))
-        event.succeed()
+            # No preemption possible
+            self.queue.push(event, **kwargs)
 
 
 class Container(object):
