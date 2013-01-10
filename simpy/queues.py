@@ -5,8 +5,6 @@ resources, namely a :class:`FIFO` and a :class:`LIFO` queue as well as a
 
 """
 from collections import deque
-from heapq import heappop, heappush, heapify
-from itertools import count
 
 
 class Queue(object):
@@ -20,28 +18,20 @@ class Queue(object):
 
     Its internal data store is a :class:`~collections.deque`.
 
-    The Queue implements the :meth:`~object.__len__()`,
-    :meth:`~object.__iter__()` and :meth:`~object.__delitem__()`
-    methods.
+    The Queue implements the :meth:`~object.__len__()` method.
 
     """
     def __init__(self, maxlen=0):
         self.maxlen = maxlen
         """The maximum length of the queue."""
 
-        self._data = deque()
+        self._events = deque()
 
     def __len__(self):
-        return len(self._data)
-
-    def __iter__(self):
-        return iter(self._data)
-
-    def __delitem__(self, key):
-        del self._data[key]
+        return len(self._events)
 
     def pop(self):
-        """Get and remove an item from the Queue.
+        """Get and remove an event from the Queue.
 
         Must be implemented by subclasses.
 
@@ -50,8 +40,8 @@ class Queue(object):
         """
         raise NotImplemented
 
-    def push(self, item):
-        """Append ``item`` to the queue.
+    def push(self, event):
+        """Append ``event`` to the queue.
 
         Must be implemented by subclasses.
 
@@ -60,13 +50,8 @@ class Queue(object):
         """
         raise NotImplemented
 
-    def _check_push(self):
-        """Raise a :exc:`ValueError` if the queue's max. length is reached."""
-        if self.maxlen and len(self._data) >= self.maxlen:
-            raise ValueError('Cannot push. Queue is full.')
-
     def peek(self):
-        """Get (but don't remove) the same item as :meth:`pop()` would do.
+        """Get (but don't remove) the same event as :meth:`pop()` would do.
 
         Must be implemented by subclasses.
 
@@ -74,6 +59,19 @@ class Queue(object):
 
         """
         raise NotImplemented
+
+    def remove(self, event):
+        """Remove ``event`` from the queue.
+
+        Raise a :exc:`ValueError` if ``event`` is not in the queue.
+
+        """
+        self._events.remove(event)
+
+    def _check_push(self):
+        """Raise a :exc:`ValueError` if the queue's max. length is reached."""
+        if self.maxlen and len(self._events) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
 
 
 class FIFO(Queue):
@@ -85,12 +83,12 @@ class FIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._data.popleft()
+        return self._events.popleft()
 
-    def push(self, item):
-        """Append ``item`` to the right side of the queue."""
+    def push(self, event):
+        """Append ``event`` to the right side of the queue."""
         super(FIFO, self)._check_push()
-        self._data.append(item)
+        self._events.append(event)
 
     def peek(self):
         """Return, but don't remove, an element from the left side of
@@ -99,7 +97,7 @@ class FIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._data[0]
+        return self._events[0]
 
 
 class LIFO(Queue):
@@ -111,12 +109,12 @@ class LIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._data.pop()
+        return self._events.pop()
 
-    def push(self, item):
-        """Append ``item`` to the right side of the queue."""
+    def push(self, event):
+        """Append ``event`` to the right side of the queue."""
         super(LIFO, self)._check_push()
-        return self._data.append(item)
+        return self._events.append(event)
 
     def peek(self):
         """Return, but don't remove, an element from the right side of
@@ -125,7 +123,7 @@ class LIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self[-1]
+        return self._events[-1]
 
 
 class Priority(Queue):
@@ -136,15 +134,7 @@ class Priority(Queue):
     """
     def __init__(self, maxlen=0):
         super(Priority, self).__init__(maxlen)
-        self._data = []
-        self._item_id = count()
-
-    def __iter__(self):
-        return (item for _, _, item in self._data)
-
-    def __delitem__(self, key):
-        del self._data[key]
-        heapify(self._data)  # "del" might have corrupted the heap order
+        self._events = []
 
     def pop(self):
         """Remove and return the smallest element from the queue.
@@ -152,10 +142,10 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return heappop(self._data)[-1]
+        return self._events.pop(0)
 
-    def push(self, item, priority=0):
-        """Push ``item`` with ``priority`` onto the heap, maintain the
+    def push(self, event):
+        """Push ``event`` with ``priority`` onto the heap, maintain the
         heap invariant.
 
         A higher value for ``priority`` means a higher priority. The
@@ -163,7 +153,8 @@ class Priority(Queue):
 
         """
         super(Priority, self)._check_push()
-        heappush(self._data, (-priority, next(self._item_id), item))
+        self._events.append(event)
+        self._events.sort(key=lambda event: event.key)
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
@@ -171,4 +162,4 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._data[0][-1]
+        return self._events[0]
