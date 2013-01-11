@@ -106,6 +106,9 @@ class Event(object):
     def __str__(self):
         return '%s()' % self.__class__.__name__
 
+    def __repr__(self):
+        return '<%s at 0x%x>' % (self, id(self))
+
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
 
@@ -185,7 +188,7 @@ class Condition(Event):
     def __str__(self):
         return '%s(%s, [%s])' % (self.__class__.__name__,
                 self._evaluate.__name__,
-                ', '.join([str(event) for event in self._events]))
+                ', '.join([repr(event) for event in self._events]))
 
     def _get_results(self):
         """Recursively collects the current results of all nested
