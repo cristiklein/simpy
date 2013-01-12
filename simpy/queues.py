@@ -154,7 +154,7 @@ class Priority(Queue):
         """
         super(Priority, self)._check_push()
         self._events.append(event)
-        self._events.sort(key=lambda event: event.key)
+        self._events.sort(key=lambda e: e.key)
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.

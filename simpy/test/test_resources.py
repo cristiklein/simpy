@@ -6,6 +6,7 @@ Theses test cases demonstrate the API for shared resources.
 import pytest
 
 import simpy
+import simpy.resources
 
 
 #
@@ -29,8 +30,7 @@ def test_resource(env, log):
 
         log.append((name, env.now))
 
-    # *queue* parameter is optional, default: queue=FIFO()
-    resource = simpy.Resource(env, capacity=1, queue=simpy.FIFO())
+    resource = simpy.Resource(env, capacity=1)
     assert resource.capacity == 1
     assert resource.count == 0
     env.start(pem(env, 'a', resource, log))
@@ -50,8 +50,7 @@ def test_resource_context_manager(env, log):
 
         log.append((name, env.now))
 
-    # *queue* parameter is optional, default: queue=FIFO()
-    resource = simpy.Resource(env, capacity=1, queue=simpy.FIFO())
+    resource = simpy.Resource(env, capacity=1)
     env.start(pem(env, 'a', resource, log))
     env.start(pem(env, 'b', resource, log))
     simpy.simulate(env)
@@ -171,21 +170,6 @@ def test_resource_with_condition(env):
     simpy.simulate(env)
 
 
-def test_resource_with_lifo_queue(env):
-    def process(env, delay, resource, res_time):
-        yield env.timeout(delay)
-        with resource.request() as req:
-            yield req
-            assert env.now == res_time
-            yield env.timeout(5)
-
-    resource = simpy.Resource(env, capacity=1, queue=simpy.LIFO())
-    env.start(process(env, 0, resource, 0))
-    env.start(process(env, 2, resource, 10))
-    env.start(process(env, 4, resource, 5))
-    simpy.simulate(env)
-
-
 def test_resource_with_priority_queue(env):
     def process(env, delay, resource, priority, res_time):
         yield env.timeout(delay)
@@ -195,12 +179,12 @@ def test_resource_with_priority_queue(env):
         yield env.timeout(5)
         req.release()
 
-    resource = simpy.Resource(env, capacity=1, queue=simpy.Priority(),
-                              key=lambda evt: -evt.kwargs['priority'])
+    resource = simpy.Resource(env, capacity=1,
+                              event_type=simpy.resources.PriorityResourceEvent)
     env.start(process(env, 0, resource, 2, 0))
-    env.start(process(env, 2, resource, 1, 10))
-    env.start(process(env, 2, resource, 1, 15))  # Test equal priority
-    env.start(process(env, 4, resource, 4, 5))
+    env.start(process(env, 2, resource, 3, 10))
+    env.start(process(env, 2, resource, 3, 15))  # Test equal priority
+    env.start(process(env, 4, resource, 1, 5))
     simpy.simulate(env)
 
 
@@ -227,11 +211,6 @@ def test_preemptive_resource(env, log):
     p3 = env.start(process(3, env, res, 2, 2, log))
 
     simpy.simulate(env)
-
-    print('%r' % p0)
-    print('%r' % p1)
-    print('%r' % p2)
-    print('%r' % p3)
 
     assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
 
@@ -264,8 +243,6 @@ def test_container(env, log):
         yield buf.get(1)
         log.append(('g', env.now))
 
-    # All parameters are optional, default: init=0, capacity=inf,
-    #                                       put_q=FIFO(), get_q=FIFO()
     buf = simpy.Container(env, init=0, capacity=2)
     env.start(putter(env, buf, log))
     env.start(getter(env, buf, log))
@@ -293,8 +270,6 @@ def test_store(env):
         item = yield store.get()
         assert item is orig_item
 
-    # All parameters are optinal, default: capacity=inf, put_q=FIFO(),
-    #                                      get_q=FIFO(), item_q=FIFO()
     store = simpy.Store(env, capacity=2)
     item = object()
 
