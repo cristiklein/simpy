@@ -5,27 +5,90 @@ resources, namely a :class:`FIFO` and a :class:`LIFO` queue as well as a
 
 """
 from collections import deque
-from heapq import heappop, heappush
 
 
-class FIFO(deque):
-    """Simple "First In, First Out" queue.
+class Queue(object):
+    """Abstract base queue class for SimPy. It can't be used directly.
 
-    It's based on :class:`collections.deque`; :meth:`pop` removes from
-    the left side, :meth:`push` appends to the right side.
+    Queues can have a maxium length that can be specified via the
+    ``maxlen`` parameter which defaults to ``0`` (unbound).
+
+    Deriving classes have to implement :meth:`pop()`, :meth:`push()` and
+    :meth:`peek()`.
+
+    Its internal data store is a :class:`~collections.deque`.
+
+    The Queue implements the :meth:`~object.__len__()` method.
 
     """
+    def __init__(self, maxlen=0):
+        self.maxlen = maxlen
+        """The maximum length of the queue."""
+
+        self._events = deque()
+
+    def __len__(self):
+        return len(self._events)
+
+    def pop(self):
+        """Get and remove an event from the Queue.
+
+        Must be implemented by subclasses.
+
+        Raise an :exc:`IndexError` if the Queue is empty.
+
+        """
+        raise NotImplemented
+
+    def push(self, event):
+        """Append ``event`` to the queue.
+
+        Must be implemented by subclasses.
+
+        Raise a :exc:`ValueError` if the queue's max. length is reached.
+
+        """
+        raise NotImplemented
+
+    def peek(self):
+        """Get (but don't remove) the same event as :meth:`pop()` would do.
+
+        Must be implemented by subclasses.
+
+        Raise an :exc:`IndexError` if Queue is empty.
+
+        """
+        raise NotImplemented
+
+    def remove(self, event):
+        """Remove ``event`` from the queue.
+
+        Raise a :exc:`ValueError` if ``event`` is not in the queue.
+
+        """
+        self._events.remove(event)
+
+    def _check_push(self):
+        """Raise a :exc:`ValueError` if the queue's max. length is reached."""
+        if self.maxlen and len(self._events) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
+
+
+class FIFO(Queue):
+    """Simple "First In, First Out" queue, based on :class:`Queue`."""
+
     def pop(self):
         """Remove and return an element from the left side of the queue.
 
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return super(FIFO, self).popleft()
+        return self._events.popleft()
 
-    def push(self, item):
-        """Append *item* to the right side of the queue."""
-        return super(FIFO, self).append(item)
+    def push(self, event):
+        """Append ``event`` to the right side of the queue."""
+        super(FIFO, self)._check_push()
+        self._events.append(event)
 
     def peek(self):
         """Return, but don't remove, an element from the left side of
@@ -34,27 +97,24 @@ class FIFO(deque):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self[0]
+        return self._events[0]
 
 
-class LIFO(deque):
-    """Simple "Last In, First Out" queue.
+class LIFO(Queue):
+    """Simple "Last In, First Out" queu, based on :class:`Queue`."""
 
-    It's based on :class:`collections.deque`; :meth:`pop` removes from
-    the right side, :meth:`push` appends to the right side.
-
-    """
     def pop(self):
         """Remove and return an element from the right side of the queue.
 
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return super(LIFO, self).pop()
+        return self._events.pop()
 
-    def push(self, item):
-        """Append *item* to the right side of the queue."""
-        return super(LIFO, self).append(item)
+    def push(self, event):
+        """Append ``event`` to the right side of the queue."""
+        super(LIFO, self)._check_push()
+        return self._events.append(event)
 
     def peek(self):
         """Return, but don't remove, an element from the right side of
@@ -63,21 +123,18 @@ class LIFO(deque):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self[-1]
+        return self._events[-1]
 
 
-class Priority(object):
-    """Simple priority queue.
+class Priority(Queue):
+    """Simple priority queue, based on :class:`Queue`.
 
-    It's based on a heap queue (:mod:`heapq`); :meth:`pop` removes the
-    smallest item, :meth:`push` always maintains the heap properties.
+    It uses a heap queue (:mod:`heapq`) as internal data store.
 
     """
-    def __init__(self):
-        self._heap = []
-
-    def __len__(self):
-        return len(self._heap)
+    def __init__(self, maxlen=0):
+        super(Priority, self).__init__(maxlen)
+        self._events = []
 
     def pop(self):
         """Remove and return the smallest element from the queue.
@@ -85,14 +142,19 @@ class Priority(object):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return heappop(self._heap)[1]
+        return self._events.pop(0)
 
-    def push(self, item, priority):
-        """Push *item* with *priority* onto the heap, maintain the heap
-        invariant.
+    def push(self, event):
+        """Push ``event`` with ``priority`` onto the heap, maintain the
+        heap invariant.
+
+        A higher value for ``priority`` means a higher priority. The
+        default is ``0``.
 
         """
-        heappush(self._heap, (priority, item))
+        super(Priority, self)._check_push()
+        self._events.append(event)
+        self._events.sort(key=lambda e: e.key)
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
@@ -100,4 +162,4 @@ class Priority(object):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._heap[0]
+        return self._events[0]

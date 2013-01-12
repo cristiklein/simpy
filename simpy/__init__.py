@@ -13,8 +13,7 @@ Core classes and functions
   schedule events).
 - :class:`Process`: This class represents a PEM while
   it is executed in an environment. An instance of it is returned by
-  :meth:`Environment.start()`. It inherits
-  :class:`BaseEvent`.
+  :meth:`Environment.start()`. It inherits :class:`Event`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 - :func:`peek()`: Return the next event's time.
@@ -29,6 +28,8 @@ Resources
 
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
+- :class:`PreemptiveResource`: Version of :class:`Resource` with
+  preemption.
 - :class:`Container`: Models the production and consumption of a
   homogeneous, undifferentiated bulk. It may either be continuous (like
   water) or discrete (like apples).
@@ -66,7 +67,7 @@ Other
 """
 from simpy.core import Environment, Interrupt, Process, peek, step, simulate
 from simpy.queues import FIFO, LIFO, Priority
-from simpy.resources import Resource, Container, Store
+from simpy.resources import Resource, PreemptiveResource, Container, Store
 
 
 __all__ = [

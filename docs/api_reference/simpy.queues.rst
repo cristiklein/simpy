@@ -4,4 +4,4 @@
 
 
 .. automodule:: simpy.queues
-   :members:
+   :members: Queue, FIFO, LIFO, Priority
