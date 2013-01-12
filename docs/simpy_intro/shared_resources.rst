@@ -28,20 +28,26 @@ and leaves the station afterwards::
     ...
     ...     # Request one of its charging spots
     ...     print('%s arriving at %d' % (name, env.now))
-    ...     yield bcs.request()
+    ...     with bsc.request() as req:
+    ...         yield req
     ...
-    ...     # Charge the battery and release the resource afterwards
-    ...     print('%s starting to charge at %s' % (name, env.now))
-    ...     yield env.timeout(charge_duration)
-    ...     bcs.release()
-    ...     print('%s leaving the bcs at %s' % (name, env.now))
+    ...         # Charge the battery and release the resource afterwards
+    ...         print('%s starting to charge at %s' % (name, env.now))
+    ...         yield env.timeout(charge_duration)
+    ...         print('%s leaving the bcs at %s' % (name, env.now))
 
 The resource's :meth:`~simpy.resources.Resource.request()` method generates an
-event that lets you wait until the resource becomes available again. If you are
-resumed, you "own" the resource until you releases it via the
-:meth:`~simpy.resources.Resource.release()` method. When you release
-a resource, the next waiting process is resumed and now "owns" one of the
-resource's slots.
+event that lets you wait until the resource becomes available again.  If you
+are resumed, you "own" the resource until you *release* it.
+
+If you use the resource with the ``with`` statement as shown above, the
+resource is automatically being released. If you call ``release()`` without
+``with``, you are responsible to call
+:meth:`~simpy.resources.ResourceEvent.release()` on the event once you are done
+using the resource.
+
+When you release a resource, the next waiting process is resumed and now "owns"
+one of the resource's slots.
 
 SimPy lets you choose the type of the queue used for waiters (e.g., *First in
 -- first out (FIFO)* which is the default or *Last in -- first out (LIFO)*).
