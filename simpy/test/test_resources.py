@@ -236,6 +236,24 @@ def test_preemptive_resource(env, log):
     assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
 
 
+def test_preemptive_resource_fail(env):
+    def proc_a(env, resource, prio):
+        with resource.request(priority=prio) as req:
+            yield req
+            yield env.timeout(0)
+        yield env.event()
+
+    def proc_b(env, resource, prio):
+        yield env.timeout(0)
+        with resource.request(priority=prio) as req:
+            yield req
+
+    resource = simpy.PreemptiveResource(env, 1)
+    env.start(proc_a(env, resource, 1))
+    env.start(proc_b(env, resource, 0))
+
+    simpy.simulate(env)
+
 #
 # Tests for Container
 #

@@ -180,3 +180,28 @@ def test_interrupt_event(env):
 
     env.start(parent(env))
     simpy.simulate(env)
+
+
+def test_concurrent_behaviour(env):
+    # TODO It is not yet decided what the correct behaviour is.
+    # It seems to be consensus that interrupts should never be silently
+    # dropped. This means that the second timeout has to be interrupted too,
+    # although intuition seems to tell that it shouldn't be interrupted.
+    def proc_a(env):
+        timeouts = [env.timeout(0) for i in range(2)]
+        while timeouts:
+            try:
+                yield timeouts.pop(0)
+                assert False, 'Expected an interrupt'
+            except simpy.Interrupt as i:
+                pass
+
+    def proc_b(env, proc_a):
+        for i in range(2):
+            proc_a.interrupt()
+        yield env.exit()
+
+    proc_a = env.start(proc_a(env))
+    env.start(proc_b(env, proc_a))
+
+    simpy.simulate(env)
