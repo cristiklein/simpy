@@ -1,5 +1,5 @@
 """
-This modules contains simpy's resource types:
+This modules contains SimPy's resource types:
 
 - :class:`Resource`: Can be used by a limited number of processes at a
   time (e.g., a gas station with a limited number of fuel pumps).
@@ -10,185 +10,12 @@ This modules contains simpy's resource types:
   water) or discrete (like apples).
 - :class:`Store`: Allows the production and consumption of discrete
   Python objects.
-- :class:`ResourceEvent`: Event type used by :class:`Resource`.
 
 """
-from collections import namedtuple
-
-from simpy.core import Event
-from simpy.queues import FIFO, Priority
+from simpy.resources import events, queues, util
 
 
 Infinity = float('inf')
-Preempted = namedtuple('Preempted', 'by, usage_since')
-
-
-class BaseResourceEvent(Event):
-    """Base event class for all resource events.
-
-    Resource events can be used as context managers that automatically
-    release or cancel resource requests when the context manager is
-    left---even after an exception or interrupt was raised:
-
-    .. code-block:: python
-
-        with resource.request() as request:
-            yield request
-
-    Events also define a :meth:`key()` function that can be (and is)
-    used to sort events, e.g. in the :class:`Priority` queue.
-
-    """
-    def __init__(self, resource, proc):
-        env = resource._env
-        super(BaseResourceEvent, self).__init__(env)
-
-        self._resource = resource
-        self._proc = proc
-
-        self.time = env.now
-        """Time that this event was created on."""
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, value, traceback):
-        self.release()
-
-    def release(self):
-        """Release the resource for the process that created this event."""
-        raise NotImplemented
-
-    @property
-    def key(self):
-        """The default implementation sorts events by creation time."""
-        return self.time
-
-
-class ResourceEvent(BaseResourceEvent):
-    """Simple resource event used by default by :class:`Resource`.
-
-    *ResouceEvents* are sorted by creation time and are thus queued in a
-    *FIFO (First in, first out)* way.
-
-    """
-    def release(self):
-        """Release the resource for the process that created event.
-
-        If another process is waiting for the resource, resume that
-        process.
-
-        """
-        users = self._resource.users
-        queue = self._resource.queue
-        try:
-            users.remove(self)
-        except ValueError:
-            try:
-                queue.remove(self)
-            except ValueError:
-                pass
-        else:
-            # Resume the next user if there is one
-            if queue:
-                event = queue.pop()
-                users.add(event)
-
-
-class PriorityResourceEvent(ResourceEvent):
-    """Resource event with a user defined priority.
-
-    This event sorts by a *priority* and can be used for preemptive
-    resources or to queue events by priority instead of FIFO. The
-    priority has to be passed to :meth:`Resource.request()` or
-    :class:`Store.get()` and the like.
-
-    Note, a smaller value for *priority* means a higher priority. If
-    the priority of two evenets is equal, the creation time will used
-    as secondary sort key.
-
-    """
-    def __init__(self, resource, proc, priority):
-        super(PriorityResourceEvent, self).__init__(resource, proc)
-        self.priority = priority
-
-    @property
-    def key(self):
-        """Sort events by *(priority, time)*"""
-        return self.priority, self.time
-
-
-class Users(object):
-    """Default user queue implementation used by :class:`Resource`.
-
-    Upon request, it adds a user if a slot is available and does nothing
-    if not.
-
-    """
-    def __init__(self, capacity):
-        self._capacity = capacity
-        self._users = []
-
-    def add(self, event):
-        """Add ``event`` to the user queue if a slot is available.
-
-        Return ``True`` if the event could be added, ``False`` if not.
-
-        """
-        if len(self._users) < self._capacity:
-            self._users.append(event)
-            event.succeed()
-            return True
-
-        return False
-
-    def remove(self, event):
-        """Remove ``event`` from the users queue.
-
-        Raise a :exc:`ValueError` if the event is not in the queue.
-
-        """
-        self._users.remove(event)
-
-
-class PreemptiveUsers(Users):
-    """Inherits :class:`Users` and adds preemption to it.
-
-    If no slot is available for a new user, it checks if it can preempt
-    another user.
-
-    """
-    def add(self, event):
-        """Try to add ``event`` to the user queue. If this fails, try to
-        preempt another user.
-
-        The preemption is done by comparing the
-        :attr:`~ResourceEvent.key` attributes of all users. If one of
-        them is greater than the key of ``event``, it will be preempted
-        and an :class:`~simpy.core.Interrupt` is thrown into the
-        corresponding process.
-
-        Return ``True`` if ``event`` could be added to the users (either
-        normally or by preemption), ``False`` if not.
-
-        """
-        acquired = super(PreemptiveUsers, self).add(event)
-        if acquired:
-            return True
-
-        # Check if we can preempt another process
-        preempt = sorted(self._users, key=lambda e: e.key)[-1]
-
-        if preempt.key > event.key:
-            self._users.remove(preempt)
-            preempt._proc.interrupt(Preempted(by=event._proc,
-                                              usage_since=preempt.time))
-            acquired = super(PreemptiveUsers, self).add(event)
-            if not acquired:
-                raise RuntimeError('Preemption failed.')
-            return True
-
-        return False
 
 
 class Resource(object):
@@ -209,9 +36,13 @@ class Resource(object):
     The ``capacity`` defines the number of slots and must be a positive
     integer.
 
+    The resources uses :class:`~simpy.resources.events.ResourceEvent` as
+    default ``event_type`` and :class:`~simpy.resources.util.Users` as
+    default ``users_type``.
+
     """
-    def __init__(self, env, capacity, event_type=ResourceEvent,
-                 users_type=Users):
+    def __init__(self, env, capacity, event_type=events.ResourceEvent,
+                 users_type=util.Users):
         self._env = env
 
         self.event = event_type
@@ -220,7 +51,7 @@ class Resource(object):
         self.users = users_type(capacity)
         """The list of the resource's users. Read only."""
 
-        self.queue = Priority()
+        self.queue = queues.SortedQueue()
         """The queue of waiting processes. Read only."""
 
     @property
@@ -255,51 +86,42 @@ class Resource(object):
 
         return event
 
+    def release(self, event):
+        """Release the resource for the process that created event.
+
+        If another process is waiting for the resource, resume that
+        process.
+
+        """
+        try:
+            self.users.remove(event)
+        except ValueError:
+            try:
+                self.queue.remove(event)
+            except ValueError:
+                pass
+        else:
+            # Resume the next user if there is one
+            if self.queue:
+                event = self.queue.pop()
+                self.users.add(event)
+
 
 class PreemptiveResource(Resource):
     """This resource mostly works like :class:`Resource`, but users of
     the resource can be preempted by higher prioritized processes.
 
-    The resources uses a :class:`simpy.queues.Priority` queue and the
-    :class:`PreemptiveUsers` by default. The default ``key``
-    function sorts by the ``priority`` keyword (that has to be passed to
-    every :meth:`Resource.request()` call and the time of the request:
-    ``key=lambda event: (event.kwargs['prioriy'], evt.time)`` (A lower
-    number means a higher priority!))
-
-    See :meth:`Resource.request()` for more information.
+    The resources uses
+    a :class:`simpy.resources.events.PriorityResourceEvent` as default
+    ``event_type``. You need to pass a ``priority`` argument to
+    :meth:`request()` that is then used to sort events and to decide
+    whether a process gets preempted or not when another one requests
+    the resource.
 
     """
-    def __init__(self, env, capacity, event_type=PriorityResourceEvent):
+    def __init__(self, env, capacity, event_type=events.PriorityResourceEvent):
         super(PreemptiveResource, self).__init__(env, capacity,
-                event_type=event_type, users_type=PreemptiveUsers)
-
-
-class ContainerEvent(BaseResourceEvent):
-    """A *ContainerEvent* is returned by :meth:`Container.get()` and
-    :meth:`Container.put()`:
-
-    .. code-block:: python
-
-        with container.get(42) as request:
-            yield request
-
-    It inherits :class:`BaseResourceEvent`.
-
-    """
-    def __init__(self, container, proc, amount):
-        super(ContainerEvent, self).__init__(container, proc)
-
-        self.amount = amount
-        """The amount that was requested from or for the container."""
-
-    def release(self):
-        """Cancel a put/get request to the queue."""
-        queue = self._resource.queue
-        try:
-            queue.remove(self)
-        except ValueError:
-            pass
+                event_type=event_type, users_type=util.PreemptiveUsers)
 
 
 class Container(object):
@@ -322,28 +144,32 @@ class Container(object):
 
     A container has two queues: ``put_q`` is used for processes that
     want to put something into the container, ``get_q`` is for those
-    that want to get something out. The default for both is
-    :class:`~simpy.queues.FIFO`.
+    that want to get something out.
+
+    The container uses a :class:`~simpy.resources.events.ContainerEvent`
+    as default ``event_type``. That event type sorts by creation time.
+    Thus, the ``put_q`` and ``get_q`` behave like FIFO queues by
+    default.
 
     """
     def __init__(self, env, capacity=Infinity, init=0,
-                 event_type=ContainerEvent):
+                 event_type=events.ContainerEvent):
         if capacity <= 0:
             raise ValueError('capacity(=%s) must be > 0.' % capacity)
         if init < 0:
             raise ValueError('init(=%s) must be >= 0.' % init)
 
-        self.event = ContainerEvent
+        self.event = event_type
         """The event type the container uses."""
 
         self.capacity = capacity
         """The maximum capacity of the container. You should not change
         its value."""
 
-        self.put_q = Priority()
+        self.put_q = queues.SortedQueue()
         """The queue for processes that want to put something in. Read only."""
 
-        self.get_q = Priority()
+        self.get_q = queues.SortedQueue()
         """The queue for processes that want to get something out. Read only.
         """
 
@@ -367,7 +193,7 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
-        event = ContainerEvent(self, self._env.active_process, amount)
+        event = self.event(self, self._env.active_process, amount)
         new_level = self._level + amount
 
         # Process can put immediately
@@ -400,7 +226,7 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
-        event = ContainerEvent(self, self._env.active_process, amount)
+        event = self.event(self, self._env.active_process, amount)
 
         # Process can get immediately
         if self._level >= amount:
@@ -423,30 +249,16 @@ class Container(object):
 
         return event
 
+    def release(self, event):
+        """Cancel a put/get request to the queue.
 
-class StoreEvent(BaseResourceEvent):
-    """A *ContainerEvent* is returned by :meth:`Container.get()` and
-    :meth:`Container.put()`:
+        A process must call this when it was interrupt during a put/get
+        request if the Container was not used as a context manager.
 
-    .. code-block:: python
-
-        with container.get(42) as request:
-            yield request
-
-    It inherits :class:`BaseResourceEvent`.
-
-    """
-    def __init__(self, store, proc, item=None):
-        super(StoreEvent, self).__init__(store, proc)
-
-        self.item = item
-        """The item to store or ``None``."""
-
-    def release(self):
-        """Cancel a put/get request to the queue."""
-        queue = self._container.queue
+        """
         try:
-            queue.remove(self)
+            self.put_q.remove(event)
+            self.get_q.remove(event)
         except ValueError:
             pass
 
@@ -468,23 +280,31 @@ class Store(object):
     A container has three queues: ``put_q`` is used for processes that
     want to put something into the Store, ``get_q`` is for those that
     want to get something out. The ``item_q`` is used to store and
-    retrieve the actual items. The default for all of them is
-    :class:`~simpy.queues.FIFO`.
+    retrieve the actual items. The default for the ``item_q_type`` is
+    :class:`~simpy.resources.queues.FIFO`.
+
+    The container uses a :class:`~simpy.resources.events.StoreEvent`
+    as default ``event_type``. That event type sorts by creation time.
+    Thus, the ``put_q`` and ``get_q`` behave like FIFO queues by
+    default.
 
     """
-    def __init__(self, env, capacity=Infinity, item_q_type=FIFO,
-                 event_type=StoreEvent):
+    def __init__(self, env, capacity=Infinity, item_q_type=queues.FIFO,
+                 event_type=events.StoreEvent):
         if capacity <= 0:
             raise ValueError('capacity(=%s) must be > 0.' % capacity)
+
+        self.event = event_type
+        """The event type the container uses."""
 
         self.capacity = capacity
         """The maximum capacity of the Store. You should not change its
         value."""
 
-        self.put_q = Priority()
+        self.put_q = queues.SortedQueue()
         """The queue for processes that want to put something in. Read only."""
 
-        self.get_q = Priority()
+        self.get_q = queues.SortedQueue()
         """The queue for processes that want to get something out. Read only.
         """
         self.item_q = item_q_type()
@@ -502,7 +322,7 @@ class Store(object):
 
     def put(self, item):
         """Put ``item`` into the Store if possible or wait until it is."""
-        event = StoreEvent(self, self._env.active_process, item)
+        event = self.event(self, self._env.active_process, item)
 
         # Process can put immediately
         if len(self.item_q) < self.capacity:
@@ -522,7 +342,7 @@ class Store(object):
 
     def get(self):
         """Get an item from the Store or wait until one is available."""
-        event = StoreEvent(self, self._env.active_process)
+        event = self.event(self, self._env.active_process)
 
         # Process can get immediately
         if len(self.item_q):
@@ -539,3 +359,16 @@ class Store(object):
             self.get_q.push(event)
 
         return event
+
+    def release(self, event):
+        """Cancel a put/get request to the queue.
+
+        A process must call this when it was interrupt during a put/get
+        request if the Store was not used as a context manager.
+
+        """
+        try:
+            self.put_q.remove(event)
+            self.get_q.remove(event)
+        except ValueError:
+            pass

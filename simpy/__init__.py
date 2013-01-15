@@ -37,16 +37,6 @@ Resources
   Python objects.
 
 
-Queues
-------
-
-.. currentmodule:: simpy.queues
-
-- :class:`FIFO`: A simple FIFO queue.
-- :class:`LIFO`: A simple LIFO queue.
-- :class:`Priority`: A :mod:`heapq`-based priority queue.
-
-
 Monitoring
 ----------
 
@@ -66,15 +56,13 @@ Other
 
 """
 from simpy.core import Environment, Interrupt, Process, peek, step, simulate
-from simpy.queues import FIFO, LIFO, Priority
 from simpy.resources import Resource, PreemptiveResource, Container, Store
 
 
 __all__ = [
     'test',
     'Environment', 'Interrupt', 'Process', 'peek', 'step', 'simulate',
-    'FIFO', 'LIFO', 'Priority',
-    'Resource', 'Container', 'Store',
+    'Resource', 'PreemptiveResource', 'Container', 'Store',
 ]
 __version__ = '3.0a1'
 

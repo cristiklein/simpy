@@ -43,7 +43,7 @@ are resumed, you "own" the resource until you *release* it.
 If you use the resource with the ``with`` statement as shown above, the
 resource is automatically being released. If you call ``release()`` without
 ``with``, you are responsible to call
-:meth:`~simpy.resources.ResourceEvent.release()` on the event once you are done
+:meth:`~simpy.resources.Resource.release()` with the event once you are done
 using the resource.
 
 When you release a resource, the next waiting process is resumed and now "owns"

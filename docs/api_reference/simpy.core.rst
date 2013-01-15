@@ -1,5 +1,5 @@
 ==========================================
-``simpy.core`` --- SimPy's Core Components
+``simpy.core`` --- SimPy's core components
 ==========================================
 
 

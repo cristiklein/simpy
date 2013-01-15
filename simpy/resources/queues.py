@@ -1,7 +1,7 @@
 """
 This modules contains some queues that can be used with SimPy's
 resources, namely a :class:`FIFO` and a :class:`LIFO` queue as well as a
-:class:`Priority` queue.
+:class:`SortedQueue` queue.
 
 """
 from collections import deque
@@ -25,13 +25,13 @@ class Queue(object):
         self.maxlen = maxlen
         """The maximum length of the queue."""
 
-        self._events = deque()
+        self._items = deque()
 
     def __len__(self):
-        return len(self._events)
+        return len(self._items)
 
     def pop(self):
-        """Get and remove an event from the Queue.
+        """Get and remove an item from the Queue.
 
         Must be implemented by subclasses.
 
@@ -40,8 +40,8 @@ class Queue(object):
         """
         raise NotImplemented
 
-    def push(self, event):
-        """Append ``event`` to the queue.
+    def push(self, item):
+        """Append ``item`` to the queue.
 
         Must be implemented by subclasses.
 
@@ -51,7 +51,7 @@ class Queue(object):
         raise NotImplemented
 
     def peek(self):
-        """Get (but don't remove) the same event as :meth:`pop()` would do.
+        """Get (but don't remove) the same item as :meth:`pop()` would do.
 
         Must be implemented by subclasses.
 
@@ -60,17 +60,17 @@ class Queue(object):
         """
         raise NotImplemented
 
-    def remove(self, event):
-        """Remove ``event`` from the queue.
+    def remove(self, item):
+        """Remove ``item`` from the queue.
 
-        Raise a :exc:`ValueError` if ``event`` is not in the queue.
+        Raise a :exc:`ValueError` if ``item`` is not in the queue.
 
         """
-        self._events.remove(event)
+        self._items.remove(item)
 
     def _check_push(self):
         """Raise a :exc:`ValueError` if the queue's max. length is reached."""
-        if self.maxlen and len(self._events) >= self.maxlen:
+        if self.maxlen and len(self._items) >= self.maxlen:
             raise ValueError('Cannot push. Queue is full.')
 
 
@@ -83,12 +83,12 @@ class FIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events.popleft()
+        return self._items.popleft()
 
-    def push(self, event):
-        """Append ``event`` to the right side of the queue."""
+    def push(self, item):
+        """Append ``item`` to the right side of the queue."""
         super(FIFO, self)._check_push()
-        self._events.append(event)
+        self._items.append(item)
 
     def peek(self):
         """Return, but don't remove, an element from the left side of
@@ -97,7 +97,7 @@ class FIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events[0]
+        return self._items[0]
 
 
 class LIFO(Queue):
@@ -109,12 +109,12 @@ class LIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events.pop()
+        return self._items.pop()
 
-    def push(self, event):
-        """Append ``event`` to the right side of the queue."""
+    def push(self, item):
+        """Append ``item`` to the right side of the queue."""
         super(LIFO, self)._check_push()
-        return self._events.append(event)
+        return self._items.append(item)
 
     def peek(self):
         """Return, but don't remove, an element from the right side of
@@ -123,18 +123,17 @@ class LIFO(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events[-1]
+        return self._items[-1]
 
 
-class Priority(Queue):
-    """Simple priority queue, based on :class:`Queue`.
-
-    It uses a heap queue (:mod:`heapq`) as internal data store.
+class SortedQueue(Queue):
+    """Queue that sorts items by their ``key`` attribute, based on
+    :class:`Queue`.
 
     """
     def __init__(self, maxlen=0):
-        super(Priority, self).__init__(maxlen)
-        self._events = []
+        super(SortedQueue, self).__init__(maxlen)
+        self._items = []
 
     def pop(self):
         """Remove and return the smallest element from the queue.
@@ -142,19 +141,13 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events.pop(0)
+        return self._items.pop(0)
 
-    def push(self, event):
-        """Push ``event`` with ``priority`` onto the heap, maintain the
-        heap invariant.
-
-        A higher value for ``priority`` means a higher priority. The
-        default is ``0``.
-
-        """
-        super(Priority, self)._check_push()
-        self._events.append(event)
-        self._events.sort(key=lambda e: e.key)
+    def push(self, item):
+        """Add ``item`` to the queue and keep it sorted."""
+        super(SortedQueue, self)._check_push()
+        self._items.append(item)
+        self._items.sort(key=lambda e: e.key)
 
     def peek(self):
         """Return, but don't remove, the smallest element from the queue.
@@ -162,4 +155,4 @@ class Priority(Queue):
         Raise an :exc:`IndexError` if no elements are present.
 
         """
-        return self._events[0]
+        return self._items[0]

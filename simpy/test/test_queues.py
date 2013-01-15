@@ -1,6 +1,6 @@
 import pytest
 
-from simpy.queues import FIFO, LIFO, Priority
+from simpy.resources.queues import FIFO, LIFO, SortedQueue
 
 
 IN = 0
@@ -45,7 +45,7 @@ class Item(object):
 @pytest.mark.parametrize(('Queue', 'seq'), [
     (FIFO, seq_fifo),
     (LIFO, seq_lifo),
-    (Priority, seq_priority),
+    (SortedQueue, seq_priority),
 ])
 def test_queues(Queue, seq):
     """Tests for SimPy's build-in queue types."""
@@ -69,7 +69,7 @@ def test_queues(Queue, seq):
 @pytest.mark.parametrize('Queue', [
     FIFO,
     LIFO,
-    Priority,
+    SortedQueue,
 ])
 def test_remove(Queue):
     q = Queue()
@@ -87,7 +87,7 @@ def test_remove(Queue):
 @pytest.mark.parametrize('Queue', [
     FIFO,
     LIFO,
-    Priority,
+    SortedQueue,
 ])
 def test_maxlen(Queue):
     q = Queue(maxlen=2)

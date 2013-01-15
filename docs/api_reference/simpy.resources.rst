@@ -1,27 +1,18 @@
 =======================================================
-``simpy.resources`` --- SimPy's Built-in Resource Types
+``simpy.resources`` --- SimPy's built-in resource types
 =======================================================
 
 
 .. automodule:: simpy.resources
 
-.. autoclass:: Resource
-    :members:
-
-.. autoclass:: PreemptiveResource
+.. autoclass:: Resource(env, capacity, event_type=ResourceEvent, user_type=Users)
     :inherited-members:
 
-.. autoclass:: Container
+.. autoclass:: PreemptiveResource(env, capacity, event_type=PriorityResourceEvent)
     :inherited-members:
 
-.. autoclass:: Store
+.. autoclass:: Container(env, capacity=Infinity, init=0, event_type=ContainerEvent)
     :inherited-members:
 
-.. autoclass:: ResourceEvent
-    :inherited-members:
-
-.. autoclass:: UserQueue
-    :inherited-members:
-
-.. autoclass:: PreemptiveUserQueue
+.. autoclass:: Store(env, capacity=Infinity, item_q_type=FIFO, event_type=StoreEvent)
     :inherited-members:

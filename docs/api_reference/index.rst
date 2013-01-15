@@ -12,6 +12,8 @@ components.
     simpy
     simpy.core
     simpy.resources
-    simpy.queues
+    simpy.resources.events
+    simpy.resources.queues
+    simpy.resources.util
     simpy.monitoring
     simpy.util
