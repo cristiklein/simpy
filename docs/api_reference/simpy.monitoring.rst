@@ -1,5 +1,5 @@
 ==================================================
-``simpy.monitoring`` --- Monitor Simpy Simulations
+``simpy.monitoring`` --- Monitor SimPy simulations
 ==================================================
 
 

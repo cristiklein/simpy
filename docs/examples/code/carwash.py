@@ -41,13 +41,13 @@ def car(env, name, cw):
 
     """
     print('%s arrives at the carwash at %.2f.' % (name, env.now))
-    yield cw.machine.request()
+    with cw.machine.request() as request:
+        yield request
 
-    print('%s enters the carwash at %.2f.' % (name, env.now))
-    yield env.start(cw.wash(name))
+        print('%s enters the carwash at %.2f.' % (name, env.now))
+        yield env.start(cw.wash(name))
 
-    print('%s leaves the carwash at %.2f.' % (name, env.now))
-    cw.machine.release()
+        print('%s leaves the carwash at %.2f.' % (name, env.now))
 
 
 def setup(env, num_machines, washtime, t_inter):

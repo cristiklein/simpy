@@ -26,7 +26,7 @@ def test_resource(env, log):
         assert resource.count == 1
 
         yield env.timeout(1)
-        req.release()
+        resource.release(req)
 
         log.append((name, env.now))
 
@@ -91,7 +91,7 @@ def test_resource_continue_after_interrupt(env):
             pytest.fail('Should not have gotten the resource.')
         except simpy.Interrupt:
             yield evt
-            evt.release()
+            res.release(evt)
             assert env.now == 1
 
     def interruptor(env, proc):
@@ -120,7 +120,7 @@ def test_resource_release_after_interrupt(env):
             pytest.fail('Should not have gotten the resource.')
         except simpy.Interrupt:
             # Dont wait for the resource
-            evt.release()
+            res.release(evt)
             assert env.now == 0
             env.exit()
 
@@ -177,10 +177,10 @@ def test_resource_with_priority_queue(env):
         yield req
         assert env.now == res_time
         yield env.timeout(5)
-        req.release()
+        resource.release(req)
 
     resource = simpy.Resource(env, capacity=1,
-                              event_type=simpy.resources.PriorityResourceEvent)
+                    event_type=simpy.resources.events.PriorityResourceEvent)
     env.start(process(env, 0, resource, 2, 0))
     env.start(process(env, 2, resource, 3, 10))
     env.start(process(env, 2, resource, 3, 15))  # Test equal priority
