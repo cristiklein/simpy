@@ -22,9 +22,9 @@ class Resource(object):
     """A resource has a limited number of slots that can be requested
     by a process.
 
-    If all slots are taken, requesters are put into
-    a queue. If a process releases a slot, the next process is popped
-    from the queue and gets one slot.
+    If all slots are taken, requesters are put into a queue. If
+    a process releases a slot, the next process is popped from the queue
+    and gets one slot.
 
     For example, a gas station has a limited number of fuel pumps
     that can be used by refueling vehicles. If all fuel pumps are
@@ -44,25 +44,19 @@ class Resource(object):
     def __init__(self, env, capacity, event_type=events.ResourceEvent,
                  users_type=util.Users):
         self._env = env
-
-        self.event = event_type
-        """The event type that the queue uses."""
-
-        self.users = users_type(capacity)
-        """The list of the resource's users. Read only."""
-
-        self.queue = queues.SortedQueue()
-        """The queue of waiting processes. Read only."""
+        self._event = event_type
+        self._users = users_type(capacity)
+        self._queue = queues.SortedQueue()
 
     @property
     def count(self):
         """Number of users currently using the resource."""
-        return len(self.users._users)
+        return len(self._users._users)
 
     @property
     def capacity(self):
         """Maximum caMacity of the resource."""
-        return self.users._capacity
+        return self._users._capacity
 
     def request(self, **kwargs):
         """Request the resource.
@@ -78,11 +72,11 @@ class Resource(object):
 
         """
         proc = self._env.active_process
-        event = self.event(self, proc, **kwargs)
+        event = self._event(self, proc, **kwargs)
 
-        acquired = self.users.add(event)
+        acquired = self._users.add(event)
         if not acquired:
-            self.queue.push(event)
+            self._queue.push(event)
 
         return event
 
@@ -94,17 +88,17 @@ class Resource(object):
 
         """
         try:
-            self.users.remove(event)
+            self._users.remove(event)
         except ValueError:
             try:
-                self.queue.remove(event)
+                self._queue.remove(event)
             except ValueError:
                 pass
         else:
             # Resume the next user if there is one
-            if self.queue:
-                event = self.queue.pop()
-                self.users.add(event)
+            if self._queue:
+                event = self._queue.pop()
+                self._users.add(event)
 
 
 class PreemptiveResource(Resource):
@@ -147,7 +141,7 @@ class Container(object):
     that want to get something out.
 
     The container uses a :class:`~simpy.resources.events.ContainerEvent`
-    as default ``event_type``. That event type sorts by creation time.
+    as default ``event_type``. That _event type sorts by creation time.
     Thus, the ``put_q`` and ``get_q`` behave like FIFO queues by
     default.
 
@@ -159,22 +153,17 @@ class Container(object):
         if init < 0:
             raise ValueError('init(=%s) must be >= 0.' % init)
 
-        self.event = event_type
-        """The event type the container uses."""
-
-        self.capacity = capacity
-        """The maximum capacity of the container. You should not change
-        its value."""
-
-        self.put_q = queues.SortedQueue()
-        """The queue for processes that want to put something in. Read only."""
-
-        self.get_q = queues.SortedQueue()
-        """The queue for processes that want to get something out. Read only.
-        """
-
         self._env = env
+        self._capacity = capacity
         self._level = init
+        self._event = event_type
+        self._put_q = queues.SortedQueue()
+        self._get_q = queues.SortedQueue()
+
+    @property
+    def capacity(self):
+        """The maximum capactiy of the container."""
+        return self._capacity
 
     @property
     def level(self):
@@ -193,17 +182,17 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
-        event = self.event(self, self._env.active_process, amount)
+        event = self._event(self, self._env.active_process, amount)
         new_level = self._level + amount
 
         # Process can put immediately
-        if new_level <= self.capacity:
+        if new_level <= self._capacity:
             self._level = new_level
             # Pop processes from the "get_q".
-            while self.get_q:
-                q_event = self.get_q.peek()
+            while self._get_q:
+                q_event = self._get_q.peek()
                 if self._level >= q_event.amount:
-                    self.get_q.pop()
+                    self._get_q.pop()
                     self._level -= q_event.amount
                     q_event.succeed()
                 else:
@@ -212,7 +201,7 @@ class Container(object):
 
         # Process has to wait.
         else:
-            self.put_q.push(event)
+            self._put_q.push(event)
 
         return event
 
@@ -226,17 +215,17 @@ class Container(object):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
 
-        event = self.event(self, self._env.active_process, amount)
+        event = self._event(self, self._env.active_process, amount)
 
         # Process can get immediately
         if self._level >= amount:
             self._level -= amount
             # Pop processes from the "put_q".
-            while self.put_q:
-                q_event = self.put_q.peek()
+            while self._put_q:
+                q_event = self._put_q.peek()
                 new_level = self._level + q_event.amount
-                if new_level <= self.capacity:
-                    self.put_q.pop()
+                if new_level <= self._capacity:
+                    self._put_q.pop()
                     self._level = new_level
                     q_event.succeed()
                 else:
@@ -245,7 +234,7 @@ class Container(object):
 
         # Process has to wait.
         else:
-            self.get_q.push(event)
+            self._get_q.push(event)
 
         return event
 
@@ -257,8 +246,8 @@ class Container(object):
 
         """
         try:
-            self.put_q.remove(event)
-            self.get_q.remove(event)
+            self._put_q.remove(event)
+            self._get_q.remove(event)
         except ValueError:
             pass
 
@@ -277,14 +266,14 @@ class Store(object):
     a positive number (> 0). By default, a Store is of unlimited size.
     A :exc:`ValueError` is raised if the value is negative.
 
-    A container has three queues: ``put_q`` is used for processes that
-    want to put something into the Store, ``get_q`` is for those that
-    want to get something out. The ``item_q`` is used to store and
-    retrieve the actual items. The default for the ``item_q_type`` is
+    A Store has three queues: ``put_q`` is used for processes that want
+    to put something into the Store, ``get_q`` is for those that want to
+    get something out. The ``item_q`` is used to store and retrieve the
+    actual items. The default for the ``item_q_type`` is
     :class:`~simpy.resources.queues.FIFO`.
 
-    The container uses a :class:`~simpy.resources.events.StoreEvent`
-    as default ``event_type``. That event type sorts by creation time.
+    The container uses a :class:`~simpy.resources.events.StoreEvent` as
+    default ``event_type``. That _event type sorts by creation time.
     Thus, the ``put_q`` and ``get_q`` behave like FIFO queues by
     default.
 
@@ -294,23 +283,17 @@ class Store(object):
         if capacity <= 0:
             raise ValueError('capacity(=%s) must be > 0.' % capacity)
 
-        self.event = event_type
-        """The event type the container uses."""
-
-        self.capacity = capacity
-        """The maximum capacity of the Store. You should not change its
-        value."""
-
-        self.put_q = queues.SortedQueue()
-        """The queue for processes that want to put something in. Read only."""
-
-        self.get_q = queues.SortedQueue()
-        """The queue for processes that want to get something out. Read only.
-        """
-        self.item_q = item_q_type()
-        """The queue that stores the items of the store. Read only."""
-
         self._env = env
+        self._capacity = capacity
+        self._event = event_type
+        self._put_q = queues.SortedQueue()
+        self._get_q = queues.SortedQueue()
+        self._item_q = item_q_type()
+
+    @property
+    def capacity(self):
+        """The maximum _capacity of the Store."""
+        return self._capacity
 
     @property
     def count(self):
@@ -318,45 +301,45 @@ class Store(object):
         ``capacity``). Read only.
 
         """
-        return len(self.item_q)
+        return len(self._item_q)
 
     def put(self, item):
         """Put ``item`` into the Store if possible or wait until it is."""
-        event = self.event(self, self._env.active_process, item)
+        event = self._event(self, self._env.active_process, item)
 
         # Process can put immediately
-        if len(self.item_q) < self.capacity:
-            self.item_q.push(item)
+        if len(self._item_q) < self._capacity:
+            self._item_q.push(item)
             # Pop processes from the "get_q".
-            while self.get_q and self.item_q:
-                q_event = self.get_q.pop()
-                get_item = self.item_q.pop()
+            while self._get_q and self._item_q:
+                q_event = self._get_q.pop()
+                get_item = self._item_q.pop()
                 q_event.succeed(get_item)
             event.succeed()
 
         # Process has to wait.
         else:
-            self.put_q.push(event)
+            self._put_q.push(event)
 
         return event
 
     def get(self):
         """Get an item from the Store or wait until one is available."""
-        event = self.event(self, self._env.active_process)
+        event = self._event(self, self._env.active_process)
 
         # Process can get immediately
-        if len(self.item_q):
-            item = self.item_q.pop()
+        if len(self._item_q):
+            item = self._item_q.pop()
             # Pop processes from the "put_q"
-            while self.put_q and (len(self.item_q) < self.capacity):
-                q_event = self.put_q.pop()
-                self.item_q.push(q_event.item)
+            while self._put_q and (len(self._item_q) < self._capacity):
+                q_event = self._put_q.pop()
+                self._item_q.push(q_event.item)
                 q_event.succeed()
             event.succeed(item)
 
         # Process has to wait
         else:
-            self.get_q.push(event)
+            self._get_q.push(event)
 
         return event
 
@@ -368,7 +351,7 @@ class Store(object):
 
         """
         try:
-            self.put_q.remove(event)
-            self.get_q.remove(event)
+            self._put_q.remove(event)
+            self._get_q.remove(event)
         except ValueError:
             pass
