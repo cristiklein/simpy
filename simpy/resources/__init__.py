@@ -273,7 +273,7 @@ class Store(object):
     :class:`~simpy.resources.queues.FIFO`.
 
     The container uses a :class:`~simpy.resources.events.StoreEvent` as
-    default ``event_type``. That _event type sorts by creation time.
+    default ``event_type``. That event type sorts by creation time.
     Thus, the ``put_q`` and ``get_q`` behave like FIFO queues by
     default.
 
