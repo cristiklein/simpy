@@ -7,6 +7,9 @@ resources, namely a :class:`FIFO` and a :class:`LIFO` queue as well as a
 from collections import deque
 
 
+Infinity = float('inf')
+
+
 class Queue(object):
     """Abstract base queue class for SimPy. It can't be used directly.
 
@@ -21,7 +24,7 @@ class Queue(object):
     The Queue implements the :meth:`~object.__len__()` method.
 
     """
-    def __init__(self, maxlen=0):
+    def __init__(self, maxlen=Infinity):
         self.maxlen = maxlen
         """The maximum length of the queue."""
 
@@ -68,11 +71,6 @@ class Queue(object):
         """
         self._items.remove(item)
 
-    def _check_push(self):
-        """Raise a :exc:`ValueError` if the queue's max. length is reached."""
-        if self.maxlen and len(self._items) >= self.maxlen:
-            raise ValueError('Cannot push. Queue is full.')
-
 
 class FIFO(Queue):
     """Simple "First In, First Out" queue, based on :class:`Queue`."""
@@ -87,7 +85,8 @@ class FIFO(Queue):
 
     def push(self, item):
         """Append ``item`` to the right side of the queue."""
-        super(FIFO, self)._check_push()
+        if len(self._items) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
         self._items.append(item)
 
     def peek(self):
@@ -113,7 +112,8 @@ class LIFO(Queue):
 
     def push(self, item):
         """Append ``item`` to the right side of the queue."""
-        super(LIFO, self)._check_push()
+        if len(self._items) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
         return self._items.append(item)
 
     def peek(self):
@@ -145,7 +145,8 @@ class SortedQueue(Queue):
 
     def push(self, item):
         """Add ``item`` to the queue and keep it sorted."""
-        super(SortedQueue, self)._check_push()
+        if len(self._items) >= self.maxlen:
+            raise ValueError('Cannot push. Queue is full.')
         self._items.append(item)
         self._items.sort(key=lambda e: e.key)
 
