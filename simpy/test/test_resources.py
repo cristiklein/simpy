@@ -6,6 +6,12 @@ Theses test cases demonstrate the API for shared resources.
 import pytest
 
 import simpy
+import simpy.resources
+
+
+#
+# Tests fore Resource
+#
 
 
 def test_resource(env, log):
@@ -15,15 +21,36 @@ def test_resource(env, log):
 
     """
     def pem(env, name, resource, log):
-        yield resource.request()
+        req = resource.request()
+        yield req
+        assert resource.count == 1
 
         yield env.timeout(1)
-        resource.release()
+        resource.release(req)
 
         log.append((name, env.now))
 
-    # *queue* parameter is optional, default: queue=FIFO()
-    resource = simpy.Resource(env, capacity=1, queue=simpy.FIFO())
+    resource = simpy.Resource(env, capacity=1)
+    assert resource.capacity == 1
+    assert resource.count == 0
+    env.start(pem(env, 'a', resource, log))
+    env.start(pem(env, 'b', resource, log))
+    simpy.simulate(env)
+
+    assert log == [('a', 1), ('b',  2)]
+
+
+def test_resource_context_manager(env, log):
+    """The event that ``Resource.request()`` returns can be used as
+    Context Manager."""
+    def pem(env, name, resource, log):
+        with resource.request() as request:
+            yield request
+            yield env.timeout(1)
+
+        log.append((name, env.now))
+
+    resource = simpy.Resource(env, capacity=1)
     env.start(pem(env, 'a', resource, log))
     env.start(pem(env, 'b', resource, log))
     simpy.simulate(env)
@@ -33,10 +60,10 @@ def test_resource(env, log):
 
 def test_resource_slots(env, log):
     def pem(env, name, resource, log):
-        yield resource.request()
-        log.append((name, env.now))
-        yield env.timeout(1)
-        resource.release()
+        with resource.request() as req:
+            yield req
+            log.append((name, env.now))
+            yield env.timeout(1)
 
     resource = simpy.Resource(env, capacity=3)
     for i in range(9):
@@ -53,9 +80,9 @@ def test_resource_continue_after_interrupt(env):
     """A process may be interrupted while waiting for a resource but
     should be able to continue waiting afterwards."""
     def pem(env, res):
-        yield res.request()
-        yield env.timeout(1)
-        res.release()
+        with res.request() as req:
+            yield req
+            yield env.timeout(1)
 
     def victim(env, res):
         try:
@@ -64,7 +91,7 @@ def test_resource_continue_after_interrupt(env):
             pytest.fail('Should not have gotten the resource.')
         except simpy.Interrupt:
             yield evt
-            res.release()
+            res.release(evt)
             assert env.now == 1
 
     def interruptor(env, proc):
@@ -82,9 +109,9 @@ def test_resource_release_after_interrupt(env):
     """A process needs to release a resource, even it it was interrupted
     and does not continue to wait for it."""
     def pem(env, res):
-        yield res.request()
-        yield env.timeout(1)
-        res.release()
+        with res.request() as req:
+            yield req
+            yield env.timeout(1)
 
     def victim(env, res):
         try:
@@ -93,7 +120,7 @@ def test_resource_release_after_interrupt(env):
             pytest.fail('Should not have gotten the resource.')
         except simpy.Interrupt:
             # Dont wait for the resource
-            res.release()
+            res.release(evt)
             assert env.now == 0
             env.exit()
 
@@ -109,41 +136,107 @@ def test_resource_release_after_interrupt(env):
     simpy.simulate(env)
 
 
-def test_resource_illegal_release(env):
-    """A process must be either waiting for or using a resource in order
-    to release it."""
-    def pem(env, res):
-        res.release()
-        yield
-
-    res = simpy.Resource(env, 1)
-    env.start(pem(env, res))
-    with pytest.raises(ValueError) as excinfo:
-        simpy.simulate(env)
-    assert excinfo.value.args[0].startswith('Cannot release resource')
-
-
-def test_resource_not_released(env):
-    """An error should be thrown if the resource detects that a process
-    didn't release it."""
-    def pem(env, res):
-        yield res.request()
-        res.release()
-
-    def evil_knievel(env, res):
+def test_resource_cm_exception(env, log):
+    """Resource with context manager receives an exception."""
+    def process(env, resource, log, raise_):
         try:
-            yield res.request()
-        except simpy.Interrupt:
-            pass  # Onoes, resource no can haz release!
+            with resource.request() as req:
+                yield req
+                yield env.timeout(1)
+                log.append(env.now)
+                if raise_:
+                    raise ValueError('Foo')
+        except ValueError as err:
+            assert err.args == ('Foo',)
 
-    res = simpy.Resource(env, 1)
-    env.start(pem(env, res))
-    ek = env.start(evil_knievel(env, res))
-    ek.interrupt()
-    with pytest.raises(RuntimeError) as excinfo:
-        simpy.simulate(env)
-    assert excinfo.value.args[0] == ('Process(evil_knievel) did not release '
-                                     'the resource.')
+    resource = simpy.Resource(env, 1)
+    env.start(process(env, resource, log, True))
+    # The second process is used to check if it was able to access the
+    # resource:
+    env.start(process(env, resource, log, False))
+    simpy.simulate(env)
+
+    assert log == [1, 2]
+
+
+def test_resource_with_condition(env):
+    def process(env, resource):
+        with resource.request() as res_event:
+            result = yield res_event | env.timeout(1)
+            assert res_event in result
+
+    resource = simpy.Resource(env, 1)
+    env.start(process(env, resource))
+    simpy.simulate(env)
+
+
+def test_resource_with_priority_queue(env):
+    def process(env, delay, resource, priority, res_time):
+        yield env.timeout(delay)
+        req = resource.request(priority=priority)
+        yield req
+        assert env.now == res_time
+        yield env.timeout(5)
+        resource.release(req)
+
+    resource = simpy.Resource(env, capacity=1,
+                    event_type=simpy.resources.events.PriorityResourceEvent)
+    env.start(process(env, 0, resource, 2, 0))
+    env.start(process(env, 2, resource, 3, 10))
+    env.start(process(env, 2, resource, 3, 15))  # Test equal priority
+    env.start(process(env, 4, resource, 1, 5))
+    simpy.simulate(env)
+
+
+#
+# Tests for PreemptiveResource
+#
+
+
+def test_preemptive_resource(env, log):
+    def process(id, env, res, delay, prio, log):
+        yield env.timeout(delay)
+        with res.request(priority=prio) as req:
+            try:
+                yield req
+                yield env.timeout(5)
+                log.append((env.now, id))
+            except simpy.Interrupt as ir:
+                log.append((env.now, id, tuple(ir.cause)))
+
+    res = simpy.PreemptiveResource(env, 2)
+    p0 = env.start(process(0, env, res, 0, 1, log))
+    p1 = env.start(process(1, env, res, 0, 1, log))
+    p2 = env.start(process(2, env, res, 1, 0, log))
+    p3 = env.start(process(3, env, res, 2, 2, log))
+
+    simpy.simulate(env)
+
+    assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
+
+
+@pytest.mark.xfail
+def test_preemptive_resource_fail(env):
+    def proc_a(env, resource, prio):
+        with resource.request(priority=prio) as req:
+            yield req
+            yield env.timeout(0)
+        yield env.event()
+
+    def proc_b(env, resource, prio):
+        yield env.timeout(0)
+        with resource.request(priority=prio) as req:
+            yield req
+
+    resource = simpy.PreemptiveResource(env, 1)
+    env.start(proc_a(env, resource, 1))
+    env.start(proc_b(env, resource, 0))
+
+    simpy.simulate(env)
+
+#
+# Tests for Container
+#
 
 
 def test_container(env, log):
@@ -170,14 +263,17 @@ def test_container(env, log):
         yield buf.get(1)
         log.append(('g', env.now))
 
-    # All parameters are optional, default: init=0, capacity=inf,
-    #                                       put_q=FIFO(), get_q=FIFO()
     buf = simpy.Container(env, init=0, capacity=2)
     env.start(putter(env, buf, log))
     env.start(getter(env, buf, log))
     simpy.simulate(env, until=5)
 
     assert log == [('g', 1), ('p', 1), ('g', 2), ('p', 2)]
+
+
+#
+# Tests fore Store
+#
 
 
 def test_store(env):
@@ -194,8 +290,6 @@ def test_store(env):
         item = yield store.get()
         assert item is orig_item
 
-    # All parameters are optinal, default: capacity=inf, put_q=FIFO(),
-    #                                      get_q=FIFO(), item_q=FIFO()
     store = simpy.Store(env, capacity=2)
     item = object()
 

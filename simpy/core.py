@@ -8,7 +8,7 @@ most important ones are directly importable via :mod:`simpy`.
 
 - :class:`~simpy.core.Process`: This class represents a PEM while
   it is executed in an environment. An instance of it is returned by
-  :meth:`Environment.start()`. It inherits :class:`BaseEvent`.
+  :meth:`Environment.start()`. It inherits :class:`Event`.
 
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
@@ -22,8 +22,8 @@ most important ones are directly importable via :mod:`simpy`.
 - :class:`Condition`: Groups multiple events and is triggered if a
   custom condition on them evaluates to true. There are two default
   evaluation functions (:func:`all_events()` and :func:`any_event()`
-  that are used for :class:`BaseEvent`'s implementation of ``__and__``
-  and ``__or__``.
+  that are used for :class:`Event`'s implementation of ``__and__`` and
+  ``__or__``.
 
 This module also contains a few functions to simulate an
 :class:`Environment`: :func:`peek()`, :func:`step()` and the shortcut
@@ -76,8 +76,8 @@ class Event(object):
 
     A callback can be any callable that accepts the following arguments:
 
-    - *event:* The :class:`BaseEvent` instance the callback was
-      registered at.
+    - *event:* The :class:`Event` instance the callback was registered
+      at.
     - *success:* Boolean that indicates if the event was successful.
       A process that raised an uncaught exception might for example
       cause an unsuccessful (failed) event.
@@ -321,7 +321,7 @@ class Process(Event):
     internal and external status information.  It is also used for
     process interaction, e.g., for interruptions.
 
-    ``Process`` inherits :class:`BaseEvent`. You can thus wait for the
+    ``Process`` inherits :class:`Event`. You can thus wait for the
     termination of a process by simply yielding it from your PEM.
 
     An instance of this class is returned by

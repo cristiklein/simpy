@@ -1,5 +1,5 @@
 ==========================================
-``simpy.core`` --- SimPy's Core Components
+``simpy.core`` --- SimPy's core components
 ==========================================
 
 
@@ -17,9 +17,6 @@
 
 .. autoclass:: Interrupt
    :members: cause
-
-.. autoclass:: BaseEvent
-   :members: callbacks, env
 
 .. autoclass:: Event
    :members: callbacks, env, succeed, fail

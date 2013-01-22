@@ -121,7 +121,9 @@ def test_all_of(env):
         events = [env.timeout(i, value=i) for i in range(10)]
         results = yield all_of(events)
 
-        assert results == {events[i]: i for i in range(10)}
+        # Python 2.6 does not support dict comprehensions
+        # assert results == {events[i]: i for i in range(10)}
+        assert results == dict((events[i], i) for i in range(10))
         assert env.now == 9
 
     env.start(parent(env))

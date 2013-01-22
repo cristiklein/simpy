@@ -136,7 +136,7 @@ def test_monitor_resource_queue_length(env):
     env.start(pem(env, resource))
 
     monitor = simpy.Monitor()
-    monitor.configure(lambda: len(resource.queue))
+    monitor.configure(lambda: len(resource._queue))
     # Monitor.run is a PEM that collects the configured items (and the
     # envulation time if collect_time == True) every *collect_interval*
     # steps.

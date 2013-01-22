@@ -1,5 +1,4 @@
 # encoding: utf-8
-
 from distutils.core import setup
 
 import simpy
@@ -20,6 +19,7 @@ setup(
     license='GNU LGPL',
     packages=[
         'simpy',
+        'simpy.resources',
         'simpy.test',
     ],
     package_data={},
