@@ -129,9 +129,8 @@ def test_resource_release_after_interrupt(env):
         yield env.exit(0)
 
     res = simpy.Resource(env, 1)
-    env.start(pem(env, res))
-    proc = env.start(victim(env, res))
-    env.start(interruptor(env, proc))
+    victim_proc = env.start(victim(env, res))
+    env.start(interruptor(env, victim_proc))
     env.start(pem(env, res))
     simpy.simulate(env)
 
