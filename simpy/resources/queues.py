@@ -131,7 +131,7 @@ class SortedQueue(Queue):
     :class:`Queue`.
 
     """
-    def __init__(self, maxlen=0):
+    def __init__(self, maxlen=Infinity):
         super(SortedQueue, self).__init__(maxlen)
         self._items = []
 
