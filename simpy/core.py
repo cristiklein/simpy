@@ -144,6 +144,18 @@ class Event(object):
     def __or__(self, other):
         return Condition(self.env, any_event, [self, other])
 
+    @property
+    def triggered(self):
+        """Returns ``True`` if the event has been triggered and its callbacks
+        are about to invoked."""
+        return self._triggered
+
+    @property
+    def processed(self):
+        """Returns ``True`` if the event has been processed (e.g. its callbacks
+        have been invoked)."""
+        return self.callbacks is None
+
 
 class Condition(Event):
     """A *Condition* event groups several ``events`` and is triggered if
