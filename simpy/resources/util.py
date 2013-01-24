@@ -76,6 +76,10 @@ class PreemptiveUsers(Users):
         if acquired:
             return True
 
+        # Check if we want to preempt
+        if not event.preempt:
+            return False
+
         # Check if we can preempt another process
         preempt = sorted(self._users, key=lambda e: e.key)[-1]
 

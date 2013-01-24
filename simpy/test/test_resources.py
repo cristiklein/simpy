@@ -214,12 +214,15 @@ def test_preemptive_resource(env, log):
     assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
 
 
-@pytest.mark.xfail
-def test_preemptive_resource_fail(env):
+def test_preemptive_resource_timeout_0(env):
     def proc_a(env, resource, prio):
         with resource.request(priority=prio) as req:
             yield req
-            yield env.timeout(0)
+            try:
+                yield env.timeout(0)
+                pytest.fail('Should have received an interrupt/preemption.')
+            except simpy.Interrupt:
+                pass
         yield env.event()
 
     def proc_b(env, resource, prio):
@@ -232,6 +235,35 @@ def test_preemptive_resource_fail(env):
     env.start(proc_b(env, resource, 0))
 
     simpy.simulate(env)
+
+
+def test_mixed_preemption(env, log):
+    def process(id, env, res, delay, prio, preempt, log):
+        yield env.timeout(delay)
+        with res.request(priority=prio, preempt=preempt) as req:
+            try:
+                yield req
+                yield env.timeout(5)
+                log.append((env.now, id))
+            except simpy.Interrupt as ir:
+                log.append((env.now, id, tuple(ir.cause)))
+
+    res = simpy.PreemptiveResource(env, 2)
+    p0 = env.start(process(0, env, res, 0, 1, True, log))
+    p1 = env.start(process(1, env, res, 0, 1, True, log))
+    p2 = env.start(process(2, env, res, 1, 0, False, log))
+    p3 = env.start(process(3, env, res, 1, 0, True, log))
+    p4 = env.start(process(4, env, res, 2, 2, True, log))
+
+    simpy.simulate(env)
+
+    assert log == [
+        (1, 1, (p3, 0)),
+        (5, 0),
+        (6, 3),
+        (10, 2),
+        (11, 4),
+    ]
 
 #
 # Tests for Container

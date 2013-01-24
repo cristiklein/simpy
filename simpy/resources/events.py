@@ -71,14 +71,19 @@ class PriorityResourceEvent(ResourceEvent):
     :meth:`simpy.resources.Resource.request()` or
     :class:`simpy.resources.Store.get()` and the like.
 
-    Note, a smaller value for ``priority`` means a higher priority. If
-    the priority of two evenets is equal, the creation time will used
-    as secondary sort key.
+    Note, a smaller value for ``priority`` means a higher priority
+    (comparable to *unix process priorities*, *fist class / second
+    class*, *primary / secondary* etc.). If the priority of two evenets
+    is equal, the creation time will used as secondary sort key.
+
+    If the you set *preempt* to ``False``, no preemption will happen
+    even if the priority would be high enough.
 
     """
-    def __init__(self, resource, proc, priority):
+    def __init__(self, resource, proc, priority, preempt=True):
         super(PriorityResourceEvent, self).__init__(resource, proc)
         self.priority = priority
+        self.preempt = preempt
 
     def __str__(self):
         return '%s(%r, priority=%s)' % (self.__class__.__name__, self._proc,
