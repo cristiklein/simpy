@@ -72,8 +72,8 @@ class PriorityResourceEvent(ResourceEvent):
     :class:`simpy.resources.Store.get()` and the like.
 
     Note, a smaller value for ``priority`` means a higher priority
-    (comparable to *unix process priorities*, *fist class / second
-    class*, *primary / secondary* etc.). If the priority of two evenets
+    (comparable to *Unix process priorities*, *first class / second
+    class*, *primary / secondary* etc.). If the priority of two events
     is equal, the creation time will used as secondary sort key.
 
     If the you set *preempt* to ``False``, no preemption will happen
