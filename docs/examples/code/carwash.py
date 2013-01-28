@@ -1,17 +1,34 @@
+"""
+Carwasch example.
+
+Covers:
+
+- Waiting for other processes
+- Resources: Resource
+
+Scenario:
+  A carwash has a limited number of washing machines and defines
+  a washing processes that takes some (random) time.
+
+  Car processes arrive at the carwash at a random time. If one washing
+  machine is available, they start the washing process and wait for it
+  to finish. If not, they wait until they an use one.
+
+"""
 import random
 
 import simpy
 
 
-random_seed = 42
-num_machines = 2  # Number of machines in the carwash
-washtime = 5  # Minutes it takes to clean a car
-t_inter = 7  # Create a car every ~7 minutes
-sim_time = 20  # Simulation time in minutes
+RANDOM_SEED = 42
+NUM_MACHINES = 2  # Number of machines in the carwash
+WASHTIME = 5      # Minutes it takes to clean a car
+T_INTER = 7       # Create a car every ~7 minutes
+SIM_TIME = 20     # Simulation time in minutes
 
 
 class Carwash(object):
-    """A carwash has a limited number of machines (``num_machines``) to
+    """A carwash has a limited number of machines (``NUM_MACHINES``) to
     clean cars in parallel.
 
     Cars have to request one of the machines. When they got one, they
@@ -27,7 +44,7 @@ class Carwash(object):
     def wash(self, car):
         """The washing processes. It takes a ``car`` processes and tries
         to clean it."""
-        yield self.env.timeout(washtime)
+        yield self.env.timeout(WASHTIME)
         print("Carwashed removed %d%% of %s's dirt." %
               (random.randint(50, 99), car))
 
@@ -68,12 +85,13 @@ def setup(env, num_machines, washtime, t_inter):
 
 
 # Setup and start the simulation
+print('Carwash')
 print('Check out http://youtu.be/fXXmeP9TvBg while simulating ... ;-)')
-random.seed(random_seed)  # This helps reproducing the results
+random.seed(RANDOM_SEED)  # This helps reproducing the results
 
 # Create an environment and start the setup process
 env = simpy.Environment()
-env.start(setup(env, num_machines, washtime, t_inter))
+env.start(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
 
 # Simulate!
-simpy.simulate(env, until=sim_time)
+simpy.simulate(env, until=SIM_TIME)
