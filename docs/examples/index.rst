@@ -10,3 +10,14 @@ Here's a list of examples and the features they demonstrate:
 .. toctree::
 
    carwash
+   machine_shop
+..   movie_renege
+
+
+.. bank_renege
+.. call_center
+.. cellphone
+.. central-server
+.. celluar_automata
+.. market
+.. mmc
