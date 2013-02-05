@@ -3,7 +3,7 @@ Installation
 ============
 
 SimPy is implemented in pure Python and has no dependencies. SimPy runs on
-Python 2 (>= 2.6) and Python 3 (>= 3.2). PyPy is also supported. If you have
+Python 2 (>= 2.7) and Python 3 (>= 3.2). PyPy is also supported. If you have
 `pip <http://pypi.python.org/pypi/pip>`_ installed, just type
 
 .. code:: bash

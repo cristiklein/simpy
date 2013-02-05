@@ -57,18 +57,11 @@ class ExampleItem(pytest.Item):
         with self.outfile.open() as f:
             expected = f.read()
 
-        # Execute the example.
-        if not hasattr(subprocess, 'check_output'):  # The case on Python 2.6
-            pytest.skip('subprocess has no check_output() method.')
-
-        # Add current working directory to PYTHONPATH.
         env = dict(os.environ)
         env['PYTHONPATH'] = '.'
+
         output = subprocess.check_output([sys.executable, str(self.pyfile)],
                 stderr=subprocess.STDOUT, universal_newlines=True, env=env)
-
-        # if isinstance(output, bytes):  # The case on Python 3
-        #     output = output.decode('utf8')
 
         if output != expected:
             # Hijack the ValueError exception to identify mismatching output.
