@@ -53,31 +53,10 @@ each step::
     2
 
 
-A Simple Example
-----------------
-
-This is the simplest possible for a Simpy simulation. A *clock* process prints
-the current simulation time each step::
-
-    >>> import simpy
-    >>>
-    >>> def clock(context):
-    ...     while True:
-    ...         print(context.now)
-    ...         yield context.hold(1)
-    ...
-    >>> sim = simpy.Simulation()
-    >>> sim.activate(clock)
-    >>> sim.simulate(3)
-    0
-    1
-    2
-
-
 Installation
 ------------
 
-SimPy requires Python 2.6 or above (including Python 3).
+SimPy requires Python 2.7, 3.2, PyPy 2.0 or above.
 
 You can install SimPy easily via `PIP <http://pypi.python.org/pypi/pip>`_::
 
