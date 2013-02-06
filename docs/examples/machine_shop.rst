@@ -1,6 +1,11 @@
-==========================================================
-Machine Shop --- Interrupts, Resources: PreemptiveResource
-==========================================================
+============
+Machine Shop
+============
+
+Covers:
+
+- Interrupts
+- Resources: PreemptiveResource
 
 This example comprises a workshop with *n* identical machines. A stream of jobs
 (enough to keep the machines busy) arrives. Each machine breaks down

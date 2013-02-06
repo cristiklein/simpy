@@ -1,6 +1,11 @@
-============================================================
-Carwash --- Waiting for other processes, Resources: Resource
-============================================================
+=======
+Carwash
+=======
+
+Covers:
+
+- Waiting for other processes
+- Resources: Resource
 
 
 The *Carwash* example is a simulation of a carwash with a limited number of
