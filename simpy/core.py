@@ -592,7 +592,7 @@ def step(env):
     if succeed == FAIL:
         if not hasattr(event, 'handled') or not event.handled:
             # The failure has not been handled by a callback.
-            raise value.__cause__
+            raise value
 
 
 def simulate(env, until=Infinity):

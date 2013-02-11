@@ -127,6 +127,19 @@ def test_occured_event(env):
         assert err.args[0].endswith('Event already occured "Process(child)"')
 
 
+def test_exception_handling(env):
+    """If failed events are not handled (which is the default) the simulation
+    crashes."""
+
+    event = env.event()
+    event.fail(RuntimeError())
+    try:
+        simpy.simulate(env, until=1)
+        assert False, 'There must be a RuntimeError!'
+    except RuntimeError as e:
+        pass
+
+
 def test_callback_exception_handling(env):
     """Callbacks of events may handle exception by setting the ``handled``
     attribute of ``event`` to ``True``."""
