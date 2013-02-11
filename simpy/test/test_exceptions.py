@@ -125,3 +125,35 @@ def test_occured_event(env):
         pytest.fail('Hey, this is not allowed!')
     except RuntimeError as err:
         assert err.args[0].endswith('Event already occured "Process(child)"')
+
+
+def test_callback_exception_handling(env):
+    """Callbacks of events may handle exception by setting the ``handled``
+    attribute of ``event`` to ``True``."""
+    def callback(event, type, value):
+        event.handled = True
+
+    event = env.event()
+    event.callbacks.append(callback)
+    event.fail(RuntimeError())
+    assert not hasattr(event, 'handled'), 'Event has been handled immediately'
+    simpy.simulate(env, until=1)
+    assert event.handled, 'Event has not been handled'
+
+
+def test_process_exception_handling(env):
+    """Processes can't ignore failed events and auto-handle execeptions."""
+    def pem(env, event):
+        try:
+            yield event
+            assert False, 'Hey, the event should fail!'
+        except RuntimeError:
+            pass
+
+    event = env.event()
+    proc = env.start(pem(env, event))
+    event.fail(RuntimeError())
+
+    assert not hasattr(event, 'handled'), 'Event has been handled immediately'
+    simpy.simulate(env, until=1)
+    assert event.handled, 'Event has not been handled'
