@@ -98,7 +98,7 @@ class Event(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env', '_triggered')
+    __slots__ = ('callbacks', 'env', '_triggered', 'handled')
 
     def __init__(self, env):
         self.callbacks = []
@@ -250,6 +250,7 @@ class Condition(Event):
         if not self._triggered:
             if evt_type is FAIL:
                 # Abort if the event has failed.
+                event.handled = True
                 self.env._schedule(EVT_RESUME, self, FAIL, value)
             elif self._evaluate(self._events, self._results):
                 # The condition has been met. Schedule the event with an empty
@@ -390,6 +391,8 @@ class Process(Event):
         # Schedule interrupt event
         event = Event(self.env)
         event.callbacks.append(self._resume)
+        # Unhandled interrupts do not cause the simulation to crash.
+        event.handled = True
         self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
     def _resume(self, event, success, value):
@@ -417,8 +420,13 @@ class Process(Event):
 
         # Get next event from process
         try:
-            next_evt = self._generator.send(value) if success else \
-                        self._generator.throw(value)
+            if success:
+                next_evt = self._generator.send(value)
+            else:
+                # The process has no choice but to handle the failed event (or
+                # fail itself).
+                event.handled = True
+                next_evt = self._generator.throw(value)
         except StopIteration as e:
             # Process has terminated.
             evt_type = SUCCEED
@@ -580,10 +588,11 @@ def step(env):
     if callbacks:
         for callback in callbacks:
             callback(event, succeed, value)
-    elif succeed == FAIL:
-        # The event has failed, but there is no callback to handle this
-        # failure.
-        raise value.__cause__
+
+    if succeed == FAIL:
+        if not hasattr(event, 'handled') or not event.handled:
+            # The failure has not been handled by a callback.
+            raise value.__cause__
 
 
 def simulate(env, until=Infinity):

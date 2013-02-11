@@ -111,10 +111,8 @@ def test_cond_with_nested_error(env):
 
 
 def test_cond_with_uncaught_error(env):
-    """Errors that happen after the condition has been triggered are ignored
-    and do not cause the simulation to crash.
-
-    TODO Explain the reason for this behaviour."""
+    """Errors that happen after the condition has been triggered will not be
+    handled by the condition and cause the simulation to crash."""
     def explode(env, delay):
         yield env.timeout(delay)
         raise ValueError('Onoes, failed after %d!' % delay)
@@ -123,7 +121,11 @@ def test_cond_with_uncaught_error(env):
         yield env.timeout(1) | env.start(explode(env, 2))
 
     env.start(process(env))
-    simulate(env)
+    try:
+        simulate(env)
+        assert False, 'There should have been an exception.'
+    except ValueError:
+        pass
     assert env.now == 2
 
 
