@@ -18,21 +18,20 @@ from simpy.rt import simulate
 def process(env, log, sleep, timeout=1):
     """Test process."""
     while True:
-        print('sleep')
         time.sleep(sleep)
         yield env.timeout(timeout)
         log.append(env.now)
 
 
 @pytest.mark.parametrize('factor', [
-    1,
-    0.5,
-    1.5,
+    0.1,
+    0.05,
+    0.15,
 ])
 def test_rt(env, log, factor):
     """Basic tests for simulate()."""
-    env.start(process(env, log, 0.1, 1))
-    env.start(process(env, log, 0.2, 1))
+    env.start(process(env, log, 0.01, 1))
+    env.start(process(env, log, 0.02, 1))
 
     start = perf_counter()
     simulate(env, 2, factor=factor)
