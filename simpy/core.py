@@ -595,20 +595,28 @@ def step(env):
             raise value
 
 
-def simulate(env, until=Infinity):
-    """Shortcut for ``while peek(env) < until: step(env)``.
+def simulate(env, until=None):
+    """Simulates the environment until the given criterion is met.
 
-    The parameter ``until`` specifies when the simulation ends. By
-    default it is set to *infinity*, which means SimPy tries to simulate
-    all events, which might take infinite time if your processes don't
-    terminate on their own.
+    The parameter ``until`` specifies when the simulation ends.
+
+    * If it is ``None`` (which is the default) the simulation will only stop if
+      there are no further events.
+
+    * If it is an :class:`Event` the simulation will stop once this event has
+      happened.
+
+    * If it is a number the simulation will stop after this amount of time
+      (internally a :class:`Timeout` event is created).
 
     """
-    if until <= 0:
-        raise ValueError('until(=%s) should be a number > 0.' % until)
+    if until is None:
+        until = env.event()
+    elif not hasattr(until, 'callbacks'):
+        until = env.timeout(until)
 
     events = env._events
-    while events and events[0][0] < until:
+    while events and until.callbacks is not None:
         step(env)
 
 
