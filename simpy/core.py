@@ -613,7 +613,7 @@ def simulate(env, until=None):
     if until is None:
         until = env.event()
     elif not hasattr(until, 'callbacks'):
-        until = env.timeout(until)
+        until = env.timeout(until - env.now)
 
     events = env._events
     while events and until.callbacks is not None:
