@@ -165,3 +165,16 @@ def test_process_target(env):
         step(env)
     assert proc.target is event
     proc.interrupt()
+
+
+def test_simulate_resume(env):
+    """Stopped simulation can be resumed."""
+    events = [env.timeout(t) for t in (5, 10, 15)]
+
+    simulate(env, until=10)
+    assert events[0].processed and events[1].processed
+    assert env.now == 10
+
+    simulate(env, until=15)
+    assert events[2].processed
+    assert env.now == 15
