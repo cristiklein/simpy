@@ -33,6 +33,7 @@ This module also contains a few functions to simulate an
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
+from numbers import Number
 
 
 # BaseEvent types/priorities
@@ -612,8 +613,11 @@ def simulate(env, until=None):
     """
     if until is None:
         until = env.event()
-    elif not hasattr(until, 'callbacks'):
+    elif isinstance(until, Number):
         until = env.timeout(until - env.now)
+    elif not isinstance(until, Event):
+        raise ValueError('"until" must be None, a number or an event but '
+                'not "%s"' % until)
 
     events = env._events
     while events and until.callbacks is not None:
