@@ -597,27 +597,35 @@ def step(env):
 
 
 def simulate(env, until=None):
-    """Simulates the environment until the given criterion is met.
+    """Simulate the environment until the given criterion *until* is met.
 
     The parameter ``until`` specifies when the simulation ends.
 
-    * If it is ``None`` (which is the default) the simulation will only stop if
-      there are no further events.
+    - If it is ``None`` (which is the default) the simulation will only
+      stop if there are no further events.
 
-    * If it is an :class:`Event` the simulation will stop once this event has
-      happened.
+    - If it is an :class:`Event` the simulation will stop once this
+      event has happened.
 
-    * If it is a number the simulation will stop after this amount of time
-      (internally a :class:`Timeout` event is created).
+    - If it is a number the simulation will stop when the simulation
+      time reaches *until*. (*Note:* Internally, a :class:`Timeout`
+      event is created, so the simulation time will be exactly *until*
+      afterwards (as it is ``0`` at the beginning)).
 
     """
     if until is None:
         until = env.event()
     elif isinstance(until, Number):
-        until = env.timeout(until - env.now)
+        try:
+            until = env.timeout(until - env.now)
+        except ValueError:
+            # Suppressing the original exception with
+            # "raise Exc from None" only works from Python 3.3
+            raise ValueError('until(=%s) should be >= the current '
+                             'simulation time.' % until)
     elif not isinstance(until, Event):
-        raise ValueError('"until" must be None, a number or an event but '
-                'not "%s"' % until)
+        raise ValueError('"until" must be None, a number or an event, '
+                         'but not "%s"' % until)
 
     events = env._events
     while events and until.callbacks is not None:
