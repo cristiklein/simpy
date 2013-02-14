@@ -23,6 +23,10 @@ def process(env, log, sleep, timeout=1):
         log.append(env.now)
 
 
+def check_duration(real, expected):
+    return expected <= real < (expected + 0.02)
+
+
 @pytest.mark.parametrize('factor', [
     0.1,
     0.05,
@@ -37,7 +41,7 @@ def test_rt(env, log, factor):
     simulate(env, 2, factor=factor)
     duration = perf_counter() - start
 
-    assert factor <= duration < (2 * factor)  # 1 step * factor
+    assert check_duration(duration, 2 * factor)
     assert log == [1, 1]
 
 
@@ -51,14 +55,14 @@ def test_rt_multiple_call(env, log):
     duration = perf_counter() - start
 
     # assert almost_equal(duration, 0.2)
-    assert 0.2 <= duration < 0.25  # 4 steps * 0.05 == 0.2 + overhead
+    assert check_duration(duration, 5 * 0.05)
     assert log == [2, 3, 4]
 
     start = perf_counter()
     simulate(env, 12, factor=0.05)
     duration = perf_counter() - start
 
-    assert 0.3 <= duration < 0.35  # 6  steps * 0.05 == 0.3 + overhead
+    assert check_duration(duration, 7 * 0.05)
     assert log == [2, 3, 4, 6, 6, 8, 9, 10]
 
 
@@ -80,11 +84,12 @@ def test_rt_slow_sim_no_error(env, log):
     simulate(env, 2, 0.05, strict=False)
     duration = perf_counter() - start
 
-    assert 0.2 <= duration < 0.22
+    assert check_duration(duration, 2 * 0.1)
     assert log == [1]
 
 
 def test_rt_illegal_until(env):
     """Test illegal value for *until*."""
-    err = pytest.raises(ValueError, simulate, env, 0)
-    assert err.value.args[0] == 'until(=0) should be a number > 0.'
+    err = pytest.raises(ValueError, simulate, env, -1)
+    assert err.value.args[0] == 'until(=-1) should be >= the current ' \
+                                'simulation time.'
