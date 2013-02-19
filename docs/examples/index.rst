@@ -13,6 +13,7 @@ Here's a list of examples grouped by features they demonstrate.
    carwash
    machine_shop
    movie_renege
+   gas_station_refuel
 
 .. bank_renege
 .. call_center
@@ -42,6 +43,8 @@ Monitoring
 Resources: Container
 ====================
 
+- :doc:`gas_station_refuel`
+
 
 Resources: Preemptive Resource
 ==============================
@@ -52,6 +55,7 @@ Resources: Preemptive Resource
 Resources: Resource
 ===================
 
+- :doc:`gas_station_refuel`
 - :doc:`carwash`
 - :doc:`movie_renege`
 
@@ -70,6 +74,7 @@ Waiting for other processes
 ===========================
 
 - :doc:`carwash`
+- :doc:`gas_station_refuel`
 
 
 You have ideas for better examples? Please send them to our `mainling list
