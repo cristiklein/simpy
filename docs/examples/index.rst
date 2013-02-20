@@ -49,6 +49,7 @@ Resources: Store
 ================
 
 - :doc:`process_communication`
+- :doc:`latency`
 
 
 Shared events
@@ -74,6 +75,7 @@ All examples
    movie_renege
    gas_station_refuel
    process_communication
+   latency
 
 .. bank_renege
 .. call_center

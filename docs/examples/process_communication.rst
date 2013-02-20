@@ -4,8 +4,7 @@ Process Communication
 
 Covers:
 
-- Process interconnects
-- Process synchronization
+- Resources: Store
 
 This example shows how to interconnect simulation model elements together using
 "resources.Store" for one-to-one, and many-to-one asynchronous processes. For
