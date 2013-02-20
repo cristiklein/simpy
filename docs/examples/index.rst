@@ -2,27 +2,12 @@
 Examples
 ========
 
+
+
 All theory is grey. In this section, we present various practical examples that
 demonstrate how to uses SimPy's features.
 
 Here's a list of examples grouped by features they demonstrate.
-
-.. toctree::
-   :hidden:
-
-   carwash
-   machine_shop
-   movie_renege
-   gas_station_refuel
-
-.. bank_renege
-.. call_center
-.. cellphone
-.. central-server
-.. celluar_automata
-.. market
-.. mmc
-
 
 Condition events
 ================
@@ -63,6 +48,8 @@ Resources: Resource
 Resources: Store
 ================
 
+- :doc:`process_communication`
+
 
 Shared events
 =============
@@ -76,6 +63,25 @@ Waiting for other processes
 - :doc:`carwash`
 - :doc:`gas_station_refuel`
 
+
+All examples
+============
+
+.. toctree::
+
+   carwash
+   machine_shop
+   movie_renege
+   gas_station_refuel
+   process_communication
+
+.. bank_renege
+.. call_center
+.. cellphone
+.. central-server
+.. celluar_automata
+.. market
+.. mmc
 
 You have ideas for better examples? Please send them to our `mainling list
 <https://lists.sourceforge.net/lists/listinfo/simpy-users>`_ or make a pull
