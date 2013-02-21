@@ -172,9 +172,16 @@ def test_simulate_resume(env):
     events = [env.timeout(t) for t in (5, 10, 15)]
 
     simulate(env, until=10)
-    assert events[0].processed and events[1].processed
+    assert events[0].processed
+    assert not events[1].processed
+    assert not events[2].processed
     assert env.now == 10
 
     simulate(env, until=15)
+    assert events[1].processed
+    assert not events[2].processed
+    assert env.now == 15
+
+    simulate(env)
     assert events[2].processed
     assert env.now == 15

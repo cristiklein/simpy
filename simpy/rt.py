@@ -10,7 +10,7 @@ except ImportError:
     # Python < 3.3
     from time import time, sleep
 
-from simpy.core import Event, step
+from simpy.core import Event, step, EVT_INIT, SUCCEED
 
 
 Infinity = float('inf')
@@ -43,13 +43,13 @@ def simulate(env, until=Infinity, factor=1.0, strict=True):
     if until is None:
         until = env.event()
     elif isinstance(until, Number):
-        try:
-            until = env.timeout(until - env.now)
-        except ValueError:
-            # Suppressing the original exception with
-            # "raise Exc from None" only works from Python 3.3
-            raise ValueError('until(=%s) should be >= the current '
-                             'simulation time.' % until)
+        if until <= env.now:
+            raise ValueError('until(=%s) should be > the current simulation '
+                             'time.' % until)
+        delay = until - env.now
+        until = env.event()
+        # EVT_INIT schedules "until" before all other events for that time.
+        env._schedule(EVT_INIT, until, SUCCEED, delay=delay)
     elif not isinstance(until, Event):
         raise ValueError('"until" must be None, a number or an event, '
                          'but not "%s"' % until)

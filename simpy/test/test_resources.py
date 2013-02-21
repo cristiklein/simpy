@@ -187,6 +187,23 @@ def test_resource_with_priority_queue(env):
     simpy.simulate(env)
 
 
+def test_get_users(env):
+    def process(env, resource):
+        with resource.request() as req:
+            yield req
+            yield env.timeout(1)
+
+    resource = simpy.Resource(env, 1)
+    procs = [env.start(process(env, resource)) for i in range(3)]
+    simpy.simulate(env, until=1)
+    assert resource.get_users() == procs[0:1]
+    assert resource.get_queued() == procs[1:]
+
+    simpy.simulate(env, until=2)
+    assert resource.get_users() == procs[1:2]
+    assert resource.get_queued() == procs[2:]
+
+
 #
 # Tests for PreemptiveResource
 #
@@ -300,6 +317,30 @@ def test_container(env, log):
     simpy.simulate(env, until=5)
 
     assert log == [('g', 1), ('p', 1), ('g', 2), ('p', 2)]
+
+
+def test_container_get_queued(env):
+    def proc(env, wait, container, what):
+        yield env.timeout(wait)
+        with getattr(container, what)(1) as req:
+            print(env.now, what, container.level)
+            yield req
+
+    container = simpy.Container(env, 1)
+    p0 = env.start(proc(env, 0, container, 'get'))
+    p1 = env.start(proc(env, 1, container, 'put'))
+    p2 = env.start(proc(env, 1, container, 'put'))
+    p3 = env.start(proc(env, 1, container, 'put'))
+
+    simpy.simulate(env, until=1)
+    print('simulated')
+    assert container.get_put_queued() == []
+    assert container.get_get_queued() == [p0]
+
+    simpy.simulate(env, until=2)
+    print('simulated')
+    assert container.get_put_queued() == [p3]
+    assert container.get_get_queued() == []
 
 
 #

@@ -16,3 +16,6 @@
 
 .. autoclass:: Store(env, capacity=Infinity, item_q_type=FIFO, event_type=StoreEvent)
     :inherited-members:
+
+.. autoclass:: BaseContainer
+    :inherited-members:
