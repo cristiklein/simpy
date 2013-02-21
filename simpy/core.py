@@ -608,21 +608,23 @@ def simulate(env, until=None):
       event has happened.
 
     - If it is a number the simulation will stop when the simulation
-      time reaches *until*. (*Note:* Internally, a :class:`Timeout`
-      event is created, so the simulation time will be exactly *until*
-      afterwards (as it is ``0`` at the beginning)).
+
+      time reaches *until*. (*Note:* Internally, an event is created, so
+      the simulation time will be exactly *until* afterwards. No other
+      events scheduled for *until* will be processed, though---as it
+      is at the very beginning of the simulation.)
 
     """
     if until is None:
         until = env.event()
     elif isinstance(until, Number):
-        try:
-            until = env.timeout(until - env.now)
-        except ValueError:
-            # Suppressing the original exception with
-            # "raise Exc from None" only works from Python 3.3
-            raise ValueError('until(=%s) should be >= the current '
-                             'simulation time.' % until)
+        if until <= env.now:
+            raise ValueError('until(=%s) should be > the current simulation '
+                             'time.' % until)
+        delay = until - env.now
+        until = env.event()
+        # EVT_INIT schedules "until" before all other events for that time.
+        env._schedule(EVT_INIT, until, SUCCEED, delay=delay)
     elif not isinstance(until, Event):
         raise ValueError('"until" must be None, a number or an event, '
                          'but not "%s"' % until)
