@@ -91,5 +91,5 @@ def test_rt_slow_sim_no_error(env, log):
 def test_rt_illegal_until(env):
     """Test illegal value for *until*."""
     err = pytest.raises(ValueError, simulate, env, -1)
-    assert err.value.args[0] == 'until(=-1) should be >= the current ' \
+    assert err.value.args[0] == 'until(=-1) should be > the current ' \
                                 'simulation time.'
