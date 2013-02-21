@@ -100,6 +100,14 @@ class Resource(object):
                 event = self._queue.pop()
                 self._users.add(event)
 
+    def get_users(self):
+        """Return a list with all processes using the resource."""
+        return [event._proc for event in self._users._users]
+
+    def get_queued(self):
+        """Return a list with all queued processes."""
+        return [event._proc for event in self._queue._items]
+
 
 class PreemptiveResource(Resource):
     """This resource mostly works like :class:`Resource`, but users of
@@ -118,7 +126,60 @@ class PreemptiveResource(Resource):
                 event_type=event_type, users_type=util.PreemptiveUsers)
 
 
-class Container(object):
+class BaseContainer(object):
+    """Base class for all container types."""
+    def __init__(self, env, capacity, event_type):
+        if capacity <= 0:
+            raise ValueError('capacity(=%s) must be > 0.' % capacity)
+
+        self._env = env
+        self._capacity = capacity
+        self._event = event_type
+        self._put_q = queues.SortedQueue()
+        self._get_q = queues.SortedQueue()
+
+    @property
+    def capacity(self):
+        """The maximum capactiy of the container."""
+        return self._capacity
+
+    def put(self):
+        """Override this in your implementation to put sth. into the
+        container."""
+        raise NotImplementedError
+
+    def get(self):
+        """Override this in your implementation to take sth. out of the
+        container."""
+        raise NotImplementedError
+
+    def release(self, event):
+        """Cancel a put/get request to the queue.
+
+        A process must call this when it was interrupt during a put/get
+        request if the Container was not used as a context manager.
+
+        """
+        try:
+            self._put_q.remove(event)
+            self._get_q.remove(event)
+        except ValueError:
+            pass
+
+    def get_put_queued(self):
+        """Return a list with all processes in the *put queue*."""
+        return self._get_queued(self._put_q)
+
+    def get_get_queued(self):
+        """Return a list with all processes in the *get queue*."""
+        return self._get_queued(self._get_q)
+
+    def _get_queued(self, queue):
+        """Return a list with all processes in *queue*."""
+        return [event._proc for event in queue._items]
+
+
+class Container(BaseContainer):
     """Models the production and consumption of a homogeneous,
     undifferentiated bulk. It may either be continuous (like water) or
     discrete (like apples).
@@ -148,22 +209,10 @@ class Container(object):
     """
     def __init__(self, env, capacity=Infinity, init=0,
                  event_type=events.ContainerEvent):
-        if capacity <= 0:
-            raise ValueError('capacity(=%s) must be > 0.' % capacity)
         if init < 0:
             raise ValueError('init(=%s) must be >= 0.' % init)
-
-        self._env = env
-        self._capacity = capacity
+        super(Container, self).__init__(env, capacity, event_type)
         self._level = init
-        self._event = event_type
-        self._put_q = queues.SortedQueue()
-        self._get_q = queues.SortedQueue()
-
-    @property
-    def capacity(self):
-        """The maximum capactiy of the container."""
-        return self._capacity
 
     @property
     def level(self):
@@ -238,21 +287,8 @@ class Container(object):
 
         return event
 
-    def release(self, event):
-        """Cancel a put/get request to the queue.
 
-        A process must call this when it was interrupt during a put/get
-        request if the Container was not used as a context manager.
-
-        """
-        try:
-            self._put_q.remove(event)
-            self._get_q.remove(event)
-        except ValueError:
-            pass
-
-
-class Store(object):
+class Store(BaseContainer):
     """Models the production and consumption of concrete Python objects.
 
     The type of items you can put into or get from the store is not
@@ -280,20 +316,8 @@ class Store(object):
     """
     def __init__(self, env, capacity=Infinity, item_q_type=queues.FIFO,
                  event_type=events.StoreEvent):
-        if capacity <= 0:
-            raise ValueError('capacity(=%s) must be > 0.' % capacity)
-
-        self._env = env
-        self._capacity = capacity
-        self._event = event_type
-        self._put_q = queues.SortedQueue()
-        self._get_q = queues.SortedQueue()
+        super(Store, self).__init__(env, capacity, event_type)
         self._item_q = item_q_type()
-
-    @property
-    def capacity(self):
-        """The maximum _capacity of the Store."""
-        return self._capacity
 
     @property
     def count(self):
@@ -342,16 +366,3 @@ class Store(object):
             self._get_q.push(event)
 
         return event
-
-    def release(self, event):
-        """Cancel a put/get request to the queue.
-
-        A process must call this when it was interrupt during a put/get
-        request if the Store was not used as a context manager.
-
-        """
-        try:
-            self._put_q.remove(event)
-            self._get_q.remove(event)
-        except ValueError:
-            pass
