@@ -99,7 +99,7 @@ class Event(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env', '_triggered', 'handled')
+    __slots__ = ('callbacks', 'env', '_triggered', 'defused')
 
     def __init__(self, env):
         self.callbacks = []
@@ -251,7 +251,7 @@ class Condition(Event):
         if not self._triggered:
             if evt_type is FAIL:
                 # Abort if the event has failed.
-                event.handled = True
+                event.defused = True
                 self.env._schedule(EVT_RESUME, self, FAIL, value)
             elif self._evaluate(self._events, self._results):
                 # The condition has been met. Schedule the event with an empty
@@ -392,8 +392,8 @@ class Process(Event):
         # Schedule interrupt event
         event = Event(self.env)
         event.callbacks.append(self._resume)
-        # Unhandled interrupts do not cause the simulation to crash.
-        event.handled = True
+        # Interrupts do not cause the simulation to crash.
+        event.defused = True
         self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
     def _resume(self, event, success, value):
@@ -426,7 +426,7 @@ class Process(Event):
             else:
                 # The process has no choice but to handle the failed event (or
                 # fail itself).
-                event.handled = True
+                event.defused = True
                 next_evt = self._generator.throw(value)
         except StopIteration as e:
             # Process has terminated.
@@ -586,13 +586,12 @@ def step(env):
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
-    if callbacks:
-        for callback in callbacks:
-            callback(event, succeed, value)
+    for callback in callbacks:
+        callback(event, succeed, value)
 
     if succeed == FAIL:
-        if not hasattr(event, 'handled') or not event.handled:
-            # The failure has not been handled by a callback.
+        if not hasattr(event, 'defused') or not event.defused:
+            # The event has not been defused by a callback.
             raise value
 
 

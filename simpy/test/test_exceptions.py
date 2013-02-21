@@ -128,7 +128,7 @@ def test_occured_event(env):
 
 
 def test_exception_handling(env):
-    """If failed events are not handled (which is the default) the simulation
+    """If failed events are not defused (which is the default) the simulation
     crashes."""
 
     event = env.event()
@@ -141,17 +141,17 @@ def test_exception_handling(env):
 
 
 def test_callback_exception_handling(env):
-    """Callbacks of events may handle exception by setting the ``handled``
+    """Callbacks of events may handle exception by setting the ``defused``
     attribute of ``event`` to ``True``."""
     def callback(event, type, value):
-        event.handled = True
+        event.defused = True
 
     event = env.event()
     event.callbacks.append(callback)
     event.fail(RuntimeError())
-    assert not hasattr(event, 'handled'), 'Event has been handled immediately'
+    assert not hasattr(event, 'defused'), 'Event has been defused immediately'
     simpy.simulate(env, until=1)
-    assert event.handled, 'Event has not been handled'
+    assert event.defused, 'Event has not been defused'
 
 
 def test_process_exception_handling(env):
@@ -167,6 +167,6 @@ def test_process_exception_handling(env):
     proc = env.start(pem(env, event))
     event.fail(RuntimeError())
 
-    assert not hasattr(event, 'handled'), 'Event has been handled immediately'
+    assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'
     simpy.simulate(env, until=1)
-    assert event.handled, 'Event has not been handled'
+    assert event.defused, 'Event has not been defused'
