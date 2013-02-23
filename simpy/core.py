@@ -606,17 +606,18 @@ def simulate(env, until=None):
     - If it is an :class:`Event` the simulation will stop once this
       event has happened.
 
-    - If it is a number the simulation will stop when the simulation
-
-      time reaches *until*. (*Note:* Internally, an event is created, so
-      the simulation time will be exactly *until* afterwards. No other
-      events scheduled for *until* will be processed, though---as it
-      is at the very beginning of the simulation.)
+    - If it can be converted to a number the simulation will stop when the
+      simulation time reaches *until*. (*Note:* Internally, an event is
+      created, so the simulation time will be exactly *until* afterwards. No
+      other events scheduled for *until* will be processed, though---as it is
+      at the very beginning of the simulation.)
 
     """
     if until is None:
         until = env.event()
-    elif isinstance(until, Number):
+    elif not isinstance(until, Event):
+        until = float(until)
+
         if until <= env.now:
             raise ValueError('until(=%s) should be > the current simulation '
                              'time.' % until)
@@ -624,9 +625,6 @@ def simulate(env, until=None):
         until = env.event()
         # EVT_INIT schedules "until" before all other events for that time.
         env._schedule(EVT_INIT, until, SUCCEED, delay=delay)
-    elif not isinstance(until, Event):
-        raise ValueError('"until" must be None, a number or an event, '
-                         'but not "%s"' % until)
 
     events = env._events
     while events and until.callbacks is not None:
