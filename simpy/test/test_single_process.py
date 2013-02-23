@@ -187,6 +187,12 @@ def test_simulate_resume(env):
     assert env.now == 15
 
 
+def test_simulate_until_value(env):
+    """Anything that can be converted to a float is a valid until value."""
+    simulate(env, until='3.141592')
+
+    assert env.now == 3.141592
+
 def test_event_value(env):
     """After an event has been triggered, its value becomes accessible."""
     event = env.timeout(0, 'I am the value')
