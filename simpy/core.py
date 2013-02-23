@@ -74,6 +74,9 @@ class Interrupt(Exception):
         return self.args[0]
 
 
+PENDING = object()
+
+
 class Event(object):
     """Base class for all events.
 
@@ -99,7 +102,7 @@ class Event(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env', '_triggered', 'defused')
+    __slots__ = ('callbacks', 'env', 'defused', '_value')
 
     def __init__(self, env):
         self.callbacks = []
@@ -107,7 +110,7 @@ class Event(object):
         processed."""
         self.env = env
         """The :class:`Environment` the event lives in."""
-        self._triggered = False
+        self._value = PENDING
 
     def __str__(self):
         return '%s()' % self.__class__.__name__
@@ -119,13 +122,22 @@ class Event(object):
     def triggered(self):
         """Becomes ``True`` if the event has been triggered and its callbacks
         are about to be invoked."""
-        return self._triggered
+        return self._value is not PENDING
 
     @property
     def processed(self):
         """Becomes ``True`` if the event has been processed (e.g., its
         callbacks have been invoked)."""
         return self.callbacks is None
+
+    @property
+    def value(self):
+        """Returns the value of the event if it is available (e.g. if it has
+        been triggered. If the value is not yet availabe a ``RuntimeError``
+        will be risen."""
+        if self._value is PENDING:
+            raise RuntimeError('Value of %s is not yet available' % self)
+        return self._value
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
@@ -168,15 +180,15 @@ class Condition(Event):
     a given condition (implemented by the ``evaluate`` function) becomes
     true.
 
-    The result of the condition is a dictionary that maps the input
-    events to their respective results. It only contains entries for
+    The value of the condition is a dictionary that maps the input
+    events to their respective values. It only contains entries for
     those events that occurred until the condition was met.
 
     If one of the ``events`` fails, the condition also fails and
     forwards the exception of the failing event.
 
     The ``evaluate`` function receives the list of target events and the
-    dictionary with all results currently available. If it returns
+    dictionary with all values currently available. If it returns
     ``True``, the condition is scheduled. SimPy provides the
     :func:`all_events()` and :func:`any_event()` functions that are used
     for the implementation of *and* (``&``) and *or* (``|``) of all
@@ -186,13 +198,13 @@ class Condition(Event):
     sub- or nested conditions.
 
     """
-    __slots__ = ('callbacks', 'env', '_evaluate', '_results', '_events',
-                 '_sub_conditions')
+    __slots__ = ('callbacks', 'env', '_evaluate', '_interim_values',
+            '_events', '_sub_conditions')
 
     def __init__(self, env, evaluate, events):
         Event.__init__(self, env)
         self._evaluate = evaluate
-        self._results = {}
+        self._interim_values = {}
         self._events = []
         self._sub_conditions = []
 
@@ -201,29 +213,29 @@ class Condition(Event):
 
         # Register a callback which will update the value of this
         # condition once it is being processed.
-        self.callbacks.append(self._collect_results)
+        self.callbacks.append(self._collect_values)
 
     def __str__(self):
         return '%s(%s, [%s])' % (self.__class__.__name__,
                 self._evaluate.__name__,
                 ', '.join([repr(event) for event in self._events]))
 
-    def _get_results(self):
-        """Recursively collects the current results of all nested
+    def _get_values(self):
+        """Recursively collects the current values of all nested
         conditions into a flat dictionary."""
-        results = dict(self._results)
+        values = dict(self._interim_values)
 
         for condition in self._sub_conditions:
-            if condition in results:
-                del results[condition]
-            results.update(condition._get_results())
+            if condition in values:
+                del values[condition]
+            values.update(condition._get_values())
 
-        return results
+        return values
 
-    def _collect_results(self, event, evt_type, value):
+    def _collect_values(self, evt_type, event):
         """Populates the final value of this condition."""
         if evt_type is not FAIL:
-            value.update(self._get_results())
+            self._value.update(self._get_values())
 
     def _add_event(self, event):
         """Add another event to the condition."""
@@ -243,19 +255,19 @@ class Condition(Event):
 
         return self
 
-    def _check(self, event, evt_type, value):
+    def _check(self, evt_type, event):
         """Check if the condition was already met and schedule the event
         if so."""
-        self._results[event] = value
+        self._interim_values[event] = event._value
 
-        if not self._triggered:
+        if self._value is PENDING:
             if evt_type is FAIL:
                 # Abort if the event has failed.
                 event.defused = True
-                self.env._schedule(EVT_RESUME, self, FAIL, value)
-            elif self._evaluate(self._events, self._results):
+                self.env._schedule(EVT_RESUME, self, FAIL, event._value)
+            elif self._evaluate(self._events, self._interim_values):
                 # The condition has been met. Schedule the event with an empty
-                # dictionary as value. The _collect_results callback will
+                # dictionary as value. The _collect_values callback will
                 # populate this dictionary once this condition gets processed.
                 self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
@@ -274,16 +286,16 @@ class Condition(Event):
         return self._add_event(other)
 
 
-def all_events(events, results):
+def all_events(events, values):
     """Helper for :class:`Condition`. Return ``True`` if there are
-    results for all ``events``."""
-    return len(events) == len(results)
+    values for all ``events``."""
+    return len(events) == len(values)
 
 
-def any_event(events, results):
+def any_event(events, values):
     """Helper for :class:`Condition`. Return ``True`` if there is at
-    least one result available from ``events``."""
-    return len(results) > 0
+    least one value available from ``events``."""
+    return len(values) > 0
 
 
 class Timeout(Event):
@@ -304,10 +316,9 @@ class Timeout(Event):
         processed."""
         self.env = env
         """The :class:`Environment` the timeout lives in."""
-        self._triggered = False
 
         self._delay = delay
-        self._value = value
+        self._value = PENDING
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
@@ -346,7 +357,7 @@ class Process(Event):
         processed."""
         self.env = env
         """The :class:`Environment` the process lives in."""
-        self._triggered = False
+        self._value = PENDING
 
         self._generator = generator
 
@@ -372,7 +383,7 @@ class Process(Event):
     @property
     def is_alive(self):
         """``True`` until the event has been processed."""
-        return not self._triggered
+        return self._value is PENDING
 
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
@@ -396,7 +407,7 @@ class Process(Event):
         event.defused = True
         self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
-    def _resume(self, event, success, value):
+    def _resume(self, success, event):
         """Get the next event from this process and register as a callback.
 
         If the PEM generator exits or raises an exception, terminate
@@ -408,7 +419,7 @@ class Process(Event):
         # interrupts cause this situation. If the process dies while
         # handling the first one, the remaining interrupts must be
         # discarded.
-        if self._triggered:
+        if self._value is not PENDING:
             return
 
         # If the current target (e.g. an interrupt) isn't the one the process
@@ -422,21 +433,21 @@ class Process(Event):
         # Get next event from process
         try:
             if success:
-                next_evt = self._generator.send(value)
+                next_evt = self._generator.send(event._value)
             else:
                 # The process has no choice but to handle the failed event (or
                 # fail itself).
                 event.defused = True
-                next_evt = self._generator.throw(value)
+                next_evt = self._generator.throw(event._value)
         except StopIteration as e:
             # Process has terminated.
             evt_type = SUCCEED
-            result = e.args[0] if len(e.args) else None
+            value = e.args[0] if len(e.args) else None
         except BaseException as e:
             # Process has failed.
             evt_type = FAIL
-            result = type(e)(*e.args)
-            result.__cause__ = e
+            value = type(e)(*e.args)
+            value.__cause__ = e
         else:
             # Process returned another event to wait upon.
             try:
@@ -465,7 +476,7 @@ class Process(Event):
         # The process terminated. Schedule this event.
         # FIXME Setting target to None is only needed for resources.
         self._target = None
-        self.env._schedule(EVT_RESUME, self, evt_type, result)
+        self.env._schedule(EVT_RESUME, self, evt_type, value)
         self.env._active_proc = None
 
 
@@ -498,16 +509,16 @@ class Environment(object):
         """
         return Process(self, generator)
 
-    def exit(self, result=None):
-        """Stop the current process, optionally providing a ``result``.
+    def exit(self, value=None):
+        """Stop the current process, optionally providing a ``value``.
 
-        The ``result`` is sent to processes waiting for the current
+        The ``value`` is sent to processes waiting for the current
         process.
 
-        From Python 3.3, you can use ``return result`` instead.
+        From Python 3.3, you can use ``return value`` instead.
 
         """
-        raise StopIteration(result)
+        raise StopIteration(value)
 
     def event(self):
         """Create and return a new :class:`Event`."""
@@ -549,10 +560,10 @@ class Environment(object):
         scheduled.
 
         """
-        if event._triggered:
+        if event._value is not PENDING:
             raise RuntimeError('Event %s has already been triggered' % event)
 
-        event._triggered = True
+        event._value = value
 
         heappush(self._events, (
             self._now + delay,
@@ -560,7 +571,6 @@ class Environment(object):
             next(self._eid),
             succeed,
             event,
-            value,
         ))
 
 
@@ -581,18 +591,18 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
+    env._now, evt_type, eid, succeed, event = heappop(env._events)
 
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
     for callback in callbacks:
-        callback(event, succeed, value)
+        callback(succeed, event)
 
     if succeed == FAIL:
         if not hasattr(event, 'defused') or not event.defused:
             # The event has not been defused by a callback.
-            raise value
+            raise event._value
 
 
 def simulate(env, until=None):

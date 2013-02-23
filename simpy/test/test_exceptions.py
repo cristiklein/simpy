@@ -143,7 +143,7 @@ def test_exception_handling(env):
 def test_callback_exception_handling(env):
     """Callbacks of events may handle exception by setting the ``defused``
     attribute of ``event`` to ``True``."""
-    def callback(event, type, value):
+    def callback(type, event):
         event.defused = True
 
     event = env.event()

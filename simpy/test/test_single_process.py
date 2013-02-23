@@ -185,3 +185,24 @@ def test_simulate_resume(env):
     simulate(env)
     assert events[2].processed
     assert env.now == 15
+
+
+def test_event_value(env):
+    """After an event has been triggered, its value becomes accessible."""
+    event = env.timeout(0, 'I am the value')
+
+    simulate(env)
+
+    assert event.value == 'I am the value'
+
+
+def test_unavailable_event_value(env):
+    """If an event has not yet been triggered, its value is not availabe and
+    trying to access it will result in a RuntimeError."""
+    event = env.event()
+
+    try:
+        event.value
+        assert False, 'Expected an exception'
+    except RuntimeError as e:
+        assert e.args[0] == 'Value of Event() is not yet available'
