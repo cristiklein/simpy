@@ -147,12 +147,11 @@ def test_wait_for_all_with_errors(env):
         except RuntimeError as e:
             assert e.args[0] == 'crashing'
 
-        # Although the condition has failed, intermediate results are
-        # available.
-        assert condition._results[events[0]] == 1
-        assert condition._results[events[1]].args[0] == 'crashing'
+        # Although the condition has failed, interim values are available.
+        assert condition._interim_values[events[0]] == 1
+        assert condition._interim_values[events[1]].args[0] == 'crashing'
         # The last child has not terminated yet.
-        assert events[2] not in condition._results
+        assert events[2] not in condition._interim_values
 
     env.start(parent(env))
     simulate(env)
@@ -185,7 +184,7 @@ def test_all_of_chaining_intermediate_results(env):
         yield env.timeout(0)
 
         condition = condition_A & condition_B
-        assert sorted(condition._get_results().values()) == [0, 0]
+        assert sorted(condition._get_values().values()) == [0, 0]
 
         results = yield condition
         assert sorted(results.values()) == [0, 0, 1, 1]
@@ -241,9 +240,9 @@ def test_any_of_with_errors(env):
         except RuntimeError as e:
             assert e.args[0] == 'crashing'
 
-        assert condition._results[events[0]].args[0] == 'crashing'
+        assert condition._interim_values[events[0]].args[0] == 'crashing'
         # The last event has not terminated yet.
-        assert events[1] not in condition._results
+        assert events[1] not in condition._interim_values
 
     env.start(parent(env))
     simulate(env)
