@@ -30,6 +30,7 @@ This module also contains a few functions to simulate an
 :func:`simulate()`.
 
 """
+import sys
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
@@ -46,6 +47,39 @@ SUCCEED = True
 FAIL = False
 
 Infinity = float('inf')
+
+if sys.version_info[0] < 3:
+    LEGACY_SUPPORT = True
+
+    # Python 2.x does not report exception chains. To emulate the behaviour of
+    # Python 3 the functions format_chain and print_chain are added. The latter
+    # function is used to override the exception hook of Python 2.x.
+
+    from traceback import format_exception
+
+    def format_chain(exc_type, exc_value, exc_traceback):
+        if hasattr(exc_value, '__cause__') and exc_value.__cause__:
+            cause = exc_value.__cause__
+            if hasattr(exc_value, '__traceback__'):
+                traceback = exc_value.__traceback__
+            else:
+                traceback = None
+            lines = format_chain(type(cause), cause, traceback)
+            lines += ('\nThe above exception was the direct cause of the '
+                    'following exception:\n\n')
+        else:
+            lines = []
+
+        return lines + format_exception(exc_type, exc_value, exc_traceback)
+
+    def print_chain(exc_type, exc_value, exc_traceback):
+        sys.stderr.write(
+                ''.join(format_chain(exc_type, exc_value, exc_traceback)))
+        sys.stderr.flush()
+
+    sys.excepthook = print_chain
+else:
+    LEGACY_SUPPORT = False
 
 
 class Interrupt(Exception):
@@ -72,6 +106,12 @@ class Interrupt(Exception):
         """Property that returns the cause of an interrupt or ``None``
         if no cause was passed."""
         return self.args[0]
+
+    def __repr__(self):
+        return '%s(cause=%r)' % (self.__class__.__name__, self.args[0])
+
+    def __str__(self):
+        return '%s(cause=%s)' % (self.__class__.__name__, self.args[0])
 
 
 PENDING = object()
@@ -448,6 +488,8 @@ class Process(Event):
             evt_type = FAIL
             value = type(e)(*e.args)
             value.__cause__ = e
+            if LEGACY_SUPPORT:
+                value.__traceback__ = sys.exc_info()[2]
         else:
             # Process returned another event to wait upon.
             try:
