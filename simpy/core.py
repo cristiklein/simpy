@@ -30,6 +30,7 @@ This module also contains a few functions to simulate an
 :func:`simulate()`.
 
 """
+import sys
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
@@ -46,6 +47,29 @@ SUCCEED = True
 FAIL = False
 
 Infinity = float('inf')
+
+if sys.version_info[0] < 3:
+    LEGACY_SUPPORT = sys.version_info[0] < 3
+
+    from traceback import format_exception
+
+    def format_chain(exc_type, exc_value, exc_traceback):
+        if hasattr(exc_value, '__cause__') and exc_value.__cause__:
+            lines = format_chain(type(exc_value.__cause__), exc_value.__cause__,
+                    exc_value.__traceback__)
+            lines += ('\nThe above exception was the direct cause of the '
+                    'following exception:\n\n')
+        else:
+            lines = []
+
+        return lines + format_exception(exc_type, exc_value, exc_traceback)
+
+    def print_chain(exc_type, exc_value, exc_traceback):
+        print(''.join(format_chain(exc_type, exc_value, exc_traceback)))
+
+    sys.excepthook = print_chain
+else:
+    LEGACY_SUPPORT = False
 
 
 class Interrupt(Exception):
@@ -437,6 +461,8 @@ class Process(Event):
             evt_type = FAIL
             result = type(e)(*e.args)
             result.__cause__ = e
+            if LEGACY_SUPPORT:
+                result.__traceback__ = sys.exc_info()[2]
         else:
             # Process returned another event to wait upon.
             try:
