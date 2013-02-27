@@ -49,14 +49,18 @@ FAIL = False
 Infinity = float('inf')
 
 if sys.version_info[0] < 3:
-    LEGACY_SUPPORT = sys.version_info[0] < 3
+    LEGACY_SUPPORT = True
+
+    # Python 2.x does not report exception chains. To emulate the behaviour of
+    # Python 3 and the functions format_chain and print_chain are added. The
+    # latter function is used to override the exception hook of Python 2.x.
 
     from traceback import format_exception
 
     def format_chain(exc_type, exc_value, exc_traceback):
         if hasattr(exc_value, '__cause__') and exc_value.__cause__:
-            lines = format_chain(type(exc_value.__cause__), exc_value.__cause__,
-                    exc_value.__traceback__)
+            lines = format_chain(type(exc_value.__cause__),
+                    exc_value.__cause__, exc_value.__traceback__)
             lines += ('\nThe above exception was the direct cause of the '
                     'following exception:\n\n')
         else:
@@ -65,7 +69,8 @@ if sys.version_info[0] < 3:
         return lines + format_exception(exc_type, exc_value, exc_traceback)
 
     def print_chain(exc_type, exc_value, exc_traceback):
-        print(''.join(format_chain(exc_type, exc_value, exc_traceback)))
+        sys.stderr.write(
+                ''.join(format_chain(exc_type, exc_value, exc_traceback)))
 
     sys.excepthook = print_chain
 else:
