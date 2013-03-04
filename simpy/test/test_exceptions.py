@@ -57,10 +57,16 @@ def test_crashing_child_traceback(env):
             yield env.start(panic(env))
             pytest.fail("Hey, where's the roflcopter?")
         except RuntimeError:
-            import traceback
-            stacktrace = traceback.format_exc()
+            if not simpy.core.LEGACY_SUPPORT:
+                import traceback
+                stacktrace = traceback.format_exc()
+            else:
+                import sys
+                stacktrace = ''.join(simpy.core.format_chain(*sys.exc_info()))
+
             # The current frame must be visible in the stacktrace.
             assert 'yield env.start(panic(env))' in stacktrace
+            assert 'raise RuntimeError(\'Oh noes,' in stacktrace
 
     env.start(root(env))
     simpy.simulate(env)
