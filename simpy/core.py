@@ -75,6 +75,7 @@ if sys.version_info[0] < 3:
     def print_chain(exc_type, exc_value, exc_traceback):
         sys.stderr.write(
                 ''.join(format_chain(exc_type, exc_value, exc_traceback)))
+        sys.stderr.flush()
 
     sys.excepthook = print_chain
 else:
