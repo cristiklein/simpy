@@ -107,6 +107,12 @@ class Interrupt(Exception):
         if no cause was passed."""
         return self.args[0]
 
+    def __repr__(self):
+        return '%s(cause=%r)' % (self.__class__.__name__, self.args[0])
+
+    def __str__(self):
+        return '%s(cause=%s)' % (self.__class__.__name__, self.args[0])
+
 
 class Event(object):
     """Base class for all events.
