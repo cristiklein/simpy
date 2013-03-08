@@ -102,11 +102,11 @@ class Resource(object):
 
     def get_users(self):
         """Return a list with all processes using the resource."""
-        return [event._proc for event in self._users._users]
+        return (event._proc for event in self._users._users)
 
     def get_queued(self):
         """Return a list with all queued processes."""
-        return [event._proc for event in self._queue._items]
+        return (event._proc for event in self._queue._items)
 
 
 class PreemptiveResource(Resource):
@@ -122,8 +122,11 @@ class PreemptiveResource(Resource):
 
     """
     def __init__(self, env, capacity, event_type=events.PriorityResourceEvent):
-        super(PreemptiveResource, self).__init__(env, capacity,
-                event_type=event_type, users_type=util.PreemptiveUsers)
+        super(PreemptiveResource, self).__init__(
+            env,
+            capacity,
+            event_type=event_type,
+            users_type=util.PreemptiveUsers)
 
 
 class BaseContainer(object):
@@ -176,7 +179,7 @@ class BaseContainer(object):
 
     def _get_queued(self, queue):
         """Return a list with all processes in *queue*."""
-        return [event._proc for event in queue._items]
+        return (event._proc for event in queue._items)
 
 
 class Container(BaseContainer):
