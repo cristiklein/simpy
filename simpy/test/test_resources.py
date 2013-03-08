@@ -178,8 +178,9 @@ def test_resource_with_priority_queue(env):
         yield env.timeout(5)
         resource.release(req)
 
-    resource = simpy.Resource(env, capacity=1,
-                    event_type=simpy.resources.events.PriorityResourceEvent)
+    resource = simpy.Resource(
+        env, capacity=1,
+        event_type=simpy.resources.events.PriorityResourceEvent)
     env.start(process(env, 0, resource, 2, 0))
     env.start(process(env, 2, resource, 3, 10))
     env.start(process(env, 2, resource, 3, 15))  # Test equal priority
@@ -196,12 +197,12 @@ def test_get_users(env):
     resource = simpy.Resource(env, 1)
     procs = [env.start(process(env, resource)) for i in range(3)]
     simpy.simulate(env, until=1)
-    assert resource.get_users() == procs[0:1]
-    assert resource.get_queued() == procs[1:]
+    assert list(resource.get_users()) == procs[0:1]
+    assert list(resource.get_queued()) == procs[1:]
 
     simpy.simulate(env, until=2)
-    assert resource.get_users() == procs[1:2]
-    assert resource.get_queued() == procs[2:]
+    assert list(resource.get_users()) == procs[1:2]
+    assert list(resource.get_queued()) == procs[2:]
 
 
 #
@@ -334,13 +335,13 @@ def test_container_get_queued(env):
 
     simpy.simulate(env, until=1)
     print('simulated')
-    assert container.get_put_queued() == []
-    assert container.get_get_queued() == [p0]
+    assert list(container.get_put_queued()) == []
+    assert list(container.get_get_queued()) == [p0]
 
     simpy.simulate(env, until=2)
     print('simulated')
-    assert container.get_put_queued() == [p3]
-    assert container.get_get_queued() == []
+    assert list(container.get_put_queued()) == [p3]
+    assert list(container.get_get_queued()) == []
 
 
 #
