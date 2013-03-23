@@ -49,13 +49,9 @@ class BroadcastPipe(object):
     :meth:`get_output_conn()` is called.
 
     """
-    def __init__(self, env, capacity=simpy.core.Infinity,
-                 item_q_type=simpy.resources.queues.FIFO,
-                 event_type=simpy.resources.events.StoreEvent):
+    def __init__(self, env, capacity=simpy.core.Infinity):
         self.env = env
         self.capacity = capacity
-        self.item_q_type = item_q_type
-        self.event_type = event_type
         self.pipes = []
 
     def put(self, value):
@@ -71,8 +67,7 @@ class BroadcastPipe(object):
         The return value is a :class:`~simpy.resources.Store`.
 
         """
-        pipe = simpy.Store(self.env, capacity=self.capacity,
-                item_q_type=self.item_q_type, event_type=self.event_type)
+        pipe = simpy.resources.Store(self.env, capacity=self.capacity)
         self.pipes.append(pipe)
         return pipe
 
