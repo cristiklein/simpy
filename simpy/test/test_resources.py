@@ -196,12 +196,12 @@ def test_get_users(env):
     resource = simpy.resources.Resource(env, 1)
     procs = [env.start(process(env, resource)) for i in range(3)]
     simpy.simulate(env, until=1)
-    assert resource.get_users() == procs[0:1]
-    assert resource.get_queued() == procs[1:]
+    assert list(resource.get_users()) == procs[0:1]
+    assert list(resource.get_queued()) == procs[1:]
 
     simpy.simulate(env, until=2)
-    assert resource.get_users() == procs[1:2]
-    assert resource.get_queued() == procs[2:]
+    assert list(resource.get_users()) == procs[1:2]
+    assert list(resource.get_queued()) == procs[2:]
 
 
 #
