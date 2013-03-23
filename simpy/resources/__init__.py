@@ -247,3 +247,33 @@ class Container(BaseResource):
     @property
     def level(self):
         return self._level
+
+
+class FilterStoreGet(StoreGet):
+    def __init__(self, resource, filter=lambda items: True):
+        super(FilterStoreGet, self).__init__(resource)
+        self.filter = filter
+
+
+class FilterQueue(list):
+    def __init__(self, resource):
+        super(FilterQueue, self).__init__()
+        self.resource = resource
+
+    def __getitem__(self, key):
+        for event in self:
+            if event.filter(self.resource.items):
+                return event
+
+    def __bool__(self):
+        for event in self:
+            if event.filter(self.resource.items):
+                return True
+        return False
+
+
+class FilterStore(Store):
+    def __init__(self, env, capacity=1):
+        super(FilterStore, self).__init__(env, capacity)
+        self.get_queue = FilterQueue(self)
+        self.get_event = FilterStoreGet
