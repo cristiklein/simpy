@@ -142,8 +142,8 @@ class PriorityResource(Resource):
     def __init__(self, env, capacity=1):
         super(PriorityResource, self).__init__(env, capacity)
         # FIXME Overriding queues and event types like this is a bit ugly.
-        self.put_queue = SortedQueue()
-        self.get_queue = SortedQueue()
+        self.put_queue = queues.SortedQueue()
+        self.get_queue = queues.SortedQueue()
         self.put_event = PriorityRequest
 
 
@@ -172,15 +172,6 @@ class PriorityRequest(Request):
         self.preempt = preempt
         self.time = resource._env.now
         self.key = (self.priority, self.time)
-
-
-class SortedQueue(list):
-    def __init__(self, maxlen=None):
-        super(SortedQueue, self).__init__()
-
-    def append(self, item):
-        super(SortedQueue, self).append(item)
-        super(SortedQueue, self).sort(key=lambda e: e.key)
 
 
 class StorePut(Put):
@@ -261,13 +252,11 @@ class FilterQueue(list):
         self.resource = resource
 
     def __getitem__(self, key):
-        for event in self:
-            if event.filter(self.resource.items):
-                return event
+        return [evt for evt in self if evt.filter(self.resource.items)][key]
 
     def __bool__(self):
-        for event in self:
-            if event.filter(self.resource.items):
+        for evt in self:
+            if evt.filter(self.resource.items):
                 return True
         return False
 

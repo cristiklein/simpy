@@ -57,13 +57,11 @@ def test_queues(Queue, seq):
             pytest.raises(IndexError, q.pop)
         elif action is IN:
             orig_len = len(q)
-            q.push(item)
-            assert len(q) == orig_len + 1
+            q.append(item)
         else:
-            peek = q.peek()
-            val = q.pop()
+            peek = q[0]
+            q.remove(peek)
             assert peek == item
-            assert val == item
 
 
 @pytest.mark.parametrize('Queue', [
@@ -73,9 +71,9 @@ def test_queues(Queue, seq):
 ])
 def test_remove(Queue):
     q = Queue()
-    q.push(Item(1))
-    q.push(Item(3))
-    q.push(Item(2))
+    q.append(Item(1))
+    q.append(Item(3))
+    q.append(Item(2))
 
     assert len(q) == 3
     q.remove(Item(3))
@@ -91,6 +89,6 @@ def test_remove(Queue):
 ])
 def test_maxlen(Queue):
     q = Queue(maxlen=2)
-    q.push(Item(1))
-    q.push(Item(2))
-    pytest.raises(ValueError, q.push, Item(3))
+    q.append(Item(1))
+    q.append(Item(2))
+    pytest.raises(ValueError, q.append, Item(3))
