@@ -372,7 +372,7 @@ def test_filter_store(env):
     def pem(env):
         store = simpy.resources.FilterStore(env, capacity=2)
 
-        get_event = store.get(lambda items: 'b' in items)
+        get_event = store.get(lambda item: item == 'b')
         yield store.put('a')
         assert not get_event.triggered
         yield store.put('b')
