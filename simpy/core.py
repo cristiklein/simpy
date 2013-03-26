@@ -31,6 +31,7 @@ This module also contains a few functions to simulate an
 
 """
 import sys
+import types
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
@@ -522,6 +523,12 @@ class Environment(object):
         self._eid = count()
         self._active_proc = None
 
+        self.event = types.MethodType(Event, self)
+        self.suspend = types.MethodType(Event, self)
+        self.timeout = types.MethodType(Timeout, self)
+        self.process = types.MethodType(Process, self)
+        self.start = types.MethodType(Process, self)
+
     @property
     def active_process(self):
         """Property that returns the currently active process."""
@@ -531,14 +538,6 @@ class Environment(object):
     def now(self):
         """Property that returns the current simulation time."""
         return self._now
-
-    def start(self, generator):
-        """Start and return a new :class:`Process` for ``generator``.
-
-        ``generator`` is the generator returned by a *PEM*.
-
-        """
-        return Process(self, generator)
 
     def exit(self, result=None):
         """Stop the current process, optionally providing a ``result``.
@@ -550,27 +549,6 @@ class Environment(object):
 
         """
         raise StopIteration(result)
-
-    def event(self):
-        """Create and return a new :class:`Event`."""
-        return Event(self)
-
-    suspend = event
-    """Convenience method. Alias for :meth:`~event`."""
-
-    def timeout(self, delay, value=None):
-        """Schedule (and return) a new :class:`Timeout` event for
-        ``delay`` time units.
-
-        Raise a :exc:`ValueError` if ``delta_t < 0``.
-
-        You can optionally pass a ``value`` which will be sent back to
-        the PEM when it continues. This might be helpful to e.g.
-        implement resources (:class:`simpy.resources.Store` uses this
-        feature).
-
-        """
-        return Timeout(self, delay, value)
 
     def _schedule(self, evt_type, event, succeed, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
