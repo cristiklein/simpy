@@ -231,3 +231,6 @@ man_pages = [
 intersphinx_mapping = {
     'http://docs.python.org/3/': None,
 }
+
+# Autodoc
+autodoc_member_order = 'bysource'

@@ -2,7 +2,8 @@
 Test asynchronous interrupts.
 
 """
-# Pytest gets the parameters "env" and "log" from the *conftest.py* file
+import re
+
 import pytest
 
 import simpy
@@ -84,8 +85,8 @@ def test_interrupt_terminated_process(env):
 
         yield env.timeout(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert ei.value.args[0] == ('Process(child) has terminated '
-                                    'and cannot be interrupted.')
+        assert re.match(r'<simpy.core.Process\(generator=child\) at 0x.*> '
+                'has terminated and cannot be interrupted.', ei.value.args[0])
 
         yield env.timeout(1)
 

@@ -19,10 +19,10 @@
    :members: cause
 
 .. autoclass:: Event
-   :members: callbacks, env, succeed, fail
+    :members:
 
 .. autoclass:: Timeout
-   :members: callbacks, env
+   :members:
 
 .. autoclass:: Condition
    :members: callbacks, env

@@ -2,6 +2,8 @@
 Tests for the utility functions from :mod:`simpy.util`.
 
 """
+import re
+
 import pytest
 
 from simpy import Interrupt, simulate
@@ -204,7 +206,10 @@ def test_all_of_with_triggered_events(env):
             all_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert e.args[0] == 'Event Timeout(1) has already been triggered'
+            assert re.match(
+                    r'Event <simpy.core.Timeout object at 0x.*> has already '
+                        'been triggered',
+                    e.args[0])
 
     env.start(parent(env))
     simulate(env)
@@ -275,7 +280,10 @@ def test_any_of_with_triggered_events(env):
             any_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert e.args[0] == 'Event Timeout(1) has already been triggered'
+            assert re.match(
+                    r'Event <simpy.core.Timeout object at 0x.*> has already '
+                        'been triggered',
+                    e.args[0])
 
     env.start(parent(env))
     simulate(env)

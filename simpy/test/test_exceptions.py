@@ -2,6 +2,8 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
+import re
+
 import pytest
 
 import simpy
@@ -130,7 +132,9 @@ def test_occured_event(env):
         simpy.simulate(env)
         pytest.fail('Hey, this is not allowed!')
     except RuntimeError as err:
-        assert err.args[0].endswith('Event already occured "Process(child)"')
+        assert re.search(r'Event already occured "'
+                r'<simpy.core.Process\(generator=child\) at 0x.*>"',
+                err.args[0])
 
 
 def test_exception_handling(env):

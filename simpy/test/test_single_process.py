@@ -4,6 +4,8 @@ resources).
 
 """
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
+import re
+
 import pytest
 
 from simpy import Process, simulate, peek, step
@@ -192,3 +194,19 @@ def test_simulate_until_value(env):
     simulate(env, until='3.141592')
 
     assert env.now == 3.141592
+
+
+def test_names(env):
+    def pem():
+        yield env.exit()
+
+    assert re.match(r'<simpy.core.Event object at 0x.*>', str(env.event()))
+    assert str(env.event(name='Event')) == 'Event'
+
+    assert re.match(r'<simpy.core.Timeout object at 0x.*>',
+            str(env.timeout(1)))
+    assert str(env.timeout(1, name='Timeout')) == 'Timeout'
+
+    assert re.match(r'<simpy.core.Process\(generator=pem\) at 0x.*>',
+            str(env.start(pem())))
+    assert str(env.start(pem(), name='pem')) == 'pem'

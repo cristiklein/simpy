@@ -107,12 +107,6 @@ class Interrupt(Exception):
         if no cause was passed."""
         return self.args[0]
 
-    def __repr__(self):
-        return '%s(cause=%r)' % (self.__class__.__name__, self.args[0])
-
-    def __str__(self):
-        return '%s(cause=%s)' % (self.__class__.__name__, self.args[0])
-
 
 class Event(object):
     """Base class for all events.
@@ -139,21 +133,24 @@ class Event(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env', '_triggered', 'defused')
+    __slots__ = ('callbacks', 'env', '_triggered', 'defused', 'name')
 
-    def __init__(self, env):
+    def __init__(self, env, name=None):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the event lives in."""
+        self.name = name
+        """Optional name for this event. Used in :meth:`__str__` if not
+        ``None``."""
         self._triggered = False
 
     def __str__(self):
-        return '%s()' % self.__class__.__name__
-
-    def __repr__(self):
-        return '<%s at 0x%x>' % (self, id(self))
+        if self.name is None:
+            return object.__str__(self)
+        else:
+            return self.name
 
     @property
     def triggered(self):
@@ -229,8 +226,8 @@ class Condition(Event):
     __slots__ = ('callbacks', 'env', '_evaluate', '_results', '_events',
                  '_sub_conditions')
 
-    def __init__(self, env, evaluate, events):
-        Event.__init__(self, env)
+    def __init__(self, env, evaluate, events, name=None):
+        Event.__init__(self, env, name)
         self._evaluate = evaluate
         self._results = {}
         self._events = []
@@ -244,9 +241,13 @@ class Condition(Event):
         self.callbacks.append(self._collect_results)
 
     def __str__(self):
-        return '%s(%s, [%s])' % (self.__class__.__name__,
+        if self.name is None:
+            return '<%s(%s, [%s] at %s>' % (self.__class__.__name__,
                 self._evaluate.__name__,
-                ', '.join([repr(event) for event in self._events]))
+                ', '.join([repr(event) for event in self._events]),
+                hex(id(self)))
+        else:
+            return self.name
 
     def _get_results(self):
         """Recursively collects the current results of all nested
@@ -336,27 +337,21 @@ class Timeout(Event):
     *success()* or *fail()* method.
 
     """
-    __slots__ = ('callbacks', 'env', '_delay', '_value')
 
-    def __init__(self, env, delay, value=None):
+    def __init__(self, env, delay, value=None, name=None):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the timeout lives in."""
+        self.name = name
+        """Optional name for this event. Used in :meth:`__str__` if not
+        ``None``."""
         self._triggered = False
-
-        self._delay = delay
-        self._value = value
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
-
-    def __str__(self):
-        return '%s(%s%s)' % (self.__class__.__name__, self._delay,
-                    '' if self._value is None else
-                    (', value=' + str(self._value)))
 
 
 class Process(Event):
@@ -377,7 +372,7 @@ class Process(Event):
     """
     __slots__ = ('callbacks', 'env', '_generator', '_target')
 
-    def __init__(self, env, generator):
+    def __init__(self, env, generator, name=None):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
@@ -386,6 +381,9 @@ class Process(Event):
         processed."""
         self.env = env
         """The :class:`Environment` the process lives in."""
+        self.name = None
+        """Optional name for this event. Used in :meth:`__str__` if not
+        ``None``."""
         self._triggered = False
 
         self._generator = generator
@@ -397,7 +395,12 @@ class Process(Event):
 
     def __str__(self):
         """Return a string "Process(pem_name)"."""
-        return '%s(%s)' % (self.__class__.__name__, self._generator.__name__)
+        if self.name is None:
+            return '<%s.%s(generator=%s) at %s>' % (self.__class__.__module__,
+                    self.__class__.__name__, self._generator.__name__,
+                    hex(id(self)))
+        else:
+            return self.name
 
     @property
     def target(self):
@@ -551,14 +554,14 @@ class Environment(object):
         """
         raise StopIteration(result)
 
-    def event(self):
+    def event(self, *args, **kwargs):
         """Create and return a new :class:`Event`."""
-        return Event(self)
+        return Event(self, *args, **kwargs)
 
     suspend = event
     """Convenience method. Alias for :meth:`~event`."""
 
-    def timeout(self, delay, value=None):
+    def timeout(self, delay, value=None, name=None):
         """Schedule (and return) a new :class:`Timeout` event for
         ``delay`` time units.
 
@@ -570,7 +573,7 @@ class Environment(object):
         feature).
 
         """
-        return Timeout(self, delay, value)
+        return Timeout(self, delay, value, name)
 
     def _schedule(self, evt_type, event, succeed, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
