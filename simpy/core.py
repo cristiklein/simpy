@@ -42,6 +42,9 @@ from numbers import Number
 EVT_INIT = 0       # First event after a proc was started
 EVT_INTERRUPT = 1  # Throw an interrupt into the PEG
 EVT_RESUME = 2     # Default event, send value into the PEG
+PENDING = object()
+"""Unique value to identify pending event values."""
+
 
 # Constants for successful and failed events
 SUCCEED = True
@@ -113,9 +116,6 @@ class Interrupt(Exception):
 
     def __str__(self):
         return '%s(cause=%s)' % (self.__class__.__name__, self.args[0])
-
-
-PENDING = object()
 
 
 class Event(object):
