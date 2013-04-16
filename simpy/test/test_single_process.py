@@ -200,13 +200,17 @@ def test_names(env):
     def pem():
         yield env.exit()
 
-    assert re.match(r'<simpy.core.Event object at 0x.*>', str(env.event()))
+    assert re.match(r'<Event\(\) object at 0x.*>', str(env.event()))
     assert str(env.event(name='Event')) == 'Event'
 
-    assert re.match(r'<simpy.core.Timeout object at 0x.*>',
-            str(env.timeout(1)))
+    assert re.match(r'<Timeout\(1\) object at 0x.*>', str(env.timeout(1)))
+    assert re.match(r'<Timeout\(1, value=2\) object at 0x.*>',
+                    str(env.timeout(1, value=2)))
     assert str(env.timeout(1, name='Timeout')) == 'Timeout'
 
-    assert re.match(r'<simpy.core.Process\(generator=pem\) at 0x.*>',
-            str(env.start(pem())))
+    assert re.match(r'<Condition\(all_events, \[<Event\(\) object at 0x.*>, '
+                    r'<Event\(\) object at 0x.*>\]\) object at 0x.*>',
+                    str(env.event() & env.event()))
+
+    assert re.match(r'<Process\(pem\) object at 0x.*>', str(env.start(pem())))
     assert str(env.start(pem(), name='pem')) == 'pem'

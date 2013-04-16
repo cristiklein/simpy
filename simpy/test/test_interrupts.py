@@ -85,8 +85,8 @@ def test_interrupt_terminated_process(env):
 
         yield env.timeout(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
-        assert re.match(r'<simpy.core.Process\(generator=child\) at 0x.*> '
-                'has terminated and cannot be interrupted.', ei.value.args[0])
+        assert re.match(r'<Process\(child\) object at 0x.*> has terminated '
+                        r'and cannot be interrupted.', ei.value.args[0])
 
         yield env.timeout(1)
 
