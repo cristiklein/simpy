@@ -31,16 +31,18 @@ This module also contains a few functions to simulate an
 
 """
 import sys
+import types
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
-from numbers import Number
 
 
 # BaseEvent types/priorities
-EVT_INIT = 0       # First event after a proc was started
-EVT_INTERRUPT = 1  # Throw an interrupt into the PEG
-EVT_RESUME = 2     # Default event, send value into the PEG
+EVT_INIT = 0        # First event after a proc was started
+EVT_INTERRUPT = 1   # Throw an interrupt into the PEG
+EVT_RESUME = 2      # Default event, send value into the PEG
+PENDING = object()  # Unique value to identify pending event values.
+
 
 # Constants for successful and failed events
 SUCCEED = True
@@ -145,7 +147,7 @@ class Event(object):
         self.name = name
         """Optional name for this event. Used in :meth:`__str__` if not
         ``None``."""
-        self._triggered = False
+        self._value = PENDING
 
     def __repr__(self):
         """Use ``self.name`` if defined or ``self._desc()`` else."""
@@ -162,13 +164,26 @@ class Event(object):
     def triggered(self):
         """Becomes ``True`` if the event has been triggered and its callbacks
         are about to be invoked."""
-        return self._triggered
+        return self._value is not PENDING
 
     @property
     def processed(self):
         """Becomes ``True`` if the event has been processed (e.g., its
         callbacks have been invoked)."""
         return self.callbacks is None
+
+    @property
+    def value(self):
+        """Return the value of the event if it is available.
+
+        The value is available when the event has been triggered.
+
+        Raise a :exc:`RuntimeError` if the value is not yet available.
+
+        """
+        if self._value is PENDING:
+            raise RuntimeError('Value of %s is not yet available' % self)
+        return self._value
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
@@ -211,15 +226,15 @@ class Condition(Event):
     a given condition (implemented by the ``evaluate`` function) becomes
     true.
 
-    The result of the condition is a dictionary that maps the input
-    events to their respective results. It only contains entries for
+    The value of the condition is a dictionary that maps the input
+    events to their respective values. It only contains entries for
     those events that occurred until the condition was met.
 
     If one of the ``events`` fails, the condition also fails and
     forwards the exception of the failing event.
 
     The ``evaluate`` function receives the list of target events and the
-    dictionary with all results currently available. If it returns
+    dictionary with all values currently available. If it returns
     ``True``, the condition is scheduled. SimPy provides the
     :func:`all_events()` and :func:`any_event()` functions that are used
     for the implementation of *and* (``&``) and *or* (``|``) of all
@@ -232,7 +247,7 @@ class Condition(Event):
     def __init__(self, env, evaluate, events, name=None):
         Event.__init__(self, env, name)
         self._evaluate = evaluate
-        self._results = {}
+        self._interim_values = {}
         self._events = []
         self._sub_conditions = []
 
@@ -241,29 +256,29 @@ class Condition(Event):
 
         # Register a callback which will update the value of this
         # condition once it is being processed.
-        self.callbacks.append(self._collect_results)
+        self.callbacks.append(self._collect_values)
 
     def _desc(self):
         """Return a string *Condition(and_or_or, [events])*."""
         return '%s(%s, %s)' % (self.__class__.__name__,
                                self._evaluate.__name__, self._events)
 
-    def _get_results(self):
-        """Recursively collects the current results of all nested
+    def _get_values(self):
+        """Recursively collects the current values of all nested
         conditions into a flat dictionary."""
-        results = dict(self._results)
+        values = dict(self._interim_values)
 
         for condition in self._sub_conditions:
-            if condition in results:
-                del results[condition]
-            results.update(condition._get_results())
+            if condition in values:
+                del values[condition]
+            values.update(condition._get_values())
 
-        return results
+        return values
 
-    def _collect_results(self, event, evt_type, value):
+    def _collect_values(self, evt_type, event):
         """Populates the final value of this condition."""
         if evt_type is not FAIL:
-            value.update(self._get_results())
+            self._value.update(self._get_values())
 
     def _add_event(self, event):
         """Add another event to the condition."""
@@ -283,19 +298,19 @@ class Condition(Event):
 
         return self
 
-    def _check(self, event, evt_type, value):
+    def _check(self, evt_type, event):
         """Check if the condition was already met and schedule the event
         if so."""
-        self._results[event] = value
+        self._interim_values[event] = event._value
 
-        if not self._triggered:
+        if self._value is PENDING:
             if evt_type is FAIL:
                 # Abort if the event has failed.
                 event.defused = True
-                self.env._schedule(EVT_RESUME, self, FAIL, value)
-            elif self._evaluate(self._events, self._results):
+                self.env._schedule(EVT_RESUME, self, FAIL, event._value)
+            elif self._evaluate(self._events, self._interim_values):
                 # The condition has been met. Schedule the event with an empty
-                # dictionary as value. The _collect_results callback will
+                # dictionary as value. The _collect_values callback will
                 # populate this dictionary once this condition gets processed.
                 self.env._schedule(EVT_RESUME, self, SUCCEED, {})
 
@@ -314,16 +329,16 @@ class Condition(Event):
         return self._add_event(other)
 
 
-def all_events(events, results):
+def all_events(events, values):
     """Helper for :class:`Condition`. Return ``True`` if there are
-    results for all ``events``."""
-    return len(events) == len(results)
+    values for all ``events``."""
+    return len(events) == len(values)
 
 
-def any_event(events, results):
+def any_event(events, values):
     """Helper for :class:`Condition`. Return ``True`` if there is at
-    least one result available from ``events``."""
-    return len(results) > 0
+    least one value available from ``events``."""
+    return len(values) > 0
 
 
 class Timeout(Event):
@@ -336,8 +351,8 @@ class Timeout(Event):
     *success()* or *fail()* method.
 
     """
-
     def __init__(self, env, delay, value=None, name=None):
+        # We inlined Event.__init__() here for performance reasons.
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
@@ -347,12 +362,12 @@ class Timeout(Event):
         """Optional name for this event. Used in :meth:`__str__` if not
         ``None``."""
         self._delay = delay
-        self._value = value
-        self._triggered = False
+        self._value = PENDING
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+        # env._schedule() set "self._value = value" for us.
 
     def _desc(self):
         """Return a string *Timeout(delay[, value=value])*."""
@@ -381,17 +396,17 @@ class Process(Event):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
+        # We inlined Event.__init__() here for performance reasons.
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the process lives in."""
-        self.name = None
+        self.name = name
         """Optional name for this event. Used in :meth:`__str__` if not
         ``None``."""
-        self._triggered = False
-
         self._generator = generator
+        self._value = PENDING
 
         init = Event(env)
         init.callbacks.append(self._resume)
@@ -415,7 +430,7 @@ class Process(Event):
     @property
     def is_alive(self):
         """``True`` until the event has been processed."""
-        return not self._triggered
+        return self._value is PENDING
 
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a ``cause``.
@@ -439,7 +454,7 @@ class Process(Event):
         event.defused = True
         self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
 
-    def _resume(self, event, success, value):
+    def _resume(self, success, event):
         """Get the next event from this process and register as a callback.
 
         If the PEM generator exits or raises an exception, terminate
@@ -451,7 +466,7 @@ class Process(Event):
         # interrupts cause this situation. If the process dies while
         # handling the first one, the remaining interrupts must be
         # discarded.
-        if self._triggered:
+        if self._value is not PENDING:
             return
 
         # If the current target (e.g. an interrupt) isn't the one the process
@@ -465,23 +480,23 @@ class Process(Event):
         # Get next event from process
         try:
             if success:
-                next_evt = self._generator.send(value)
+                next_evt = self._generator.send(event._value)
             else:
                 # The process has no choice but to handle the failed event (or
                 # fail itself).
                 event.defused = True
-                next_evt = self._generator.throw(value)
+                next_evt = self._generator.throw(event._value)
         except StopIteration as e:
             # Process has terminated.
             evt_type = SUCCEED
-            result = e.args[0] if len(e.args) else None
+            value = e.args[0] if len(e.args) else None
         except BaseException as e:
             # Process has failed.
             evt_type = FAIL
-            result = type(e)(*e.args)
-            result.__cause__ = e
+            value = type(e)(*e.args)
+            value.__cause__ = e
             if LEGACY_SUPPORT:
-                result.__traceback__ = sys.exc_info()[2]
+                value.__traceback__ = sys.exc_info()[2]
         else:
             # Process returned another event to wait upon.
             try:
@@ -510,7 +525,7 @@ class Process(Event):
         # The process terminated. Schedule this event.
         # FIXME Setting target to None is only needed for resources.
         self._target = None
-        self.env._schedule(EVT_RESUME, self, evt_type, result)
+        self.env._schedule(EVT_RESUME, self, evt_type, value)
         self.env._active_proc = None
 
 
@@ -525,6 +540,12 @@ class Environment(object):
         self._eid = count()
         self._active_proc = None
 
+        self.event = types.MethodType(Event, self)
+        self.suspend = types.MethodType(Event, self)
+        self.timeout = types.MethodType(Timeout, self)
+        self.process = types.MethodType(Process, self)
+        self.start = types.MethodType(Process, self)
+
     @property
     def active_process(self):
         """Property that returns the currently active process."""
@@ -535,45 +556,16 @@ class Environment(object):
         """Property that returns the current simulation time."""
         return self._now
 
-    def start(self, generator):
-        """Start and return a new :class:`Process` for ``generator``.
+    def exit(self, value=None):
+        """Stop the current process, optionally providing a ``value``.
 
-        ``generator`` is the generator returned by a *PEM*.
-
-        """
-        return Process(self, generator)
-
-    def exit(self, result=None):
-        """Stop the current process, optionally providing a ``result``.
-
-        The ``result`` is sent to processes waiting for the current
+        The ``value`` is sent to processes waiting for the current
         process.
 
-        From Python 3.3, you can use ``return result`` instead.
+        From Python 3.3, you can use ``return value`` instead.
 
         """
-        raise StopIteration(result)
-
-    def event(self, *args, **kwargs):
-        """Create and return a new :class:`Event`."""
-        return Event(self, *args, **kwargs)
-
-    suspend = event
-    """Convenience method. Alias for :meth:`~event`."""
-
-    def timeout(self, delay, value=None, name=None):
-        """Schedule (and return) a new :class:`Timeout` event for
-        ``delay`` time units.
-
-        Raise a :exc:`ValueError` if ``delta_t < 0``.
-
-        You can optionally pass a ``value`` which will be sent back to
-        the PEM when it continues. This might be helpful to e.g.
-        implement resources (:class:`simpy.resources.Store` uses this
-        feature).
-
-        """
-        return Timeout(self, delay, value, name)
+        raise StopIteration(value)
 
     def _schedule(self, evt_type, event, succeed, value=None, delay=0):
         """Schedule the given ``event`` of type ``evt_type``.
@@ -594,10 +586,10 @@ class Environment(object):
         scheduled.
 
         """
-        if event._triggered:
+        if event._value is not PENDING:
             raise RuntimeError('Event %s has already been triggered' % event)
 
-        event._triggered = True
+        event._value = value
 
         heappush(self._events, (
             self._now + delay,
@@ -605,7 +597,6 @@ class Environment(object):
             next(self._eid),
             succeed,
             event,
-            value,
         ))
 
 
@@ -626,18 +617,18 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    env._now, evt_type, eid, succeed, event, value = heappop(env._events)
+    env._now, evt_type, eid, succeed, event = heappop(env._events)
 
     # Mark event as processed.
     callbacks, event.callbacks = event.callbacks, None
 
     for callback in callbacks:
-        callback(event, succeed, value)
+        callback(succeed, event)
 
     if succeed == FAIL:
         if not hasattr(event, 'defused') or not event.defused:
             # The event has not been defused by a callback.
-            raise value
+            raise event._value
 
 
 def simulate(env, until=None):

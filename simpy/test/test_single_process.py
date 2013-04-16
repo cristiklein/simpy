@@ -131,7 +131,8 @@ def test_event_fails(env):
 
 def test_exit_with_process(env):
     def child(env, fork):
-        yield env.exit(env.start(child(env, False)) if fork else None)
+        env.exit(env.start(child(env, False)) if fork else None)
+        yield
 
     def parent(env):
         result = yield env.start(child(env, True))
@@ -192,7 +193,6 @@ def test_simulate_resume(env):
 def test_simulate_until_value(env):
     """Anything that can be converted to a float is a valid until value."""
     simulate(env, until='3.141592')
-
     assert env.now == 3.141592
 
 
@@ -214,3 +214,24 @@ def test_names(env):
 
     assert re.match(r'<Process\(pem\) object at 0x.*>', str(env.start(pem())))
     assert str(env.start(pem(), name='pem')) == 'pem'
+
+
+def test_event_value(env):
+    """After an event has been triggered, its value becomes accessible."""
+    event = env.timeout(0, 'I am the value')
+
+    simulate(env)
+
+    assert event.value == 'I am the value'
+
+
+def test_unavailable_event_value(env):
+    """If an event has not yet been triggered, its value is not availabe and
+    trying to access it will result in a RuntimeError."""
+    event = env.event()
+
+    try:
+        event.value
+        assert False, 'Expected an exception'
+    except RuntimeError as e:
+        assert e.args[0].endswith('is not yet available')
