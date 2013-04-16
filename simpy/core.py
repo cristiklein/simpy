@@ -101,6 +101,9 @@ class Interrupt(Exception):
     def __init__(self, cause):
         super(Interrupt, self).__init__(cause)
 
+    def __str__(self):
+        return '%s(%r)' % (self.__class__.__name__, self.cause)
+
     @property
     def cause(self):
         """Property that returns the cause of an interrupt or ``None``
@@ -146,11 +149,16 @@ class Event(object):
         ``None``."""
         self._triggered = False
 
-    def __str__(self):
+    def __repr__(self):
+        """Use ``self.name`` if defined or ``self._desc()`` else."""
         if self.name is None:
-            return object.__str__(self)
+            return '<%s object at 0x%x>' % (self._desc(), id(self))
         else:
             return self.name
+
+    def _desc(self):
+        """Return a string *Event()*."""
+        return '%s()' % self.__class__.__name__
 
     @property
     def triggered(self):
@@ -240,14 +248,10 @@ class Condition(Event):
         # condition once it is being processed.
         self.callbacks.append(self._collect_results)
 
-    def __str__(self):
-        if self.name is None:
-            return '<%s(%s, [%s] at %s>' % (self.__class__.__name__,
-                self._evaluate.__name__,
-                ', '.join([repr(event) for event in self._events]),
-                hex(id(self)))
-        else:
-            return self.name
+    def _desc(self):
+        """Return a string *Condition(and_or_or, [events])*."""
+        return '%s(%s, %s)' % (self.__class__.__name__,
+                               self._evaluate.__name__, self._events)
 
     def _get_results(self):
         """Recursively collects the current results of all nested
@@ -347,11 +351,19 @@ class Timeout(Event):
         self.name = name
         """Optional name for this event. Used in :meth:`__str__` if not
         ``None``."""
+        self._delay = delay
+        self._value = value
         self._triggered = False
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+
+    def _desc(self):
+        """Return a string *Timeout(delay[, value=value])*."""
+        return '%s(%s%s)' % (self.__class__.__name__, self._delay,
+                             '' if self._value is None else
+                             (', value=%s' % self._value))
 
 
 class Process(Event):
@@ -393,14 +405,9 @@ class Process(Event):
         env._schedule(EVT_INIT, init, SUCCEED)
         self._target = init
 
-    def __str__(self):
-        """Return a string "Process(pem_name)"."""
-        if self.name is None:
-            return '<%s.%s(generator=%s) at %s>' % (self.__class__.__module__,
-                    self.__class__.__name__, self._generator.__name__,
-                    hex(id(self)))
-        else:
-            return self.name
+    def _desc(self):
+        """Return a string *Process(pem_name)*."""
+        return '%s(%s)' % (self.__class__.__name__, self._generator.__name__)
 
     @property
     def target(self):

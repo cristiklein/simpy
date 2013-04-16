@@ -206,10 +206,8 @@ def test_all_of_with_triggered_events(env):
             all_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert re.match(
-                    r'Event <simpy.core.Timeout object at 0x.*> has already '
-                        'been triggered',
-                    e.args[0])
+            assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
+                            r'been triggered', e.args[0])
 
     env.start(parent(env))
     simulate(env)
@@ -280,10 +278,8 @@ def test_any_of_with_triggered_events(env):
             any_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
-            assert re.match(
-                    r'Event <simpy.core.Timeout object at 0x.*> has already '
-                        'been triggered',
-                    e.args[0])
+            assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
+                            r'been triggered', e.args[0])
 
     env.start(parent(env))
     simulate(env)

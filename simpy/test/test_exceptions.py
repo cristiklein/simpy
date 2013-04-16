@@ -132,9 +132,8 @@ def test_occured_event(env):
         simpy.simulate(env)
         pytest.fail('Hey, this is not allowed!')
     except RuntimeError as err:
-        assert re.search(r'Event already occured "'
-                r'<simpy.core.Process\(generator=child\) at 0x.*>"',
-                err.args[0])
+        assert re.search(r'Event already occured "<Process\(child\) object '
+                         r'at 0x.*>"', err.args[0])
 
 
 def test_exception_handling(env):
