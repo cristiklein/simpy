@@ -136,8 +136,6 @@ class Event(object):
     or one of them.
 
     """
-    __slots__ = ('callbacks', 'env', '_triggered', 'defused', 'name')
-
     def __init__(self, env, name=None):
         self.callbacks = []
         """List of functions that are called when the event is
@@ -231,9 +229,6 @@ class Condition(Event):
     sub- or nested conditions.
 
     """
-    __slots__ = ('callbacks', 'env', '_evaluate', '_results', '_events',
-                 '_sub_conditions')
-
     def __init__(self, env, evaluate, events, name=None):
         Event.__init__(self, env, name)
         self._evaluate = evaluate
@@ -382,8 +377,6 @@ class Process(Event):
     :meth:`Environment.start()`.
 
     """
-    __slots__ = ('callbacks', 'env', '_generator', '_target')
-
     def __init__(self, env, generator, name=None):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
