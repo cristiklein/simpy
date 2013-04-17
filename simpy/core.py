@@ -145,8 +145,8 @@ class Event(object):
         self.env = env
         """The :class:`Environment` the event lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__` if not
-        ``None``."""
+        """Optional name for this event. Used in :meth:`__str__()` if
+        not ``None``."""
         self._value = PENDING
 
     def __repr__(self):
@@ -352,22 +352,24 @@ class Timeout(Event):
 
     """
     def __init__(self, env, delay, value=None, name=None):
-        # We inlined Event.__init__() here for performance reasons.
+        # NOTE: The following initialization code is inlined from
+        # Event.__init__() for performance reasons.
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the timeout lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__` if not
-        ``None``."""
+        """Optional name for this event. Used in :meth:`__str__()` if
+        not ``None``."""
         self._delay = delay
         self._value = PENDING
 
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
+        # Scheduling the event will also set the its value
+        # (from "PENDING" to "value").
         env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
-        # env._schedule() set "self._value = value" for us.
 
     def _desc(self):
         """Return a string *Timeout(delay[, value=value])*."""
@@ -396,15 +398,16 @@ class Process(Event):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
-        # We inlined Event.__init__() here for performance reasons.
+        # NOTE: The following initialization code is inlined from
+        # Event.__init__() for performance reasons.
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the process lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__` if not
-        ``None``."""
+        """Optional name for this event. Used in :meth:`__str__()` if
+        not ``None``."""
         self._generator = generator
         self._value = PENDING
 
