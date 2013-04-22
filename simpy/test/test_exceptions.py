@@ -2,6 +2,8 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
+import re
+
 import pytest
 
 import simpy
@@ -130,7 +132,8 @@ def test_occured_event(env):
         simpy.simulate(env)
         pytest.fail('Hey, this is not allowed!')
     except RuntimeError as err:
-        assert err.args[0].endswith('Event already occured "Process(child)"')
+        assert re.search(r'Event already occured "<Process\(child\) object '
+                         r'at 0x.*>"', err.args[0])
 
 
 def test_exception_handling(env):
@@ -149,7 +152,7 @@ def test_exception_handling(env):
 def test_callback_exception_handling(env):
     """Callbacks of events may handle exception by setting the ``defused``
     attribute of ``event`` to ``True``."""
-    def callback(event, type, value):
+    def callback(type, event):
         event.defused = True
 
     event = env.event()
