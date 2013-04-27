@@ -262,6 +262,10 @@ class FilterQueue(list):
                     return True
         return False
 
+    # Provide __nonzero__ for backwards compatability: __bool__ is only used
+    # from Python 3 onwards.
+    __nonzero__ = __bool__
+
 
 class FilterStore(Store):
     def __init__(self, env, capacity=1):
