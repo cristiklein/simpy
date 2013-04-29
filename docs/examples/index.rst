@@ -1,0 +1,90 @@
+========
+Examples
+========
+
+
+
+All theory is grey. In this section, we present various practical examples that
+demonstrate how to uses SimPy's features.
+
+Here's a list of examples grouped by features they demonstrate.
+
+Condition events
+================
+
+- :doc:`movie_renege`
+
+
+Interrupts
+==========
+
+- :doc:`machine_shop`
+
+
+Monitoring
+==========
+
+
+Resources: Container
+====================
+
+- :doc:`gas_station_refuel`
+
+
+Resources: Preemptive Resource
+==============================
+
+- :doc:`machine_shop`
+
+
+Resources: Resource
+===================
+
+- :doc:`gas_station_refuel`
+- :doc:`carwash`
+- :doc:`movie_renege`
+
+
+Resources: Store
+================
+
+- :doc:`process_communication`
+- :doc:`latency`
+
+
+Shared events
+=============
+
+- :doc:`movie_renege`
+
+
+Waiting for other processes
+===========================
+
+- :doc:`carwash`
+- :doc:`gas_station_refuel`
+
+
+All examples
+============
+
+.. toctree::
+
+   carwash
+   machine_shop
+   movie_renege
+   gas_station_refuel
+   process_communication
+   latency
+
+.. bank_renege
+.. call_center
+.. cellphone
+.. central-server
+.. celluar_automata
+.. market
+.. mmc
+
+You have ideas for better examples? Please send them to our `mainling list
+<https://lists.sourceforge.net/lists/listinfo/simpy-users>`_ or make a pull
+request on `bitbucket <https://bitbucket.org/simpy/simpy>`_.
