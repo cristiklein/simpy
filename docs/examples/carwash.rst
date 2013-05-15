@@ -11,8 +11,9 @@ Covers:
 The *Carwash* example is a simulation of a carwash with a limited number of
 machines and a number of cars that arrive at the carwash to get cleaned.
 
-The carwash uses a :class:`~simpy.resources.Resource` to model the limited
-number of washing machines. It also defines a process for washing a car.
+The carwash uses a :class:`~simpy.resources.resource.Resource` to model the
+limited number of washing machines. It also defines a process for washing
+a car.
 
 When a car arrives at the carwash, it requests a machine. Once it got one, it
 starts the carwash's *wash* processes and waits for it to finish. It finally

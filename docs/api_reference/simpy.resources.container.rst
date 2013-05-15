@@ -1,7 +1,5 @@
 ==========================================================
-``simpy.resources.util`` --- Utility classes for resources
+``simpy.resources.container`` --- Container type resources
 ==========================================================
 
-
-.. automodule:: simpy.resources.util
-    :members:
+.. automodule:: simpy.resources.container

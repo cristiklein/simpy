@@ -1,5 +1,5 @@
 =======================================================
-``simpy.resources`` --- SimPy's built-in resource types
+``simpy.resources.resource`` -- Resource type resources
 =======================================================
 
-.. automodule:: simpy.resources
+.. automodule:: simpy.resources.resource

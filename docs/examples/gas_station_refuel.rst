@@ -14,8 +14,8 @@ refueling.
 
 The gas station has a limited number of fuel pumps and a fuel tank that is
 shared between the fuel pumps. The gas station is thus modeled as
-:class:`~simpy.resources.Resource`. The shared fuel tank is modeled with a
-:class:`~simpy.resources.Container`.
+:class:`~simpy.resources.resource.Resource`. The shared fuel tank is modeled
+with a :class:`~simpy.resources.container.Container`.
 
 Vehicles arriving at the gas station first request a fuel pump from the
 station. Once they acquire one, they try to take the desired amount of fuel
