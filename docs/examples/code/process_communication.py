@@ -7,9 +7,9 @@ Covers:
 
 Scenario:
   This example shows how to interconnect simulation model elements
-  together using "resources.Store" for one-to-one, and many-to-one
-  asynchronous processes. For one-to-many a simple BroadCastPipe class
-  is constructed from Store.
+  together using :class:`~simpy.resources.store.Store` for one-to-one,
+  and many-to-one asynchronous processes. For one-to-many a simple
+  BroadCastPipe class is constructed from Store.
 
 When Useful:
   When a consumer process does not always wait on a generating process
@@ -45,7 +45,7 @@ class BroadcastPipe(object):
     buffering to the consuming processes.
 
     The parameters are used to create a new
-    :class:`~simpy.resources.Store` instance each time
+    :class:`~simpy.resources.store.Store` instance each time
     :meth:`get_output_conn()` is called.
 
     """
@@ -64,10 +64,10 @@ class BroadcastPipe(object):
     def get_output_conn(self):
         """Get a new output connection for this broadcast pipe.
 
-        The return value is a :class:`~simpy.resources.Store`.
+        The return value is a :class:`~simpy.resources.store.Store`.
 
         """
-        pipe = simpy.resources.Store(self.env, capacity=self.capacity)
+        pipe = simpy.Store(self.env, capacity=self.capacity)
         self.pipes.append(pipe)
         return pipe
 
@@ -117,7 +117,7 @@ print('Process communication')
 random.seed(RANDOM_SEED)
 env = simpy.Environment()
 
-# For one-to-one or many-to-one type pipes, use resource.Store
+# For one-to-one or many-to-one type pipes, use Store
 pipe = simpy.Store(env)
 env.start(message_generator('Generator A', env, pipe))
 env.start(message_consumer('Consumer A', env, pipe))

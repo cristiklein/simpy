@@ -19,9 +19,10 @@ machine (producing parts). *break_machine* periodically interrupts the
 *working* process to simulate the machine failure.
 
 The repairman's other job is also a process (implemented by *other_job*). The
-repairman itself is a :class:`~simpy.resources.PreemptiveResource` with
-a capacity of *1*. The machine repairing has a priority of *1*, while the other
-job has a priority of *2* (the smaller the number, the higher the priority).
+repairman itself is a :class:`~simpy.resources.resource.PreemptiveResource`
+with a capacity of *1*. The machine repairing has a priority of *1*, while the
+other job has a priority of *2* (the smaller the number, the higher the
+priority).
 
 
 .. literalinclude:: code/machine_shop.py
