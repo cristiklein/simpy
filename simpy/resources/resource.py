@@ -27,12 +27,13 @@ other processes with a higher priority.
 .. autoclass:: Request
 .. autoclass:: Release
 .. autoclass:: PriorityRequest
+.. autoclass:: SortedQueue
 
 
 """
 from collections import namedtuple
 
-from simpy.resources import base, queues
+from simpy.resources import base
 
 
 Preempted = namedtuple('Preempted', 'by, usage_since')
@@ -108,6 +109,20 @@ class PriorityRequest(Request):
         self.preempt = preempt
         self.time = resource._env.now
         self.key = (self.priority, self.time)
+
+
+class SortedQueue(list):
+    """Queue that sorts events by their ``key`` attribute."""
+    def __init__(self, maxlen=None):
+        super(SortedQueue, self).__init__()
+        self.maxlen = maxlen
+
+    def append(self, item):
+        if self.maxlen is not None and len(self) >= self.maxlen:
+            raise ValueError('Cannot append event. Queue is full.')
+
+        super(SortedQueue, self).append(item)
+        super(SortedQueue, self).sort(key=lambda e: e.key)
 
 
 class Resource(base.BaseResource):
@@ -213,8 +228,8 @@ class PriorityResource(Resource):
 
     """
     PutEvent = PriorityRequest
-    PutQueue = queues.SortedQueue
-    GetQueue = queues.SortedQueue
+    PutQueue = SortedQueue
+    GetQueue = SortedQueue
 
 
 class PreemptiveResource(PriorityResource):

@@ -33,10 +33,9 @@ class BaseResource(object):
     triggered immediately.
 
     If a resources is too full or too empty to perform a put or get
-    request, the event is pushed to the *put_queue* or *get_queue* (see
-    :mod:`simpy.resources.queues`). An event is popped from one of these
-    queues and triggered as soon as the corresponding operation is
-    possible.
+    request, the event is pushed to the *put_queue* or *get_queue*. An
+    event is popped from one of these queues and triggered as soon as
+    the corresponding operation is possible.
 
     :meth:`put()` and :meth:`get()` only provide the user API and the
     general framework and should not be overridden in subclasses. The
@@ -46,15 +45,11 @@ class BaseResource(object):
     .. attribute:: PutQueue
 
         The type to be used for the :attr:`put_queue`. This can either
-        be a plain :class:`list` (default) or one of SimPy's
-        :mod:`~simpy.resources.queues`.
-
+        be a plain :class:`list` (default) or a subclass of it.
     .. attribute:: GetQueue
 
         The type to be used for the :attr:`get_queue`. This can either
-        be a playin :class:`list` (default) or one of Simpy's
-        :mod`~simpy.resources.queues`.
-
+        be a plain :class:`list` (default) or a sublcass of it.
     .. attribute:: PutEvent
 
         Event type used for put events. This defaults to ``None`` and
