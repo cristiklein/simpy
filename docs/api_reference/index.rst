@@ -14,7 +14,6 @@ components.
     simpy.resources
     simpy.resources.base
     simpy.resources.container
-    simpy.resources.queues
     simpy.resources.resource
     simpy.resources.store
     simpy.monitoring
