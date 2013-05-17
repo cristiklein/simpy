@@ -16,7 +16,7 @@ queue).
 
 The movie theater is just a container for all the related data (movies, the
 counter, tickets left, collected data, ...). The counter is
-a :class:`~simpy.resources.Resource` with a capacity of one.
+a :class:`~simpy.resources.resource.Resource` with a capacity of one.
 
 The *moviegoer* process starts waiting until either it's his turn (it acquires
 the counter resource) or until the *sold out* signal is triggered. If the

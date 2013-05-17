@@ -2,13 +2,13 @@
 Shared Resources
 ================
 
-SimPy offers three types of :mod:`~simpy.resources` that help you modeling problems, where
-multiple processes want to use a resource of limited capacity (e.g., cars at
-a fuel station with a limited number of fuel pumps) or classical
+SimPy offers three types of :mod:`~simpy.resources` that help you modeling
+problems, where multiple processes want to use a resource of limited capacity
+(e.g., cars at a fuel station with a limited number of fuel pumps) or classical
 producer-consumer problems.
 
 In this section, we'll briefly introduce SimPy's
-:class:`~simpy.resources.Resource` class.
+:class:`~simpy.resources.resource.Resource` class.
 
 
 Basic Resource Usage
@@ -36,15 +36,15 @@ and leaves the station afterwards::
     ...         yield env.timeout(charge_duration)
     ...         print('%s leaving the bcs at %s' % (name, env.now))
 
-The resource's :meth:`~simpy.resources.Resource.request()` method generates an
-event that lets you wait until the resource becomes available again.  If you
-are resumed, you "own" the resource until you *release* it.
+The resource's :meth:`~simpy.resources.resource.Resource.request()` method
+generates an event that lets you wait until the resource becomes available
+again.  If you are resumed, you "own" the resource until you *release* it.
 
 If you use the resource with the ``with`` statement as shown above, the
 resource is automatically being released. If you call ``release()`` without
 ``with``, you are responsible to call
-:meth:`~simpy.resources.Resource.release()` with the event once you are done
-using the resource.
+:meth:`~simpy.resources.resource.Resource.release()` with the event once you
+are done using the resource.
 
 When you release a resource, the next waiting process is resumed and now "owns"
 one of the resource's slots.
