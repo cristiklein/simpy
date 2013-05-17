@@ -84,6 +84,20 @@ else:
     LEGACY_SUPPORT = False
 
 
+class BoundClass(object):
+    """Allows classes to behave like methods. The ``__get__()`` descriptor is
+    basically identical to ``function.__get__()`` and binds the first argument
+    of the ``cls`` to the descriptor instance."""
+
+    def __init__(self, cls):
+        self.cls = cls
+
+    def __get__(self, obj, type=None):
+        if obj is None:
+            return self.cls
+        return types.MethodType(self.cls, obj)
+
+
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
     another process (see :func:`Process.interrupt()`).
