@@ -1,21 +1,10 @@
 """
 This module contains all :class:`Store` like resources.
 
-Stores model the production and consumption of concrete Python objects.
-
-The type of items you can put into or get from the store is not defined.
-You can use normal Python objects, SimPy processes or other resources.
-You can even mix them as you want.
+Stores model the production and consumption of objects in general.
 
 Beside :class:`Store`, there is a :class:`FilterStore` that lets you
 use a custom function to filter the objects you get out of the store.
-
-.. autoclass:: Store
-.. autoclass:: FilterStore
-.. autoclass:: StorePut
-.. autoclass:: StoreGet
-.. autoclass:: FilterStoreGet(resource, filter=lambda item: True)
-.. autoclass:: FilterQueue
 
 """
 from simpy.core import BoundClass
@@ -23,7 +12,7 @@ from simpy.resources import base
 
 
 class StorePut(base.Put):
-    """This event type is used by :meth:`Store.put()`.
+    """Put *item* into the store if possible or wait until it is.
 
     .. attribute:: item
 
@@ -36,17 +25,16 @@ class StorePut(base.Put):
 
 
 class StoreGet(base.Get):
-    """This event type is used by :meth:`Store.get()`."""
+    """Get an item from the store or wait until one is available."""
     pass
 
 
 class FilterStoreGet(StoreGet):
-    """This event type is used by :meth:`FilterStore.get()`.
+    """Get an item from the store for which *filter* returns ``True``. This
+    event is triggered once such an event is available.
 
-    .. attribute:: filter
-
-        The filter function to use.
-
+    The default *filter* function returns ``True`` for all items,
+    and thus this event exactly behaves like :class:`StoreGet`.
     """
     def __init__(self, resource, filter=lambda item: True):
         self.filter = filter
@@ -54,14 +42,10 @@ class FilterStoreGet(StoreGet):
 
 
 class FilterQueue(list):
-    """The queue inherits :class:`list` and modfies
+    """The queue inherits :class:`list` and modifies
     :meth:`__getitem__()` and :meth:`__bool__` to appears to only
     contain events for which the *store*\ 's item queue contains proper
     item.
-
-    .. automethod:: __getitem__
-    .. automethod:: __bool__
-    .. automethod:: __nonzero__
 
     """
     def __init__(self):
@@ -91,7 +75,9 @@ class FilterQueue(list):
 
 
 class Store(base.BaseResource):
-    """Models the production and consumption of concrete Python objects.
+    """Any items might be :meth:`put` into the store or be retrieved from it
+    (:meth:`get`). By default the items are putted and retrieved from the store
+    in a first-in first-out order.
 
     The ``env`` parameter is the :class:`~simpy.core.Environment`
     instance the container is bound to.
@@ -99,20 +85,6 @@ class Store(base.BaseResource):
     The ``capacity`` defines the size of the Store and must be
     a positive number (> 0). By default, a Store is of unlimited size.
     A :exc:`ValueError` is raised if the value is negative.
-
-    .. autoattribute:: capacity
-
-    .. attribute:: items
-
-        List of the items within the store.
-
-    .. method:: put(item)
-
-        Put *item* into the store if possible or wait until it is.
-
-    .. method:: get()
-
-        Get an item from the store or wait until one is available.
 
     """
 
@@ -158,14 +130,6 @@ class FilterStore(Store):
         puts one item of type *b* into the store. Though *Process 2*
         made his request after *Process 1*, it will receive that new
         item because *Process 1* doesn't want it.
-
-    .. method:: get(filter=lambda item: True)
-
-        Get the first item from the store for which *filter* returns
-        ``True``.
-
-        The default *filter* function returns ``True`` for all items,
-        and thus exactly behaves like :meth:`Store.get()`.
 
     """
     GetQueue = FilterQueue
