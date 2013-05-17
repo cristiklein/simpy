@@ -9,38 +9,33 @@ For example, a gasoline station stores gas (petrol) in large tanks.
 Tankers increase, and refuelled cars decrease, the amount of gas in the
 station's storage tanks.
 
-.. autoclass:: Container
-.. autoclass:: ContainerPut
-.. autoclass:: ContainerGet
-
 """
 from simpy.core import BoundClass
 from simpy.resources import base
 
 
 class ContainerPut(base.Put):
-    """This event type is used by :meth:`Container.put()`.
+    """An event that puts *amount* into the *container*. The event is
+    triggered as soon as there's enough space left in the *container*.
 
-    .. attribute:: amount
-
-        The amount to be put into the container.
-
+    Raise a :exc:`ValueError` if ``amount <= 0``.
     """
-    def __init__(self, resource, amount):
+
+    def __init__(self, container, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
+        #: The amount to be put into the container.
         self.amount = amount
-        super(ContainerPut, self).__init__(resource)
+        super(ContainerPut, self).__init__(container)
 
 
 class ContainerGet(base.Get):
-    """This event type is used by :meth:`Container.get()`.
+    """An event that gets *amount* from the *container*. The event is
+    triggered as soon as there's enough content available in the *container*.
 
-    .. attribute:: amount
-
-        The amount to be taken out of the container.
-
+    Raise a :exc:`ValueError` if ``amount <= 0``.
     """
+
     def __init__(self, resource, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
@@ -65,18 +60,6 @@ class Container(base.BaseResource):
     .. autoattribute:: capacity
     .. autoattribute:: level
 
-    .. method:: put(amount)
-
-        Put *amount* into the Container if possible or wait until it is.
-
-        Raise a :exc:`ValueError` if ``amount <= 0``.
-
-    .. method:: get(amount)
-
-        Get *amount* from the container if possible or wait until it is
-        available.
-
-        Raise a :exc:`ValueError` if ``amount <= 0``.
 
     """
 
@@ -101,7 +84,7 @@ class Container(base.BaseResource):
 
     @property
     def capacity(self):
-        """The maximum capactiy of the container."""
+        """The maximum capactiy of the container. Read only."""
         return self._capacity
 
     @property

@@ -5,7 +5,7 @@ These resources can be used by a limited number of processes at a time
 (e.g., a gas station with a limited number of fuel pumps). Processes
 *request* these resources to become a user (or to own them) and have to
 *release* them once they are done (e.g., vehicles arrive at the gas
-station, use a fuel-pump, if one is availalbe, and leave when they are
+station, use a fuel-pump, if one is available, and leave when they are
 done).
 
 Requesting a resources is modeled as "putting a process' token into the
@@ -17,18 +17,8 @@ immediately, no matter if a process is actually using a resource or not.
 
 Beside :class:`Resource`, there are a :class:`PriorityResource`, were
 processes can define a request priority, and
-a :class:`PreemptiveResource` were resource users can be preempted by
+a :class:`PreemptiveResource` whose resource users can be preempted by
 other processes with a higher priority.
-
-.. autoclass:: Resource
-.. autoclass:: PriorityResource
-.. autoclass:: PreemptiveResource
-.. autoclass:: Preempted(by, usage_since)
-.. autoclass:: Request
-.. autoclass:: Release
-.. autoclass:: PriorityRequest
-.. autoclass:: SortedQueue
-
 
 """
 from collections import namedtuple
@@ -53,10 +43,14 @@ Preempted = namedtuple('Preempted', 'by, usage_since')
 
 
 class Request(base.Put):
-    """This event type is used by :meth:`Resource.request()`.
+    """Request access on the *resource*. The event is triggered once access
+    is granted.
 
-    It automatically calls :meth:`Resource.release()` when the request
-    was created within a :keyword:`with` statement.
+    If the maximum capacity of users is not reached, the requesting
+    process obtains the resource immediately.
+
+    The request is automatically released when the request was created within a
+    :keyword:`with` statement.
 
     """
     def __exit__(self, exc_type, value, traceback):
@@ -65,11 +59,10 @@ class Request(base.Put):
 
 
 class Release(base.Get):
-    """This event type is used by :meth:`Resource.release()`.
+    """Releases the access privilege granted by *request* on the *resource*.
+    This event is triggered immediately.
 
-    .. attribute:: request
-
-        The request (:class:`Request`) that is to be released.
+    If there's another process waiting for the *resource*, it will be resumed.
 
     """
     def __init__(self, resource, request):
@@ -78,30 +71,10 @@ class Release(base.Get):
 
 
 class PriorityRequest(Request):
-    """This event type inherits :class:`Request` and adds some
-    additional attributes needed by :class:`PriorityResource` and
-    :class:`PreemptiveResource`
-
-    .. attribute:: priority
-
-        The priority of this request. A smaller number means higher
-        priority.
-
-    .. attribute:: preempt
-
-        Indicates wether the request should preempt a resource user or
-        not (this flag is not taken into account by
-        :class:`PriorityResource`).
-
-    .. attribute:: time
-
-        The simulation time at which the request was made.
-
-    .. attribute:: key
-
-        Key for sorting events. Consists of the priority (lower value is
-        more important) and the time at witch the request was made
-        (earlier requests are more important).
+    """Request the *resource* with a given *priority*. If the *resource*
+    supports preemption and *preempted* is true other processes with access to
+    the *resource* may be preempted (see :class:`PreemptiveResource` for
+    details).
 
     """
     def __init__(self, resource, priority=0, preempt=True):
@@ -139,45 +112,6 @@ class Resource(base.BaseResource):
 
     The ``capacity`` defines the number of slots and must be a positive
     integer.
-
-
-    .. attribute:: users
-
-        List of :class:`Request` events for the processes that are
-        currently using the resource.
-
-    .. attribute:: queue
-
-        Queue/list of pending :class:`Request` events that represent
-        processes waiting to use the resource.
-
-    .. autoattribute:: capacity
-    .. autoattribute:: count
-
-    .. method:: request()
-
-        Request the resource.
-
-        If the maximum capacity of users is not reached, the requesting
-        process obtains the resource immediately (that is, a new event
-        for it will be scheduled at the current time. That means that
-        all other events also scheduled for the current time will be
-        processed before that new event.).
-
-        If the maximum capacity is reached, suspend the requesting
-        process until another process releases the resource again.
-
-    .. method:: release()
-
-        Release the resource for the process that created event.
-
-        If another process is waiting for the resource, resume that
-        process.
-
-        If the request was made after a :keyword:`with` statement (e.g.,
-        ``with res.request() as req:``), this method is automatically
-        called when the ``with`` block is left.
-
     """
 
     def __init__(self, env, capacity=1):
@@ -215,18 +149,12 @@ class Resource(base.BaseResource):
 
 
 class PriorityResource(Resource):
-    """This class works like :class:`Resource`, but waiting processes
-    are sorted by priority (see :meth:`request()`).
+    """This class works like :class:`Resource`, but requests are sorted by
+    priority.
 
-    .. method:: request(priority=0)
-
-        Request the resource with a given *priority*.
-
-        This method has the same behavior as :meth:`Resource.request()`,
-        but the :attr:`~Resource.queue` is kept sorted by priority in
-        ascending order (a lower value for *priority* results in
-        a higher priority), so more important processes will get the
-        resource earlier.
+    The :attr:`~Resource.queue` is kept sorted by priority in ascending order
+    (a lower value for *priority* results in a higher priority), so more
+    important request will get the resource earlier.
 
     """
     PutQueue = SortedQueue
@@ -238,25 +166,13 @@ class PriorityResource(Resource):
 
 class PreemptiveResource(PriorityResource):
     """This resource mostly works like :class:`Resource`, but users of
-    the resource can be *preempted* by higher prioritized processes.
+    the resource can be *preempted* by higher prioritized requests.
 
-    Furthermore, the queue for waiting requests is also sorted by
-    *priority*.
+    Furthermore, the queue of requests is also sorted by *priority*.
 
-    .. method:: request(priority=0, preempt=True)
-
-        Request the resource with a given *priority* and preempt less
-        important resource users if *preempt* is ``True``.
-
-        This method has the same behavior as :meth:`Resource.request()`,
-        but the :attr:`~Resource.queue` is kept sorted by priority in
-        ascending order (a lower value for *priority* results in
-        a higher priority), so more important processes will get the
-        resource earlier.
-
-        If a less important process is preempted, it will receive an
-        :class:`~simpy.core.Interrupt` with a :class:`Preempted`
-        instance as cause.
+    If a less important request is preempted, the process of that request will
+    receive an :class:`~simpy.core.Interrupt` with a :class:`Preempted`
+    instance as cause.
 
     """
     def _do_put(self, event):

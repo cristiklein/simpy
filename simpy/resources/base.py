@@ -6,14 +6,6 @@ for putting something into or getting something out of a resource is
 modeled as an event that has to be yielded by the requesting process.
 :class:`Put` and :class:`Get` are the base event types for this.
 
-.. autoclass:: BaseResource
-
-.. autoclass:: Put
-   :members:
-
-.. autoclass:: Get
-   :members:
-
 """
 from simpy.core import Event, PENDING, BoundClass
 
@@ -161,46 +153,22 @@ class BaseResource(object):
     actual behavior for what happens when a put/get succeeds should
     rather be implemented in :meth:`_do_put()` and :meth:`_do_get()`.
 
-    .. attribute:: PutQueue
-
-        The type to be used for the :attr:`put_queue`. This can either
-        be a plain :class:`list` (default) or a subclass of it.
-    .. attribute:: GetQueue
-
-        The type to be used for the :attr:`get_queue`. This can either
-        be a plain :class:`list` (default) or a sublcass of it.
-    .. attribute:: PutEvent
-
-        Event type used for put events. This defaults to ``None`` and
-        has to be overridden in sub-classes.
-
-    .. attribute:: GetEvent
-
-        Event type used for get events. This defaults to ``None`` and
-        has to be overridden in sub-classes.
-
-    .. attribute:: put_queue
-
-        Queue/list of events waiting to put something into the resource.
-
-    .. attribute:: get_queue
-
-        Queue/list of events waiting to get something out of the
-        resource.
-
-    .. automethod:: put
-    .. automethod:: get
-    .. automethod:: _do_put
-    .. automethod:: _do_get
-
     """
 
     PutQueue = list
+    """The type to be used for the :attr:`put_queue`. This can either be a
+    plain :class:`list` (default) or a subclass of it."""
+
     GetQueue = list
+    """The type to be used for the :attr:`get_queue`. This can either be a
+    plain :class:`list` (default) or a sublcass of it."""
+
 
     def __init__(self, env):
         self._env = env
+        #: Queue/list of events waiting to put something into the resource.
         self.put_queue = self.PutQueue()
+        #: Queue/list of events waiting to get something out of the resource.
         self.get_queue = self.GetQueue()
 
     put = BoundClass(Put)
