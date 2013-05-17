@@ -6,11 +6,10 @@ Theses test cases demonstrate the API for shared resources.
 import pytest
 
 import simpy
-import simpy.resources
 
 
 #
-# Tests fore Resource
+# Tests for Resource
 #
 
 
@@ -21,6 +20,7 @@ def test_resource(env, log):
 
     """
     def pem(env, name, resource, log):
+        __name__ = 'pem(%s)' % name
         req = resource.request()
         yield req
         assert resource.count == 1
@@ -178,9 +178,7 @@ def test_resource_with_priority_queue(env):
         yield env.timeout(5)
         resource.release(req)
 
-    resource = simpy.Resource(
-        env, capacity=1,
-        event_type=simpy.resources.events.PriorityResourceEvent)
+    resource = simpy.PriorityResource(env, capacity=1)
     env.start(process(env, 0, resource, 2, 0))
     env.start(process(env, 2, resource, 3, 10))
     env.start(process(env, 2, resource, 3, 15))  # Test equal priority
@@ -197,12 +195,12 @@ def test_get_users(env):
     resource = simpy.Resource(env, 1)
     procs = [env.start(process(env, resource)) for i in range(3)]
     simpy.simulate(env, until=1)
-    assert list(resource.get_users()) == procs[0:1]
-    assert list(resource.get_queued()) == procs[1:]
+    assert [evt.proc for evt in resource.users] == procs[0:1]
+    assert [evt.proc for evt in resource.queue] == procs[1:]
 
     simpy.simulate(env, until=2)
-    assert list(resource.get_users()) == procs[1:2]
-    assert list(resource.get_queued()) == procs[2:]
+    assert [evt.proc for evt in resource.users] == procs[1:2]
+    assert [evt.proc for evt in resource.queue] == procs[2:]
 
 
 #
@@ -221,7 +219,7 @@ def test_preemptive_resource(env, log):
             except simpy.Interrupt as ir:
                 log.append((env.now, id, tuple(ir.cause)))
 
-    res = simpy.PreemptiveResource(env, 2)
+    res = simpy.PreemptiveResource(env, capacity=2)
     p0 = env.start(process(0, env, res, 0, 1, log))
     p1 = env.start(process(1, env, res, 0, 1, log))
     p2 = env.start(process(2, env, res, 1, 0, log))
@@ -317,14 +315,13 @@ def test_container(env, log):
     env.start(getter(env, buf, log))
     simpy.simulate(env, until=5)
 
-    assert log == [('g', 1), ('p', 1), ('g', 2), ('p', 2)]
+    assert log == [('p', 1), ('g', 1), ('g', 2), ('p', 2)]
 
 
 def test_container_get_queued(env):
     def proc(env, wait, container, what):
         yield env.timeout(wait)
         with getattr(container, what)(1) as req:
-            print(env.now, what, container.level)
             yield req
 
     container = simpy.Container(env, 1)
@@ -334,14 +331,12 @@ def test_container_get_queued(env):
     p3 = env.start(proc(env, 1, container, 'put'))
 
     simpy.simulate(env, until=1)
-    print('simulated')
-    assert list(container.get_put_queued()) == []
-    assert list(container.get_get_queued()) == [p0]
+    assert [ev.proc for ev in container.put_queue] == []
+    assert [ev.proc for ev in container.get_queue] == [p0]
 
     simpy.simulate(env, until=2)
-    print('simulated')
-    assert list(container.get_put_queued()) == [p3]
-    assert list(container.get_get_queued()) == []
+    assert [ev.proc for ev in container.put_queue] == [p3]
+    assert [ev.proc for ev in container.get_queue] == []
 
 
 #
@@ -352,7 +347,7 @@ def test_container_get_queued(env):
 def test_store(env):
     """A store models the production and consumption of concrete python
     objects (in contrast to containers, where you only now if the *put*
-    or *get* operations were successfull but don’t get concrete
+    or *get* operations were successfull but don't get concrete
     objects).
 
     """
@@ -369,4 +364,18 @@ def test_store(env):
     # NOTE: Does the start order matter? Need to test this.
     env.start(putter(env, store, item))
     env.start(getter(env, store, item))
+    simpy.simulate(env)
+
+
+def test_filter_store(env):
+    def pem(env):
+        store = simpy.FilterStore(env, capacity=2)
+
+        get_event = store.get(lambda item: item == 'b')
+        yield store.put('a')
+        assert not get_event.triggered
+        yield store.put('b')
+        assert get_event.triggered
+
+    env.start(pem(env))
     simpy.simulate(env)

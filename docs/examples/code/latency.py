@@ -31,7 +31,7 @@ class Cable(object):
     def __init__(self, env, delay):
         self.env = env
         self.delay = delay
-        self.store = simpy.resources.Store(env)
+        self.store = simpy.Store(env)
 
     def latency(self, value):
         yield self.env.timeout(self.delay)
