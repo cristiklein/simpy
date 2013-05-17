@@ -33,6 +33,7 @@ other processes with a higher priority.
 """
 from collections import namedtuple
 
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
@@ -72,8 +73,8 @@ class Release(base.Get):
 
     """
     def __init__(self, resource, request):
-        super(Release, self).__init__(resource)
         self.request = request
+        super(Release, self).__init__(resource)
 
 
 class PriorityRequest(Request):
@@ -104,11 +105,11 @@ class PriorityRequest(Request):
 
     """
     def __init__(self, resource, priority=0, preempt=True):
-        super(PriorityRequest, self).__init__(resource)
         self.priority = priority
         self.preempt = preempt
         self.time = resource._env.now
         self.key = (self.priority, self.time)
+        super(PriorityRequest, self).__init__(resource)
 
 
 class SortedQueue(list):
@@ -178,16 +179,17 @@ class Resource(base.BaseResource):
         called when the ``with`` block is left.
 
     """
-    PutEvent = Request
-    GetEvent = Release
-    request = base.BaseResource.put
-    release = base.BaseResource.get
 
     def __init__(self, env, capacity=1):
         super(Resource, self).__init__(env)
         self._capacity = capacity
         self.users = []
         self.queue = self.put_queue
+
+    put = BoundClass(Request)
+    get = BoundClass(Release)
+    request = put
+    release = get
 
     @property
     def capacity(self):
@@ -227,9 +229,11 @@ class PriorityResource(Resource):
         resource earlier.
 
     """
-    PutEvent = PriorityRequest
     PutQueue = SortedQueue
     GetQueue = SortedQueue
+
+    put = BoundClass(PriorityRequest)
+    request = put
 
 
 class PreemptiveResource(PriorityResource):

@@ -18,6 +18,7 @@ use a custom function to filter the objects you get out of the store.
 .. autoclass:: FilterQueue
 
 """
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
@@ -30,8 +31,8 @@ class StorePut(base.Put):
 
     """
     def __init__(self, resource, item):
-        super(StorePut, self).__init__(resource)
         self.item = item
+        super(StorePut, self).__init__(resource)
 
 
 class StoreGet(base.Get):
@@ -48,8 +49,8 @@ class FilterStoreGet(StoreGet):
 
     """
     def __init__(self, resource, filter=lambda item: True):
-        super(FilterStoreGet, self).__init__(resource)
         self.filter = filter
+        super(FilterStoreGet, self).__init__(resource)
 
 
 class FilterQueue(list):
@@ -114,13 +115,14 @@ class Store(base.BaseResource):
         Get an item from the store or wait until one is available.
 
     """
-    PutEvent = StorePut
-    GetEvent = StoreGet
 
     def __init__(self, env, capacity=1):
         super(Store, self).__init__(env)
         self._capacity = capacity
         self.items = []
+
+    put = BoundClass(StorePut)
+    get = BoundClass(StoreGet)
 
     @property
     def capacity(self):
@@ -166,12 +168,13 @@ class FilterStore(Store):
         and thus exactly behaves like :meth:`Store.get()`.
 
     """
-    GetEvent = FilterStoreGet
     GetQueue = FilterQueue
 
     def __init__(self, env, capacity=1):
         super(FilterStore, self).__init__(env, capacity)
         self.get_queue.store = self
+
+    get = BoundClass(FilterStoreGet)
 
     def _do_get(self, event):
         for item in self.items:

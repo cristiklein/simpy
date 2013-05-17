@@ -14,6 +14,7 @@ station's storage tanks.
 .. autoclass:: ContainerGet
 
 """
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
@@ -26,10 +27,10 @@ class ContainerPut(base.Put):
 
     """
     def __init__(self, resource, amount):
-        super(ContainerPut, self).__init__(resource)
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
         self.amount = amount
+        super(ContainerPut, self).__init__(resource)
 
 
 class ContainerGet(base.Get):
@@ -41,10 +42,10 @@ class ContainerGet(base.Get):
 
     """
     def __init__(self, resource, amount):
-        super(ContainerGet, self).__init__(resource)
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
         self.amount = amount
+        super(ContainerGet, self).__init__(resource)
 
 
 class Container(base.BaseResource):
@@ -78,14 +79,15 @@ class Container(base.BaseResource):
         Raise a :exc:`ValueError` if ``amount <= 0``.
 
     """
-    PutEvent = ContainerPut
-    GetEvent = ContainerGet
 
     def __init__(self, env, capacity, init=0):
         super(Container, self).__init__(env)
 
         self._capacity = capacity
         self._level = init
+
+    put = BoundClass(ContainerPut)
+    get = BoundClass(ContainerGet)
 
     def _do_put(self, event):
         if self._capacity - self._level >= event.amount:

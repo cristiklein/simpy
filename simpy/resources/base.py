@@ -15,7 +15,126 @@ modeled as an event that has to be yielded by the requesting process.
    :members:
 
 """
-from simpy.core import Event, PENDING
+from simpy.core import Event, PENDING, BoundClass
+
+
+class Put(Event):
+    """The base class for all put events.
+
+    It receives the *resource* that created the event.
+
+    This event (and all of its subclasses) can act as context manager
+    and can be used with the :keyword:`with` statement to automatically
+    cancel a put request if an exception or an
+    :class:`simpy.core.Interrupt` occurs:
+
+    .. code-block:: python
+
+        with res.put(item) as request:
+            yield request
+
+    It is not used directly by any resource, but rather sub-classed for
+    each type.
+
+    """
+    def __init__(self, resource):
+        super(Put, self).__init__(resource._env)
+        self.resource = resource
+        self.proc = self.env.active_process
+
+        resource._do_put(self)
+        if self._value is not PENDING:
+            # The put request has been added to the container and triggered.
+            # Check if get requests may now be triggered.
+            while resource.get_queue:
+                get_event = resource.get_queue[0]
+                resource._do_get(get_event)
+                if get_event._value is PENDING:
+                    break
+
+                resource.get_queue.remove(get_event)
+        else:
+            # The put request has not been added to the container.
+            resource.put_queue.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # If the request has been interrupted, remove it from the queue:
+        if self._value is PENDING:
+            self.resource.put_queue.remove(self)
+
+    cancel = __exit__
+    """Cancel the current put request.
+
+    This method has to be called if a process received an
+    :class:`~simpy.core.Interrupt` or an exception while yielding this
+    event and is not going to yield this event again.
+
+    If the event was created in a :keyword:`with` statement, this method
+    is called automatically.
+
+    """
+
+
+class Get(Event):
+    """The base class for all get events.
+
+    It receives the *resource* that created the event.
+
+    This event (and all of its subclasses) can act as context manager
+    and can be used with the :keyword:`with` statement to automatically
+    cancel a get request if an exception or an
+    :class:`simpy.core.Interrupt` occurs:
+
+    .. code-block:: python
+
+        with res.get() as request:
+            yield request
+
+    It is not used directly by any resource, but rather sub-classed for
+    each type.
+
+    """
+    def __init__(self, resource):
+        super(Get, self).__init__(resource._env)
+        self.resource = resource
+        self.proc = self.env.active_process
+
+        resource._do_get(self)
+        if self._value is not PENDING:
+            # The get request has been added to the container and triggered.
+            # Check if put requests may now be triggered.
+            while resource.put_queue:
+                put_event = resource.put_queue[0]
+                resource._do_put(put_event)
+                if put_event._value is PENDING:
+                    break
+
+                resource.put_queue.remove(put_event)
+        else:
+            resource.get_queue.append(self)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        # If the request has been interrupted, remove it from the queue:
+        if self.value is PENDING:
+            self.resource.get_queue.remove(self)
+
+    cancel = __exit__
+    """Cancel the current get request.
+
+    This method has to be called if a process received an
+    :class:`~simpy.core.Interrupt` or an exception while yielding this
+    event and is not going to yield this event again.
+
+    If the event was created in a :keyword:`with` statement, this method
+    is called automatically.
+
+    """
 
 
 class BaseResource(object):
@@ -78,70 +197,14 @@ class BaseResource(object):
 
     PutQueue = list
     GetQueue = list
-    PutEvent = None
-    GetEvent = None
 
     def __init__(self, env):
         self._env = env
         self.put_queue = self.PutQueue()
         self.get_queue = self.GetQueue()
 
-    def put(self, *args, **kwargs):
-        """Try to put something into the resource and return the *put_event*.
-
-        *args* and *kwargs* are passed as arguments to the *put_event*
-        when it is created.
-
-        When the *put* request succeeded, check if one or more *get*
-        requests from the *get_queue* can now be processed.
-
-        """
-        put_event = self.PutEvent(self, *args, **kwargs)
-
-        self._do_put(put_event)
-        if put_event._value is not PENDING:
-            # The put request has been added to the container and triggered.
-            # Check if get requests may now be triggered.
-            while self.get_queue:
-                get_event = self.get_queue[0]
-                self._do_get(get_event)
-                if get_event._value is PENDING:
-                    break
-
-                self.get_queue.remove(get_event)
-        else:
-            # The put request has not been added to the container.
-            self.put_queue.append(put_event)
-
-        return put_event
-
-    def get(self, *args, **kwargs):
-        """Try to get something out of the resource and return the *get_event*.
-
-        *args* and *kwargs* are passed as arguments to the *get_event*
-        when it is created.
-
-        When the *get* request succeeded, check if one or more *put*
-        requests from the *put_queue* can now be processed.
-
-        """
-        get_event = self.GetEvent(self, *args, **kwargs)
-
-        self._do_get(get_event)
-        if get_event._value is not PENDING:
-            # The get request has been added to the container and triggered.
-            # Check if put requests may now be triggered.
-            while self.put_queue:
-                put_event = self.put_queue[0]
-                self._do_put(put_event)
-                if put_event._value is PENDING:
-                    break
-
-                self.put_queue.remove(put_event)
-        else:
-            self.get_queue.append(get_event)
-
-        return get_event
+    put = BoundClass(Put)
+    get = BoundClass(Get)
 
     def _do_put(self, event):
         """Actually perform the *put* operation.
@@ -162,93 +225,3 @@ class BaseResource(object):
 
         """
         raise NotImplementedError(self)
-
-
-class Put(Event):
-    """The base class for all put events.
-
-    It receives the *resource* that created the event.
-
-    This event (and all of its subclasses) can act as context manager
-    and can be used with the :keyword:`with` statement to automatically
-    cancel a put request if an exception or an
-    :class:`simpy.core.Interrupt` occurs:
-
-    .. code-block:: python
-
-        with res.put(item) as request:
-            yield request
-
-    It is not used directly by any resource, but rather sub-classed for
-    each type.
-
-    """
-    def __init__(self, resource):
-        super(Put, self).__init__(resource._env)
-        self.resource = resource
-        self.proc = self.env.active_process
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # If the request has been interrupted, remove it from the queue:
-        if self._value is PENDING:
-            self.resource.put_queue.remove(self)
-
-    cancel = __exit__
-    """Cancel the current put request.
-
-    This method has to be called if a process received an
-    :class:`~simpy.core.Interrupt` or an exception while yielding this
-    event and is not going to yield this event again.
-
-    If the event was created in a :keyword:`with` statement, this method
-    is called automatically.
-
-    """
-
-
-class Get(Event):
-    """The base class for all get events.
-
-    It receives the *resource* that created the event.
-
-    This event (and all of its subclasses) can act as context manager
-    and can be used with the :keyword:`with` statement to automatically
-    cancel a get request if an exception or an
-    :class:`simpy.core.Interrupt` occurs:
-
-    .. code-block:: python
-
-        with res.get() as request:
-            yield request
-
-    It is not used directly by any resource, but rather sub-classed for
-    each type.
-
-    """
-    def __init__(self, resource):
-        super(Get, self).__init__(resource._env)
-        self.resource = resource
-        self.proc = self.env.active_process
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        # If the request has been interrupted, remove it from the queue:
-        if self.value is PENDING:
-            self.resource.get_queue.remove(self)
-
-    cancel = __exit__
-    """Cancel the current get request.
-
-    This method has to be called if a process received an
-    :class:`~simpy.core.Interrupt` or an exception while yielding this
-    event and is not going to yield this event again.
-
-    If the event was created in a :keyword:`with` statement, this method
-    is called automatically.
-
-    """
