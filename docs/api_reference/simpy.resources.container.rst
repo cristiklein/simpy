@@ -6,6 +6,10 @@
 
 .. autoclass:: Container
 
+    .. autoattribute:: capacity
+
+    .. autoattribute:: level
+
     .. method:: put(amount)
 
         Creates a new :class:`ContainerPut` event.
@@ -14,11 +18,13 @@
 
         Creates a new :class:`ContainerGet` event.
 
+
 .. autoclass:: ContainerPut
 
     .. attribute:: amount
 
         The amount to be put into the container.
+
 
 .. autoclass:: ContainerGet
 

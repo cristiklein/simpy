@@ -27,6 +27,7 @@
 
         Create a new :class:`Release` event.
 
+
 .. autoclass:: PriorityResource
 
     .. method:: request(priority=0)
@@ -36,15 +37,33 @@
 
 .. autoclass:: PreemptiveResource
 
+    .. method:: request(priority=0, preempt=True)
+
+        Create a new :class:`PriorityRequest` event with preemption enabled
+        by default.
+
+
 .. autoclass:: Preempted(by, usage_since)
 
+    .. attribute:: by
+
+        The preempting process
+
+    .. attribute:: usage_since
+
+        The simulation time at which the preempted process started to use
+        the resource.
+
+
 .. autoclass:: Request
+
 
 .. autoclass:: Release
 
     .. attribute:: request
 
         The request (:class:`Request`) that is to be released.
+
 
 .. autoclass:: PriorityRequest
 
@@ -69,6 +88,11 @@
         more important) and the time at witch the request was made
         (earlier requests are more important).
 
+
 .. autoclass:: SortedQueue
 
+    .. attribute:: maxlen
 
+        Maximum length of the queue
+
+    .. automethod:: append

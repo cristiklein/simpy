@@ -156,19 +156,11 @@ class BaseResource(object):
     """
 
     PutQueue = list
-    """The type to be used for the :attr:`put_queue`. This can either be a
-    plain :class:`list` (default) or a subclass of it."""
-
     GetQueue = list
-    """The type to be used for the :attr:`get_queue`. This can either be a
-    plain :class:`list` (default) or a sublcass of it."""
-
 
     def __init__(self, env):
         self._env = env
-        #: Queue/list of events waiting to put something into the resource.
         self.put_queue = self.PutQueue()
-        #: Queue/list of events waiting to get something out of the resource.
         self.get_queue = self.GetQueue()
 
     put = BoundClass(Put)
