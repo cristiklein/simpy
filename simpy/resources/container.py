@@ -16,11 +16,11 @@ from simpy.resources import base
 
 class ContainerPut(base.Put):
     """An event that puts *amount* into the *container*. The event is
-    triggered as soon as there's enough space left in the *container*.
+    triggered as soon as there's enough space in the *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
-    """
 
+    """
     def __init__(self, container, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
@@ -31,11 +31,12 @@ class ContainerPut(base.Put):
 
 class ContainerGet(base.Get):
     """An event that gets *amount* from the *container*. The event is
-    triggered as soon as there's enough content available in the *container*.
+    triggered as soon as there's enough content available in the
+    *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
-    """
 
+    """
     def __init__(self, resource, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
@@ -57,30 +58,12 @@ class Container(base.BaseResource):
     ``init``. It must be >= 0 and is 0 by default. A :exc:`ValueError`
     is raised if one of these values is negative.
 
-    .. autoattribute:: capacity
-    .. autoattribute:: level
-
-
     """
-
     def __init__(self, env, capacity, init=0):
         super(Container, self).__init__(env)
 
         self._capacity = capacity
         self._level = init
-
-    put = BoundClass(ContainerPut)
-    get = BoundClass(ContainerGet)
-
-    def _do_put(self, event):
-        if self._capacity - self._level >= event.amount:
-            self._level += event.amount
-            event.succeed()
-
-    def _do_get(self, event):
-        if self._level >= event.amount:
-            self._level -= event.amount
-            event.succeed()
 
     @property
     def capacity(self):
@@ -94,3 +77,16 @@ class Container(base.BaseResource):
 
         """
         return self._level
+
+    put = BoundClass(ContainerPut)
+    get = BoundClass(ContainerGet)
+
+    def _do_put(self, event):
+        if self._capacity - self._level >= event.amount:
+            self._level += event.amount
+            event.succeed()
+
+    def _do_get(self, event):
+        if self._level >= event.amount:
+            self._level -= event.amount
+            event.succeed()

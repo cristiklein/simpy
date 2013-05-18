@@ -1,7 +1,9 @@
 """
 This module contains all :class:`Store` like resources.
 
-Stores model the production and consumption of objects in general.
+Stores model the production and consumption of concrete objects. The
+object type is, by default, not restricted. A single Store can even
+contain multiple types of objects.
 
 Beside :class:`Store`, there is a :class:`FilterStore` that lets you
 use a custom function to filter the objects you get out of the store.
@@ -12,13 +14,7 @@ from simpy.resources import base
 
 
 class StorePut(base.Put):
-    """Put *item* into the store if possible or wait until it is.
-
-    .. attribute:: item
-
-        The item to put into the store.
-
-    """
+    """Put *item* into the store if possible or wait until it is."""
     def __init__(self, resource, item):
         self.item = item
         super(StorePut, self).__init__(resource)
@@ -30,11 +26,12 @@ class StoreGet(base.Get):
 
 
 class FilterStoreGet(StoreGet):
-    """Get an item from the store for which *filter* returns ``True``. This
-    event is triggered once such an event is available.
+    """Get an item from the store for which *filter* returns ``True``.
+    This event is triggered once such an event is available.
 
     The default *filter* function returns ``True`` for all items,
     and thus this event exactly behaves like :class:`StoreGet`.
+
     """
     def __init__(self, resource, filter=lambda item: True):
         self.filter = filter
@@ -75,9 +72,10 @@ class FilterQueue(list):
 
 
 class Store(base.BaseResource):
-    """Any items might be :meth:`put` into the store or be retrieved from it
-    (:meth:`get`). By default the items are putted and retrieved from the store
-    in a first-in first-out order.
+    """Models the production and consumption of concrete Python objects.
+
+    Items put into the store can be of any type.  By default, they are
+    put and retrieved from the store in a first-in first-out order.
 
     The ``env`` parameter is the :class:`~simpy.core.Environment`
     instance the container is bound to.

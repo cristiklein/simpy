@@ -28,29 +28,20 @@ from simpy.resources import base
 
 
 Preempted = namedtuple('Preempted', 'by, usage_since')
-"""Used as interrupt cause for preempted processes.
-
-.. attribute:: by
-
-    The preempting process
-
-.. attribute:: usage_since
-
-    The simulation time at which the preempted process started to use
-    the resource.
-
-"""
+"""Used as interrupt cause for preempted processes."""
 
 
 class Request(base.Put):
-    """Request access on the *resource*. The event is triggered once access
-    is granted.
+    """Request access on the *resource*. The event is triggered once
+    access is granted.
 
     If the maximum capacity of users is not reached, the requesting
-    process obtains the resource immediately.
+    process obtains the resource immediately. If the maximum capacity is
+    reached, the requesting process waits until another process releases
+    the resource.
 
-    The request is automatically released when the request was created within a
-    :keyword:`with` statement.
+    The request is automatically released when the request was created
+    within a :keyword:`with` statement.
 
     """
     def __exit__(self, exc_type, value, traceback):
@@ -59,10 +50,14 @@ class Request(base.Put):
 
 
 class Release(base.Get):
-    """Releases the access privilege granted by *request* on the *resource*.
+    """Releases the access privilege to *resource* granted by *request*.
     This event is triggered immediately.
 
-    If there's another process waiting for the *resource*, it will be resumed.
+    If there's another process waiting for the *resource*, resume it.
+
+    If the request was made in a :keyword:`with` statement (e.g., ``with
+    res.request() as req:``), this method is automatically called when
+    the ``with`` block is left.
 
     """
     def __init__(self, resource, request):
@@ -72,9 +67,13 @@ class Release(base.Get):
 
 class PriorityRequest(Request):
     """Request the *resource* with a given *priority*. If the *resource*
-    supports preemption and *preempted* is true other processes with access to
-    the *resource* may be preempted (see :class:`PreemptiveResource` for
-    details).
+    supports preemption and *preempted* is true other processes with
+    access to the *resource* may be preempted (see
+    :class:`PreemptiveResource` for details).
+
+    This event type inherits :class:`Request` and adds some additional
+    attributes needed by :class:`PriorityResource` and
+    :class:`PreemptiveResource`
 
     """
     def __init__(self, resource, priority=0, preempt=True):
@@ -89,9 +88,11 @@ class SortedQueue(list):
     """Queue that sorts events by their ``key`` attribute."""
     def __init__(self, maxlen=None):
         super(SortedQueue, self).__init__()
+        #: Maximum length of the queue
         self.maxlen = maxlen
 
     def append(self, item):
+        """Append *item* to the queue and keep the queue sorted."""
         if self.maxlen is not None and len(self) >= self.maxlen:
             raise ValueError('Cannot append event. Queue is full.')
 
@@ -112,6 +113,7 @@ class Resource(base.BaseResource):
 
     The ``capacity`` defines the number of slots and must be a positive
     integer.
+
     """
 
     def __init__(self, env, capacity=1):
@@ -149,12 +151,12 @@ class Resource(base.BaseResource):
 
 
 class PriorityResource(Resource):
-    """This class works like :class:`Resource`, but requests are sorted by
-    priority.
+    """This class works like :class:`Resource`, but requests are sorted
+    by priority.
 
-    The :attr:`~Resource.queue` is kept sorted by priority in ascending order
-    (a lower value for *priority* results in a higher priority), so more
-    important request will get the resource earlier.
+    The :attr:`~Resource.queue` is kept sorted by priority in ascending
+    order (a lower value for *priority* results in a higher priority),
+    so more important request will get the resource earlier.
 
     """
     PutQueue = SortedQueue
@@ -170,9 +172,9 @@ class PreemptiveResource(PriorityResource):
 
     Furthermore, the queue of requests is also sorted by *priority*.
 
-    If a less important request is preempted, the process of that request will
-    receive an :class:`~simpy.core.Interrupt` with a :class:`Preempted`
-    instance as cause.
+    If a less important request is preempted, the process of that
+    request will receive an :class:`~simpy.core.Interrupt` with
+    a :class:`Preempted` instance as cause.
 
     """
     def _do_put(self, event):

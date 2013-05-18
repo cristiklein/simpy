@@ -20,21 +20,30 @@
 
         Create a new :class:`StoreGet` event.
 
+
 .. autoclass:: FilterStore
 
     .. method:: get(filter=lambda item: True)
 
         Create a new :class:`FilterStoreGet` event.
 
+
 .. autoclass:: StorePut
 
+    .. attribute:: item
+
+        The item to put into the store.
+
+
 .. autoclass:: StoreGet
+
 
 .. autoclass:: FilterStoreGet(resource, filter=lambda item: True)
 
     .. attribute:: filter
 
         The filter function to use.
+
 
 .. autoclass:: FilterQueue
 

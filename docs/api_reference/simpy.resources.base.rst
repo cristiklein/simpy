@@ -6,13 +6,15 @@
 
 .. autoclass:: BaseResource
 
-    .. method:: put()
+    .. attribute:: PutQueue
 
-        Create a new of :class:`Put` event.
+        The type to be used for the :attr:`put_queue`. This can either be
+        a plain :class:`list` (default) or a subclass of it.
 
-    .. method:: get()
+    .. attribute:: GetQueue
 
-        Create a new of :class:`Get` event.
+        The type to be used for the :attr:`get_queue`. This can either be
+        a plain :class:`list` (default) or a sublcass of it.
 
     .. attribute:: put_queue
 
@@ -22,9 +24,13 @@
 
         Queue/list of events waiting to put something into the resource.
 
-    .. autoattribute:: PutQueue
+    .. method:: put()
 
-    .. autoattribute:: GetQueue
+        Create a new of :class:`Put` event.
+
+    .. method:: get()
+
+        Create a new of :class:`Get` event.
 
     .. automethod:: _do_put
 
