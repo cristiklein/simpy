@@ -55,12 +55,20 @@ class Container(base.BaseResource):
     The ``capacity`` defines the size of the container and must be
     a positive number (> 0). By default, a container is of unlimited
     size.  You can specify the initial level of the container via
-    ``init``. It must be >= 0 and is 0 by default. A :exc:`ValueError`
-    is raised if one of these values is negative.
+    ``init``. It must be >= 0 and is 0 by default.
+
+    Raise a :exc:`ValueError` if ``capacity <= 0``, ``init < 0`` or
+    ``init > capacity``.
 
     """
     def __init__(self, env, capacity, init=0):
         super(Container, self).__init__(env)
+        if capacity <= 0:
+            raise ValueError('"capacity" must be > 0.')
+        if init < 0:
+            raise ValueError('"init" must be >= 0.')
+        if init > capacity:
+            raise ValueError('"init" must be <= "capacity".')
 
         self._capacity = capacity
         self._level = init

@@ -88,6 +88,8 @@ class Store(base.BaseResource):
 
     def __init__(self, env, capacity=1):
         super(Store, self).__init__(env)
+        if capacity <= 0:
+            raise ValueError('"capacity" must be > 0.')
         self._capacity = capacity
         self.items = []
 

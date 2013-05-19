@@ -70,9 +70,10 @@ def test_resource_slots(env, log):
         env.start(pem(env, str(i), resource, log))
     simpy.simulate(env)
 
-    assert log == [('0', 0), ('1', 0), ('2', 0),
-            ('3', 1), ('4', 1), ('5', 1),
-            ('6', 2), ('7', 2), ('8', 2),
+    assert log == [
+        ('0', 0), ('1', 0), ('2', 0),
+        ('3', 1), ('4', 1), ('5', 1),
+        ('6', 2), ('7', 2), ('8', 2),
     ]
 
 
@@ -339,6 +340,23 @@ def test_container_get_queued(env):
     assert [ev.proc for ev in container.get_queue] == []
 
 
+@pytest.mark.parametrize(('error', 'args'), [
+    (None, [2, 1]),  # normal case
+    (None, [1, 1]),  # init == capacity should be valid
+    (None, [1, 0]),  # init == 0 should be valid
+    (ValueError, [1, 2]),  # init > capcity
+    (ValueError, [0]),  # capacity == 0
+    (ValueError, [-1]),  # capacity < 0
+    (ValueError, [1, -1]),  # init < 0
+])
+def test_container_init_capacity(env, error, args):
+    args.insert(0, env)
+    if error:
+        pytest.raises(error, simpy.Container, *args)
+    else:
+        simpy.Container(*args)
+
+
 #
 # Tests fore Store
 #
@@ -379,3 +397,9 @@ def test_filter_store(env):
 
     env.start(pem(env))
     simpy.simulate(env)
+
+
+def test_store_capacity(env):
+    simpy.Store(env, 1)
+    pytest.raises(ValueError, simpy.Store, env, 0)
+    pytest.raises(ValueError, simpy.Store, env, -1)
