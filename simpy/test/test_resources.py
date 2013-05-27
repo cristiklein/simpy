@@ -70,10 +70,9 @@ def test_resource_slots(env, log):
         env.start(pem(env, str(i), resource, log))
     simpy.simulate(env)
 
-    assert log == [
-        ('0', 0), ('1', 0), ('2', 0),
-        ('3', 1), ('4', 1), ('5', 1),
-        ('6', 2), ('7', 2), ('8', 2),
+    assert log == [('0', 0), ('1', 0), ('2', 0),
+            ('3', 1), ('4', 1), ('5', 1),
+            ('6', 2), ('7', 2), ('8', 2),
     ]
 
 
@@ -109,7 +108,7 @@ def test_resource_continue_after_interrupt(env):
 def test_resource_release_after_interrupt(env):
     """A process needs to release a resource, even it it was interrupted
     and does not continue to wait for it."""
-    def pem(env, res):
+    def blocker(env, res):
         with res.request() as req:
             yield req
             yield env.timeout(1)
@@ -130,9 +129,9 @@ def test_resource_release_after_interrupt(env):
         yield env.exit(0)
 
     res = simpy.Resource(env, 1)
+    env.start(blocker(env, res))
     victim_proc = env.start(victim(env, res))
     env.start(interruptor(env, victim_proc))
-    env.start(pem(env, res))
     simpy.simulate(env)
 
 
@@ -234,16 +233,15 @@ def test_preemptive_resource(env, log):
 def test_preemptive_resource_timeout_0(env):
     def proc_a(env, resource, prio):
         with resource.request(priority=prio) as req:
-            yield req
             try:
-                yield env.timeout(0)
+                yield req
+                yield env.timeout(1)
                 pytest.fail('Should have received an interrupt/preemption.')
             except simpy.Interrupt:
                 pass
         yield env.event()
 
     def proc_b(env, resource, prio):
-        yield env.timeout(0)
         with resource.request(priority=prio) as req:
             yield req
 
@@ -385,6 +383,12 @@ def test_store(env):
     simpy.simulate(env)
 
 
+def test_store_capacity(env):
+    simpy.Store(env, 1)
+    pytest.raises(ValueError, simpy.Store, env, 0)
+    pytest.raises(ValueError, simpy.Store, env, -1)
+
+
 def test_filter_store(env):
     def pem(env):
         store = simpy.FilterStore(env, capacity=2)
@@ -397,9 +401,3 @@ def test_filter_store(env):
 
     env.start(pem(env))
     simpy.simulate(env)
-
-
-def test_store_capacity(env):
-    simpy.Store(env, 1)
-    pytest.raises(ValueError, simpy.Store, env, 0)
-    pytest.raises(ValueError, simpy.Store, env, -1)

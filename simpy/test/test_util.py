@@ -255,13 +255,13 @@ def test_any_of_chaining(env):
     """If a any_of condition A is chained to a any_of condition B,
     B will be merged into A."""
     def parent(env):
-        condition_A = any_of([env.timeout(i, value=i) for i in range(2)])
-        condition_B = any_of([env.timeout(i, value=i) for i in range(2)])
+        condition_A = any_of([env.timeout(2, value='a')])
+        condition_B = any_of([env.timeout(1, value='b')])
 
         condition_A |= condition_B
 
         results = yield condition_A
-        assert sorted(results.values()) == [0, 0]
+        assert sorted(results.values()) == ['b']
 
     env.start(parent(env))
     simulate(env)
