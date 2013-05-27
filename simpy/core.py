@@ -152,7 +152,7 @@ class Event(object):
     or one of them.
 
     """
-    def __init__(self, env, name=None):
+    def __init__(self, env, value=PENDING, name=None):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
@@ -161,7 +161,7 @@ class Event(object):
         self.name = name
         """Optional name for this event. Used in :meth:`__str__()` if
         not ``None``."""
-        self._value = PENDING
+        self._value = value
 
     def __repr__(self):
         """Use ``self.name`` if defined or ``self._desc()`` else."""
@@ -259,7 +259,7 @@ class Condition(Event):
 
     """
     def __init__(self, env, evaluate, events, name=None):
-        Event.__init__(self, env, name)
+        Event.__init__(self, env, name=name)
         self._evaluate = evaluate
         self._interim_values = {}
         self._events = []
@@ -425,10 +425,9 @@ class Process(Event):
         self._generator = generator
         self._value = PENDING
 
-        init = Event(env)
-        init.callbacks.append(self._resume)
-        env._schedule(EVT_INIT, init, SUCCEED)
-        self._target = init
+        self._target = Event(env)
+        self._target.callbacks.append(self._resume)
+        env._schedule(EVT_INIT, self._target, SUCCEED)
 
     def _desc(self):
         """Return a string *Process(pem_name)*."""
