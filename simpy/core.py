@@ -37,18 +37,19 @@ from inspect import isgenerator
 from itertools import count
 
 
-# BaseEvent types/priorities
-EVT_INIT = 0        # First event after a proc was started
-EVT_INTERRUPT = 1   # Throw an interrupt into the PEG
-EVT_RESUME = 2      # Default event, send value into the PEG
-PENDING = object()  # Unique value to identify pending event values.
-
-
-# Constants for successful and failed events
-SUCCEED = True
-FAIL = False
-
 Infinity = float('inf')
+"""Convenience alias for infinity."""
+
+PENDING = object()
+"""Unique object to identify pending values of events."""
+
+HIGH_PRIORITY = 0
+"""Priority of interrupts and process initialization events."""
+DEFAULT_PRIORITY = 1
+"""Default priority used by events."""
+LOW_PRIORITY = 2
+"""Priority of timeouts."""
+
 
 if sys.version_info[0] < 3:
     LEGACY_SUPPORT = True
@@ -209,7 +210,12 @@ class Event(object):
         scheduled.
 
         """
-        self.env._schedule(EVT_RESUME, self, SUCCEED, value)
+        if self._value is not PENDING:
+            raise RuntimeError('%s has already been triggered' % self)
+
+        self.ok = True
+        self._value = value
+        self.env.enqueue(DEFAULT_PRIORITY, self)
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -226,7 +232,11 @@ class Event(object):
         """
         if not isinstance(exception, Exception):
             raise ValueError('%s is not an exception.' % exception)
-        self.env._schedule(EVT_RESUME, self, FAIL, exception)
+        if self._value is not PENDING:
+            raise RuntimeError('%s has already been triggered' % self)
+        self.ok = False
+        self._value = exception
+        self.env.enqueue(DEFAULT_PRIORITY, self)
 
     def __and__(self, other):
         return Condition(self.env, all_events, [self, other])
@@ -289,9 +299,9 @@ class Condition(Event):
 
         return values
 
-    def _collect_values(self, evt_type, event):
+    def _collect_values(self, event):
         """Populates the final value of this condition."""
-        if evt_type is not FAIL:
+        if event.ok:
             self._value.update(self._get_values())
 
     def _add_event(self, event):
@@ -312,21 +322,21 @@ class Condition(Event):
 
         return self
 
-    def _check(self, evt_type, event):
+    def _check(self, event):
         """Check if the condition was already met and schedule the event
         if so."""
         self._interim_values[event] = event._value
 
         if self._value is PENDING:
-            if evt_type is FAIL:
+            if not event.ok:
                 # Abort if the event has failed.
                 event.defused = True
-                self.env._schedule(EVT_RESUME, self, FAIL, event._value)
+                self.fail(event._value)
             elif self._evaluate(self._events, self._interim_values):
                 # The condition has been met. Schedule the event with an empty
                 # dictionary as value. The _collect_values callback will
                 # populate this dictionary once this condition gets processed.
-                self.env._schedule(EVT_RESUME, self, SUCCEED, {})
+                self.succeed({})
 
     def __iand__(self, other):
         if self._evaluate is not all_events:
@@ -366,6 +376,8 @@ class Timeout(Event):
 
     """
     def __init__(self, env, delay, value=None, name=None):
+        if delay < 0:
+            raise ValueError('Negative delay %s' % delay)
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
         self.callbacks = []
@@ -377,19 +389,26 @@ class Timeout(Event):
         """Optional name for this event. Used in :meth:`__str__()` if
         not ``None``."""
         self._delay = delay
-        self._value = PENDING
-
-        if delay < 0:
-            raise ValueError('Negative delay %s' % delay)
-        # Scheduling the event will also set the its value
-        # (from "PENDING" to "value").
-        env._schedule(EVT_RESUME, self, SUCCEED, value, delay)
+        self.ok = True
+        self._value = value
+        env.schedule(delay, LOW_PRIORITY, self)
 
     def _desc(self):
         """Return a string *Timeout(delay[, value=value])*."""
         return '%s(%s%s)' % (self.__class__.__name__, self._delay,
                              '' if self._value is None else
                              (', value=%s' % self._value))
+
+
+class Initialize(Event):
+    """Initializes a process."""
+
+    def __init__(self, env, process):
+        self.env = env
+        self.ok = True
+        self._value = None
+        self.callbacks = [process._resume]
+        env.enqueue(HIGH_PRIORITY, self)
 
 
 class Process(Event):
@@ -425,9 +444,8 @@ class Process(Event):
         self._generator = generator
         self._value = PENDING
 
-        self._target = Event(env)
-        self._target.callbacks.append(self._resume)
-        env._schedule(EVT_INIT, self._target, SUCCEED)
+        # Schedule the start of the execution of the process.
+        self._target = Initialize(env, self)
 
     def _desc(self):
         """Return a string *Process(pem_name)*."""
@@ -456,7 +474,7 @@ class Process(Event):
         a :exc:`RuntimeError` in these cases.
 
         """
-        if not self.is_alive:
+        if self._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
                                self)
 
@@ -464,13 +482,14 @@ class Process(Event):
             raise RuntimeError('A process is not allowed to interrupt itself.')
 
         # Schedule interrupt event
-        event = Event(self.env)
-        event.callbacks.append(self._resume)
+        event = self.env.event(Interrupt(cause))
+        event.ok = False
         # Interrupts do not cause the simulation to crash.
         event.defused = True
-        self.env._schedule(EVT_INTERRUPT, event, FAIL, Interrupt(cause))
+        event.callbacks.append(self._resume)
+        self.env.enqueue(HIGH_PRIORITY, event)
 
-    def _resume(self, success, event):
+    def _resume(self, event):
         """Get the next event from this process and register as a callback.
 
         If the PEM generator exits or raises an exception, terminate
@@ -495,39 +514,41 @@ class Process(Event):
 
         # Get next event from process
         try:
-            if success:
-                next_evt = self._generator.send(event._value)
+            if event.ok:
+                event = self._generator.send(event._value)
             else:
                 # The process has no choice but to handle the failed event (or
                 # fail itself).
                 event.defused = True
-                next_evt = self._generator.throw(event._value)
+                event = self._generator.throw(event._value)
         except StopIteration as e:
             # Process has terminated.
-            evt_type = SUCCEED
-            value = e.args[0] if len(e.args) else None
+            event = None
+            self.ok = True
+            self._value = e.args[0] if len(e.args) else None
+            self.env.enqueue(DEFAULT_PRIORITY, self)
         except BaseException as e:
             # Process has failed.
-            evt_type = FAIL
-            value = type(e)(*e.args)
-            value.__cause__ = e
+            event = None
+            self.ok = False
+            self._value = type(e)(*e.args)
+            self._value.__cause__ = e
             if LEGACY_SUPPORT:
-                value.__traceback__ = sys.exc_info()[2]
+                self._value.__traceback__ = sys.exc_info()[2]
+            self.env.enqueue(DEFAULT_PRIORITY, self)
         else:
             # Process returned another event to wait upon.
             try:
                 # Be optimistic and blindly try to register the process as a
                 # callbacks.
-                next_evt.callbacks.append(self._resume)
-                self._target = next_evt
+                event.callbacks.append(self._resume)
             except AttributeError:
                 # Our optimism didn't work out, figure out what went wrong and
                 # inform the user.
-                if (hasattr(next_evt, 'callbacks') and
-                        next_evt.callbacks is None):
-                    msg = 'Event already occured "%s"' % next_evt
+                if hasattr(event, 'callbacks') and event.callbacks is None:
+                    msg = 'Event already occured "%s"' % event
                 else:
-                    msg = 'Invalid yield value "%s"' % next_evt
+                    msg = 'Invalid yield value "%s"' % event
 
                 descr = _describe_frame(self._generator.gi_frame)
                 error = RuntimeError('\n%s%s' % (descr, msg))
@@ -535,14 +556,48 @@ class Process(Event):
                 error.__cause__ = None
                 raise error
 
-            self.env._active_proc = None
-            return
-
-        # The process terminated. Schedule this event.
-        # FIXME Setting target to None is only needed for resources.
-        self._target = None
-        self.env._schedule(EVT_RESUME, self, evt_type, value)
+        self._target = event
         self.env._active_proc = None
+
+
+class EmptySchedule(Exception):
+    """Thrown by a :class:`Scheduler` if its :attr:`Scheduler.queue` is
+    empty."""
+    pass
+
+
+class Scheduler(object):
+    """Schedulers trigger events at a specific points in time."""
+    def __init__(self, env):
+        self.env = env
+        self.eid = count()
+        self.queue = []
+        self.now = 0
+
+    def enqueue(self, priority, event):
+        heappush(self.queue, (self.now, priority, next(self.eid), event))
+
+    def schedule(self, delay, priority, event):
+        heappush(self.queue, (self.now + delay, priority, next(self.eid), event))
+
+    def peek(self):
+        """Get the time of the next scheduled event. If there are currently no
+        events scheduled, ``Infinity`` is returned."""
+        try:
+            return self.queue[0][0]
+        except IndexError:
+            return Infinity
+
+    def fetch(self):
+        """Remove and returns the next event from the queue.
+
+        This method advances the simulation time of the environment.
+        """
+        try:
+            self.now, _, _, event = heappop(self.queue)
+            return event
+        except IndexError:
+            raise EmptySchedule()
 
 
 class Environment(object):
@@ -550,17 +605,23 @@ class Environment(object):
     basic API for processes to interact with it.
 
     """
-    def __init__(self, initial_time=0):
+    def __init__(self, initial_time=0, scheduler=None):
         self._now = initial_time
-        self._events = []
-        self._eid = count()
         self._active_proc = None
+
+        if scheduler is None:
+            scheduler = Scheduler(self)
+        self.scheduler = scheduler
 
         self.event = types.MethodType(Event, self)
         self.suspend = types.MethodType(Event, self)
         self.timeout = types.MethodType(Timeout, self)
         self.process = types.MethodType(Process, self)
         self.start = types.MethodType(Process, self)
+
+        self.enqueue = self.scheduler.enqueue
+        self.schedule = self.scheduler.schedule
+        self.fetch = self.scheduler.fetch
 
     @property
     def active_process(self):
@@ -570,7 +631,7 @@ class Environment(object):
     @property
     def now(self):
         """Property that returns the current simulation time."""
-        return self._now
+        return self.scheduler.now
 
     def exit(self, value=None):
         """Stop the current process, optionally providing a ``value``.
@@ -583,48 +644,13 @@ class Environment(object):
         """
         raise StopIteration(value)
 
-    def _schedule(self, evt_type, event, succeed, value=None, delay=0):
-        """Schedule the given ``event`` of type ``evt_type``.
-
-        ``evt_type`` should be one of the ``EVT_*`` constants defined on
-        top of this module.
-
-        If ``succeed`` is ``True``, the optional ``value`` will be sent
-        into all processes waiting for that event.
-
-        If ``succeed`` is ``False``, the exception in ``value`` is
-        thrown into all processes waiting for that event.
-
-        The event will be scheduled at the simulation time ``self._now
-        + delay`` or at the current time if no value is provided.
-
-        Raise a :exc:`RuntimeError` if the event already has an event
-        scheduled.
-
-        """
-        if event._value is not PENDING:
-            raise RuntimeError('Event %s has already been triggered' % event)
-
-        event._value = value
-
-        heappush(self._events, (
-            self._now + delay,
-            evt_type,
-            next(self._eid),
-            succeed,
-            event,
-        ))
-
 
 def peek(env):
     """Return the time of the Environment ``env``'s next event or
     ``inf`` if the event queue is empty.
 
     """
-    try:
-        return env._events[0][0]  # time of first event
-    except IndexError:
-        return Infinity
+    return env.scheduler.peek()
 
 
 def step(env):
@@ -633,18 +659,21 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    env._now, evt_type, eid, succeed, event = heappop(env._events)
+    event = env.fetch()
 
-    # Mark event as processed.
-    callbacks, event.callbacks = event.callbacks, None
+    # Process callbacks of the event.
+    for callback in event.callbacks:
+        callback(event)
+    event.callbacks = None
 
-    for callback in callbacks:
-        callback(succeed, event)
-
-    if succeed == FAIL:
-        if not hasattr(event, 'defused') or not event.defused:
-            # The event has not been defused by a callback.
+    if not event.ok:
+        # The event has failed, check if it is defused. Raise the value if not.
+        if not hasattr(event, 'defused'):
             raise event._value
+
+
+def stop_simulate(event):
+    raise EmptySchedule()
 
 
 def simulate(env, until=None):
@@ -668,19 +697,23 @@ def simulate(env, until=None):
     if until is None:
         until = env.event()
     elif not isinstance(until, Event):
-        until = float(until)
+        at = float(until)
 
-        if until <= env.now:
+        if at <= env.now:
             raise ValueError('until(=%s) should be > the current simulation '
-                             'time.' % until)
-        delay = until - env.now
-        until = env.event()
-        # EVT_INIT schedules "until" before all other events for that time.
-        env._schedule(EVT_INIT, until, SUCCEED, delay=delay)
+                             'time.' % at)
 
-    events = env._events
-    while events and until.callbacks is not None:
-        step(env)
+        # Schedule the event with before all regular timeouts.
+        until = env.event()
+        env.schedule(at - env.now, HIGH_PRIORITY, until)
+
+    until.callbacks.append(stop_simulate)
+
+    try:
+        while True:
+            step(env)
+    except EmptySchedule:
+        pass
 
 
 def _describe_frame(frame):

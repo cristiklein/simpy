@@ -113,7 +113,7 @@ class Get(Event):
 
     def __exit__(self, exc_type, exc_value, traceback):
         # If the request has been interrupted, remove it from the queue:
-        if self.value is PENDING:
+        if self._value is PENDING:
             self.resource.get_queue.remove(self)
 
     cancel = __exit__
