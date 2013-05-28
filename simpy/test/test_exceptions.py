@@ -116,26 +116,6 @@ def test_invalid_event(env):
         assert err.args[0].endswith('Invalid yield value "None"')
 
 
-def test_occured_event(env):
-    """A process cannot wait for an event that has already occured."""
-
-    def child(env):
-        yield env.timeout(1)
-
-    def parent(env):
-        child_proc = env.start(child(env))
-        yield env.timeout(2)
-        yield child_proc
-
-    env.start(parent(env))
-    try:
-        simpy.simulate(env)
-        pytest.fail('Hey, this is not allowed!')
-    except RuntimeError as err:
-        assert re.search(r'Event already occured "<Process\(child\) object '
-                         r'at 0x.*>"', err.args[0])
-
-
 def test_exception_handling(env):
     """If failed events are not defused (which is the default) the simulation
     crashes."""

@@ -512,42 +512,46 @@ class Process(Event):
         # Mark the current process as active.
         self.env._active_proc = self
 
-        # Get next event from process
-        try:
-            if event.ok:
-                event = self._generator.send(event._value)
-            else:
-                # The process has no choice but to handle the failed event (or
-                # fail itself).
-                event.defused = True
-                event = self._generator.throw(event._value)
-        except StopIteration as e:
-            # Process has terminated.
-            event = None
-            self.ok = True
-            self._value = e.args[0] if len(e.args) else None
-            self.env.enqueue(DEFAULT_PRIORITY, self)
-        except BaseException as e:
-            # Process has failed.
-            event = None
-            self.ok = False
-            self._value = type(e)(*e.args)
-            self._value.__cause__ = e
-            if LEGACY_SUPPORT:
-                self._value.__traceback__ = sys.exc_info()[2]
-            self.env.enqueue(DEFAULT_PRIORITY, self)
-        else:
+        while True:
+            # Get next event from process
+            try:
+                if event.ok:
+                    event = self._generator.send(event._value)
+                else:
+                    # The process has no choice but to handle the failed event (or
+                    # fail itself).
+                    event.defused = True
+                    event = self._generator.throw(event._value)
+            except StopIteration as e:
+                # Process has terminated.
+                event = None
+                self.ok = True
+                self._value = e.args[0] if len(e.args) else None
+                self.env.enqueue(DEFAULT_PRIORITY, self)
+                break
+            except BaseException as e:
+                # Process has failed.
+                event = None
+                self.ok = False
+                self._value = type(e)(*e.args)
+                self._value.__cause__ = e
+                if LEGACY_SUPPORT:
+                    self._value.__traceback__ = sys.exc_info()[2]
+                self.env.enqueue(DEFAULT_PRIORITY, self)
+                break
+
             # Process returned another event to wait upon.
             try:
-                # Be optimistic and blindly try to register the process as a
-                # callbacks.
-                event.callbacks.append(self._resume)
+                # Be optimistic and blindly access the callbacks attribute.
+                if event.callbacks is not None:
+                    # The event has not yet been triggered. Register callback
+                    # to resume the process if that happens.
+                    event.callbacks.append(self._resume)
+                    break
             except AttributeError:
                 # Our optimism didn't work out, figure out what went wrong and
                 # inform the user.
-                if hasattr(event, 'callbacks') and event.callbacks is None:
-                    msg = 'Event already occured "%s"' % event
-                else:
+                if not hasattr(event, 'callbacks'):
                     msg = 'Invalid yield value "%s"' % event
 
                 descr = _describe_frame(self._generator.gi_frame)
