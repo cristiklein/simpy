@@ -235,3 +235,17 @@ def test_unavailable_event_value(env):
         assert False, 'Expected an exception'
     except RuntimeError as e:
         assert e.args[0].endswith('is not yet available')
+
+
+def test_triggered_event(env):
+    def pem(env, event):
+        value = yield event
+        env.exit(value)
+
+    event = env.event()
+    event.succeed('i was already done')
+
+    result = simulate(env, env.start(pem(env, event)))
+
+    assert result == 'i was already done'
+
