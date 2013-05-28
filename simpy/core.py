@@ -709,6 +709,7 @@ def simulate(env, until=None):
 
         # Schedule the event with before all regular timeouts.
         until = env.event()
+        until._value = None
         env.schedule(at - env.now, HIGH_PRIORITY, until)
 
     until.callbacks.append(stop_simulate)
@@ -718,6 +719,8 @@ def simulate(env, until=None):
             step(env)
     except EmptySchedule:
         pass
+
+    return until.value if until.triggered else PENDING
 
 
 def _describe_frame(frame):
