@@ -30,11 +30,15 @@ This module also contains a few functions to simulate an
 :func:`simulate()`.
 
 """
-import sys
 import types
 from heapq import heappush, heappop
 from inspect import isgenerator
 from itertools import count
+
+from simpy._compat import PY2
+
+if PY2:
+    import sys
 
 
 Infinity = float('inf')
@@ -49,40 +53,6 @@ DEFAULT_PRIORITY = 1
 """Default priority used by events."""
 LOW_PRIORITY = 2
 """Priority of timeouts."""
-
-
-if sys.version_info[0] < 3:
-    LEGACY_SUPPORT = True
-
-    # Python 2.x does not report exception chains. To emulate the behaviour of
-    # Python 3 the functions format_chain and print_chain are added. The latter
-    # function is used to override the exception hook of Python 2.x.
-
-    from traceback import format_exception
-
-    def format_chain(exc_type, exc_value, exc_traceback):
-        if hasattr(exc_value, '__cause__') and exc_value.__cause__:
-            cause = exc_value.__cause__
-            if hasattr(exc_value, '__traceback__'):
-                traceback = exc_value.__traceback__
-            else:
-                traceback = None
-            lines = format_chain(type(cause), cause, traceback)
-            lines += ('\nThe above exception was the direct cause of the '
-                    'following exception:\n\n')
-        else:
-            lines = []
-
-        return lines + format_exception(exc_type, exc_value, exc_traceback)
-
-    def print_chain(exc_type, exc_value, exc_traceback):
-        sys.stderr.write(
-                ''.join(format_chain(exc_type, exc_value, exc_traceback)))
-        sys.stderr.flush()
-
-    sys.excepthook = print_chain
-else:
-    LEGACY_SUPPORT = False
 
 
 class BoundClass(object):
@@ -535,7 +505,7 @@ class Process(Event):
                 self.ok = False
                 self._value = type(e)(*e.args)
                 self._value.__cause__ = e
-                if LEGACY_SUPPORT:
+                if PY2:
                     self._value.__traceback__ = sys.exc_info()[2]
                 self.env.enqueue(DEFAULT_PRIORITY, self)
                 break
