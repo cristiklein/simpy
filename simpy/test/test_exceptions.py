@@ -2,10 +2,9 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
-import re
-
 import pytest
 
+from simpy import _compat
 import simpy
 
 
@@ -30,8 +29,8 @@ def test_error_forwarding(env):
 
 
 def test_no_parent_process(env):
-    """Exceptions should be normally raised if there are no processes
-    waiting for the one that raises something.
+    """Exceptions should be normally raised if there are no processes waiting
+    for the one that raises something.
 
     """
     def child(env):
@@ -59,12 +58,12 @@ def test_crashing_child_traceback(env):
             yield env.start(panic(env))
             pytest.fail("Hey, where's the roflcopter?")
         except RuntimeError:
-            if not simpy.core.LEGACY_SUPPORT:
+            if not _compat.PY2:
                 import traceback
                 stacktrace = traceback.format_exc()
             else:
                 import sys
-                stacktrace = ''.join(simpy.core.format_chain(*sys.exc_info()))
+                stacktrace = ''.join(_compat.format_chain(*sys.exc_info()))
 
             # The current frame must be visible in the stacktrace.
             assert 'yield env.start(panic(env))' in stacktrace
@@ -77,7 +76,9 @@ def test_crashing_child_traceback(env):
 @pytest.mark.skipif('sys.version_info[0] < 3')
 def test_exception_chaining(env):
     """Unhandled exceptions pass through the entire event stack. This must be
-    visible in the stacktrace of the exception."""
+    visible in the stacktrace of the exception.
+
+    """
     def child(env):
         yield env.timeout(1)
         raise RuntimeError('foo')
@@ -125,7 +126,7 @@ def test_exception_handling(env):
     try:
         simpy.simulate(env, until=1)
         assert False, 'There must be a RuntimeError!'
-    except RuntimeError as e:
+    except RuntimeError:
         pass
 
 
@@ -153,7 +154,7 @@ def test_process_exception_handling(env):
             pass
 
     event = env.event()
-    proc = env.start(pem(env, event))
+    env.start(pem(env, event))
     event.fail(RuntimeError())
 
     assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'
