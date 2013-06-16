@@ -12,7 +12,8 @@ except ImportError:
 
 import pytest
 
-from simpy.rt import RealtimeEnvironment, simulate
+from simpy import simulate
+from simpy.rt import RealtimeEnvironment
 
 
 def process(env, log, sleep, timeout=1):
@@ -45,10 +46,11 @@ def test_rt(log, factor):
 def test_rt_multiple_call(log):
     """Test multiple calls to simulate()."""
     env = RealtimeEnvironment(factor=0.05)
+    start = perf_counter()
+
     env.start(process(env, log, 0.01, 2))
     env.start(process(env, log, 0.01, 3))
 
-    start = perf_counter()
     simulate(env, 5)
     duration = perf_counter() - start
 
@@ -56,11 +58,10 @@ def test_rt_multiple_call(log):
     assert check_duration(duration, 5 * 0.05)
     assert log == [2, 3, 4]
 
-    start = perf_counter()
     simulate(env, 12)
     duration = perf_counter() - start
 
-    assert check_duration(duration, 7 * 0.05)
+    assert check_duration(duration, 12 * 0.05)
     assert log == [2, 3, 4, 6, 6, 8, 9, 10]
 
 
