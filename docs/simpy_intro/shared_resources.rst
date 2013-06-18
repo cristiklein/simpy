@@ -14,7 +14,7 @@ In this section, we'll briefly introduce SimPy's
 Basic Resource Usage
 ====================
 
-We'll slightly modify our elctric vehicle process ``car`` that we introduced in
+We'll slightly modify our electric vehicle process ``car`` that we introduced in
 the last sections.
 
 The car will now drive to a *battery charging station (BCS)* and request one of
@@ -28,45 +28,45 @@ and leaves the station afterwards::
     ...
     ...     # Request one of its charging spots
     ...     print('%s arriving at %d' % (name, env.now))
-    ...     with bsc.request() as req:
+    ...     with bcs.request() as req:
     ...         yield req
     ...
-    ...         # Charge the battery and release the resource afterwards
+    ...         # Charge the battery
     ...         print('%s starting to charge at %s' % (name, env.now))
     ...         yield env.timeout(charge_duration)
     ...         print('%s leaving the bcs at %s' % (name, env.now))
 
 The resource's :meth:`~simpy.resources.resource.Resource.request()` method
 generates an event that lets you wait until the resource becomes available
-again.  If you are resumed, you "own" the resource until you *release* it.
+again. If you are resumed, you "own" the resource until you *release* it.
 
 If you use the resource with the ``with`` statement as shown above, the
-resource is automatically being released. If you call ``release()`` without
+resource is automatically being released. If you call ``request()`` without
 ``with``, you are responsible to call
-:meth:`~simpy.resources.resource.Resource.release()` with the event once you
-are done using the resource.
+:meth:`~simpy.resources.resource.Resource.release()` once you are done using
+the resource.
 
 When you release a resource, the next waiting process is resumed and now "owns"
-one of the resource's slots.
+one of the resource's slots. The basic
+:class:`~simpy.resources.resource.Resource` sorts waiting processes in a *FIFO
+(first in---first out)* way.
 
-SimPy lets you choose the type of the queue used for waiters (e.g., *First in
--- first out (FIFO)* which is the default or *Last in -- first out (LIFO)*).
-Appart from the optional queue type, a resource needs a reference to an
-:class:`~simpy.core.Environment` and a *capacity* when it is created::
+A resource needs a reference to an :class:`~simpy.core.Environment` and
+a *capacity* when it is created::
 
     >>> import simpy
     >>> env = simpy.Environment()
-    >>> bcs = simpy.Resource(env, capacity=2)  # A LIFO queue is used by default
+    >>> bcs = simpy.Resource(env, capacity=2)
 
 We can now create the ``car`` processes and pass a reference to our resource as
 well as some additional parameters to them::
 
     >>> for i in range(4):
     ...     env.start(car(env, 'Car %d' % i, bcs, i*2, 5))
-    Process(car)
-    Process(car)
-    Process(car)
-    Process(car)
+    <Process(car) object at 0x...>
+    <Process(car) object at 0x...>
+    <Process(car) object at 0x...>
+    <Process(car) object at 0x...>
 
 Finally, we can start the simulation. Since the car processes all terminate on
 their own in this simulation, we don't need to specify an *until* time---the
@@ -93,8 +93,8 @@ the BCS, while cars 2 an 3 have to wait.
 What's Next
 ===========
 
-The last part of this tutorial will demonstrate, how you can collect data from
-your simulation.
+.. The last part of this tutorial will demonstrate, how you can collect data from
+.. your simulation.
 
-Since this feature is not implemented yet, you should take a look at the
-:doc:`../examples/index` or the :doc:`../api_reference/index`.
+You should now be familiar with SimPy's basic concepts. The :doc:`next section
+<how_to_proceed>` shows you how you can proceed with using SimPy from here on.
