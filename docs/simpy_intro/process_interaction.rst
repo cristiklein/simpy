@@ -13,12 +13,11 @@ while it is waiting for an event.
 Waiting for a Process
 =====================
 
-As it happens, a SimPy :class:`Process` can be used like an event( technically,
-a process actually *is* an event). If you yield
-it, you are resumed once the process has finished. Imagine a car-wash
-simulation where cars enter the car-wash and wait for the washing process to
-finish. Or an airport simulation where passengers have to wait until a security
-check finishes.
+As it happens, a SimPy :class:`Process` can be used like an event (technically,
+a process actually *is* an event). If you yield it, you are resumed once the
+process has finished. Imagine a car-wash simulation where cars enter the
+car-wash and wait for the washing process to finish. Or an airport simulation
+where passengers have to wait until a security check finishes.
 
 Lets assume that the car from our last example magically became an electric
 vehicle. Electric vehicles usually take a lot of time charing their batteries
@@ -44,12 +43,12 @@ returns, the ``run`` process starts waiting for it to finish::
     ...         while True:
     ...             print('Start parking and charging at %d' % env.now)
     ...             charge_duration = 5
-    ...             # We yield the process that start() returns to wait for
-    ...             # it to finish
+    ...             # We yield the process that start() returns
+    ...             # to wait for it to finish
     ...             yield env.start(self.charge(charge_duration))
     ...
-    ...             # The charge process has finished and we can start driving
-    ...             # again.
+    ...             # The charge process has finished and
+    ...             # we can start driving again.
     ...             print('Start driving at %d' % env.now)
     ...             trip_duration = 2
     ...             yield env.timeout(trip_duration)
@@ -119,12 +118,12 @@ yielding a new event)::
     ...         yield self.env.timeout(duration)
 
 When you compare the output of this simulation with the previous example,
-you'll notice that the car no starts driving at time ``3`` instead of ``5``::
+you'll notice that the car now starts driving at time ``3`` instead of ``5``::
 
     >>> env = simpy.Environment()
     >>> car = Car(env)
     >>> env.start(driver(env, car))
-    Process(driver)
+    <Process(driver) object at 0x...>
     >>> simpy.simulate(env, until=15)
     Start parking and charging at 0
     Was interrupted. Hope, the battery is full enough ...

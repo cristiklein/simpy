@@ -690,7 +690,7 @@ def simulate(env, until=None):
     except EmptySchedule:
         pass
 
-    return until.value if until.triggered else PENDING
+    return until.value if until.triggered else None
 
 
 def _describe_frame(frame):

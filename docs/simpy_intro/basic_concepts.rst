@@ -6,27 +6,28 @@
 Basic Concepts
 ==============
 
-A thing that has a state and a behaviour that changes its state over time is
-called *process*. All processes live in an *environment*. They may interact
-with the environment and with each other via *events*.
+SimPy is a discrete-event simulation library. The behavior of active components
+(like vehicles, customers or messages) is modeled by *processes*. All processes
+live in an *environment*. They interact with the environment and with each
+other via *events*.
 
 Processes are described by simple Python `generators
 <http://docs.python.org/3/reference/expressions.html#yieldexpr>`_. You can call
 them *process function* or *process method*, depending on whether it is
-a normal function or method of a class.  During their life time, they create
-events and ``yield`` them to wait for them to happen.
+a normal function or method of a class. During their life time, they create
+events and ``yield`` them in order to wait for them to be triggered.
 
 When a process yields an event, the process gets *suspended*. SimPy *resumes*
-the process, when the event occurs (we say that the event is *activated*).
+the process, when the event occurs (we say that the event is *triggered*).
 Multiple processes can wait for the same event. SimPy resumes them in the same
 order in which they yielded that event.
 
 An important event type is the :class:`Timeout`. Events of this type are
-activated after a certain amount of (simulated) time has passed. They allow
-a process to to sleep (or hold its state) for the given duration.
-A :class:`Timeout` and all other events can be created by calling the
-appropriate method of the :class:`Environment` that the process lives in
-(:meth:`Environment.timeout()` for example).
+triggered after a certain amount of (simulated) time has passed. They allow
+a process to sleep (or hold its state) for the given time. A :class:`Timeout`
+and all other events can be created by calling the appropriate method of the
+:class:`Environment` that the process lives in (:meth:`Environment.timeout()`
+for example).
 
 
 Our First Process
@@ -48,13 +49,12 @@ So let's start::
     ...         trip_duration = 2
     ...         yield env.timeout(trip_duration)
 
-Our *car* process requires a reference to an :class:`Environment` (``env``) to
-create new events. The *car*'s behaviour is described in an infinite loop.
-Remember, this function is a generator. Though it will never terminate, it will
-pass the control flow back to the simulation once a ``yield`` statement is
-reached. Once the yielded event is activate ("it occurs"), the simulation will
-resume the function at this statement.
-
+Our *car* process requires a reference to an :class:`Environment` (``env``) in
+order to create new events. The *car*'s behaviour is described in an infinite
+loop. Remember, this function is a generator. Though it will never terminate,
+it will pass the control flow back to the simulation once a ``yield`` statement
+is reached. Once the yielded event is triggered ("it occurs"), the simulation
+will resume the function at this statement.
 
 As I said before, our car switches between the states *parking* and *driving*.
 It announces its new state by printing a message and the current simulation
@@ -70,7 +70,7 @@ it and see how it behaves::
     >>> import simpy
     >>> env = simpy.Environment()
     >>> env.start(car(env))
-    Process(car)
+    <Process(car) object at 0x...>
     >>> simpy.simulate(env, until=15)
     Start parking at 0
     Start driving at 5
@@ -78,13 +78,13 @@ it and see how it behaves::
     Start driving at 12
     Start parking at 14
 
-First thing we need to do is to create an instance of :class:`Environment`.
+The first thing we need to do is to create an instance of :class:`Environment`.
 This instance is passed into our *car* process function. Calling it creates
-a *process generator (PG)* that needs to be started and added to the
-environment via :meth:`Environment.start()`.
+a *process generator* that needs to be started and added to the environment via
+:meth:`Environment.start()`.
 
-Note, that at this time, none of the code in your PEM is being executed. It's
-execution is merely scheduled at the current simulation time.
+Note, that at this time, none of the code of our process function is being
+executed. It's execution is merely scheduled at the current simulation time.
 
 The :class:`Process` returned by :meth:`~Environment.start()` can be used for
 process interactions (we will cover that in the next section, so we will ignore
@@ -92,6 +92,7 @@ it for now).
 
 Finally, we start the simulation by calling :func:`simulate()` and passing the
 environment as well as an end time to it.
+
 
 What's Next?
 ============

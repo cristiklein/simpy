@@ -22,7 +22,7 @@ extracted SimPy and type:
 
 You can now optionally run SimPy's tests to see if everything works fine. You
 need `pytest <http://pytest.org>`_ and `mock
-<http://www.voidspace.org.uk/python/mock/>`_ for this.
+<http://www.voidspace.org.uk/python/mock/>`_ for this:
 
 .. code:: bash
 
