@@ -9,7 +9,8 @@ Beside :class:`Store`, there is a :class:`FilterStore` that lets you
 use a custom function to filter the objects you get out of the store.
 
 """
-from simpy.core import BoundClass
+import types
+
 from simpy.resources import base
 
 
@@ -93,8 +94,9 @@ class Store(base.BaseResource):
         self._capacity = capacity
         self.items = []
 
-    put = BoundClass(StorePut)
-    get = BoundClass(StoreGet)
+        # Add event constructors as methods
+        self.put = types.MethodType(StorePut, self)
+        self.get = types.MethodType(StoreGet, self)
 
     @property
     def capacity(self):
@@ -138,7 +140,8 @@ class FilterStore(Store):
         super(FilterStore, self).__init__(env, capacity)
         self.get_queue.store = self
 
-    get = BoundClass(FilterStoreGet)
+        # Add event constructors as methods
+        self.get = types.MethodType(FilterStoreGet, self)
 
     def _do_get(self, event):
         for item in self.items:

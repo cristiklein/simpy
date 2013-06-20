@@ -10,7 +10,8 @@ Tankers increase, and refuelled cars decrease, the amount of gas in the
 station's storage tanks.
 
 """
-from simpy.core import BoundClass
+import types
+
 from simpy.resources import base
 
 
@@ -73,6 +74,10 @@ class Container(base.BaseResource):
         self._capacity = capacity
         self._level = init
 
+        # Add event constructors as methods
+        self.put = types.MethodType(ContainerPut, self)
+        self.get = types.MethodType(ContainerGet, self)
+
     @property
     def capacity(self):
         """The maximum capactiy of the container. Read only."""
@@ -85,9 +90,6 @@ class Container(base.BaseResource):
 
         """
         return self._level
-
-    put = BoundClass(ContainerPut)
-    get = BoundClass(ContainerGet)
 
     def _do_put(self, event):
         if self._capacity - self._level >= event.amount:
