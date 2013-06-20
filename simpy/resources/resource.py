@@ -21,13 +21,13 @@ a :class:`PreemptiveResource` whose resource users can be preempted by
 other processes with a higher priority.
 
 """
-from collections import namedtuple
+import collections
+import types
 
-from simpy.core import BoundClass
 from simpy.resources import base
 
 
-Preempted = namedtuple('Preempted', 'by, usage_since')
+Preempted = collections.namedtuple('Preempted', 'by, usage_since')
 """Used as interrupt cause for preempted processes."""
 
 
@@ -122,10 +122,9 @@ class Resource(base.BaseResource):
         self.users = []
         self.queue = self.put_queue
 
-    put = BoundClass(Request)
-    get = BoundClass(Release)
-    request = put
-    release = get
+        # Add event constructors as methods
+        self.request = types.MethodType(Request, self)
+        self.release = types.MethodType(Release, self)
 
     @property
     def capacity(self):
@@ -162,8 +161,10 @@ class PriorityResource(Resource):
     PutQueue = SortedQueue
     GetQueue = SortedQueue
 
-    put = BoundClass(PriorityRequest)
-    request = put
+    def __init__(self, env, capacity=1):
+        super(PriorityResource, self).__init__(env, capacity)
+        # Add event constructors as methods
+        self.request = types.MethodType(PriorityRequest, self)
 
 
 class PreemptiveResource(PriorityResource):

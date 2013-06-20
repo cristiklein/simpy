@@ -7,7 +7,9 @@ modeled as an event that has to be yielded by the requesting process.
 :class:`Put` and :class:`Get` are the base event types for this.
 
 """
-from simpy.core import Event, PENDING, BoundClass
+import types
+
+from simpy.core import Event, PENDING
 
 
 class Put(Event):
@@ -163,8 +165,9 @@ class BaseResource(object):
         self.put_queue = self.PutQueue()
         self.get_queue = self.GetQueue()
 
-    put = BoundClass(Put)
-    get = BoundClass(Get)
+        # Add event constructors as methods
+        self.put = types.MethodType(Put, self)
+        self.get = types.MethodType(Get, self)
 
     def _do_put(self, event):
         """Actually perform the *put* operation.
