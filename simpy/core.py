@@ -116,8 +116,8 @@ class Event(object):
         self.env = env
         """The :class:`Environment` the event lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__()` if
-        not ``None``."""
+        """Optional name for this event. Used for :class:`str` / :func:`repr`
+        if not ``None``."""
         self._value = value
 
     def __repr__(self):
@@ -337,13 +337,8 @@ class Timeout(Event):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
         self.callbacks = []
-        """List of functions that are called when the event is
-        processed."""
         self.env = env
-        """The :class:`Environment` the timeout lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__()` if
-        not ``None``."""
         self._delay = delay
         self.ok = True
         self._value = value
@@ -358,7 +353,6 @@ class Timeout(Event):
 
 class Initialize(Event):
     """Initializes a process."""
-
     def __init__(self, env, process):
         self.env = env
         self.ok = True
@@ -390,13 +384,8 @@ class Process(Event):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
         self.callbacks = []
-        """List of functions that are called when the event is
-        processed."""
         self.env = env
-        """The :class:`Environment` the process lives in."""
         self.name = name
-        """Optional name for this event. Used in :meth:`__str__()` if
-        not ``None``."""
         self._generator = generator
         self._value = PENDING
 
@@ -521,7 +510,7 @@ class Process(Event):
 
 
 class EmptySchedule(Exception):
-    """Thrown by a :class:`Scheduler` if its :attr:`Scheduler.queue` is
+    """Thrown by a :class:`Scheduler` if its :attr:`~Scheduler.queue` is
     empty."""
     pass
 
@@ -632,10 +621,6 @@ def step(env):
             raise event._value
 
 
-def stop_simulate(event):
-    raise EmptySchedule()
-
-
 def simulate(env, until=None):
     """Simulate the environment until the given criterion *until* is met.
 
@@ -668,7 +653,7 @@ def simulate(env, until=None):
         until._value = None
         env.schedule(at - env.now, HIGH_PRIORITY, until)
 
-    until.callbacks.append(stop_simulate)
+    until.callbacks.append(_stop_simulate)
 
     try:
         while True:
@@ -681,7 +666,6 @@ def simulate(env, until=None):
 
 def _describe_frame(frame):
     """Prints filename, linenumber and function name of a stackframe."""
-
     filename, name = frame.f_code.co_filename, frame.f_code.co_name
     lineno = frame.f_lineno
 
@@ -691,4 +675,10 @@ def _describe_frame(frame):
                 break
 
     return '  File "%s", line %d, in %s\n    %s\n' % (filename, lineno, name,
-            line.strip())
+                                                      line.strip())
+
+
+def _stop_simulate(event):
+    """Used as callback in :func:`simulate()` to stop the simulation when the
+    *until* event occured."""
+    raise EmptySchedule()

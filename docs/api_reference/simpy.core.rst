@@ -5,12 +5,21 @@
 
 .. automodule:: simpy.core
 
+.. data:: PENDING = object()
+
+    Unique object to identify pending values of events.
+
 .. autofunction:: peek
 .. autofunction:: step
 .. autofunction:: simulate
+.. autofunction:: all_events
+.. autofunction:: any_event
 
 .. autoclass:: Environment
-    :members:
+
+    .. autoattribute:: active_process
+    .. autoattribute:: now
+    .. automethod:: exit
 
     .. method:: event(self)
 
@@ -32,20 +41,100 @@
 
         Convenience method. Also returns a new instance of :class:`Process`.
 
+
+.. autoclass:: Event(env, value=PENDING, name=None)
+
+    .. attribute:: callbacks
+
+        List of functions that are called when the event is processed.
+
+    .. attribute:: env
+
+        The :class:`Environment` the event lives in.
+
+    .. attribute:: name
+
+        Optional name for this event. Used for :class:`str` / :func:`repr` if
+        not ``None``.
+
+    .. autoattribute:: triggered
+    .. autoattribute:: processed
+    .. autoattribute:: value
+    .. automethod:: succeed
+    .. automethod:: fail
+
+
 .. autoclass:: Process
-   :members: callbacks, env, is_alive, target, interrupt
+
+    .. attribute:: callbacks
+
+        List of functions that are called when the event is processed.
+
+    .. attribute:: env
+
+        The :class:`Environment` the event lives in.
+
+    .. attribute:: name
+
+        Optional name for this event. Used for :class:`str` / :func:`repr` if
+        not ``None``.
+
+    .. autoattribute:: target
+    .. autoattribute:: is_alive
+    .. automethod:: interrupt
+
+
+.. autoclass:: Timeout
+
+    .. attribute:: callbacks
+
+        List of functions that are called when the event is processed.
+
+    .. attribute:: env
+
+        The :class:`Environment` the event lives in.
+
+    .. attribute:: name
+
+        Optional name for this event. Used for :class:`str` / :func:`repr` if
+        not ``None``.
+
+
+.. autoclass:: Condition
+
+    .. attribute:: callbacks
+
+        List of functions that are called when the event is processed.
+
+    .. attribute:: env
+
+        The :class:`Environment` the event lives in.
+
+    .. attribute:: name
+
+        Optional name for this event. Used for :class:`str` / :func:`repr` if
+        not ``None``.
+
+
+.. autoclass:: Initialize
+
+    .. attribute:: callbacks
+
+        List of functions that are called when the event is processed.
+
+    .. attribute:: env
+
+        The :class:`Environment` the event lives in.
+
+
+.. autoclass:: Scheduler
+    :members:
+
+    .. attribute:: queue
+
+        A list with all currently scheduled events.
+
+.. autoclass:: EmptySchedule
 
 .. autoclass:: Interrupt
    :members: cause
-
-.. autoclass:: Event
-    :members:
-
-.. autoclass:: Timeout
-   :members:
-
-.. autoclass:: Condition
-   :members: callbacks, env
-
-.. autofunction:: all_events
-.. autofunction:: any_event
