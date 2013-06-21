@@ -171,7 +171,7 @@ class Event(object):
 
         self.ok = True
         self._value = value
-        self.env.enqueue(DEFAULT_PRIORITY, self)
+        self.env.schedule(self, DEFAULT_PRIORITY)
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -192,7 +192,7 @@ class Event(object):
             raise RuntimeError('%s has already been triggered' % self)
         self.ok = False
         self._value = exception
-        self.env.enqueue(DEFAULT_PRIORITY, self)
+        self.env.schedule(self, DEFAULT_PRIORITY)
 
     def __and__(self, other):
         return Condition(self.env, all_events, [self, other])
@@ -342,7 +342,7 @@ class Timeout(Event):
         self._delay = delay
         self.ok = True
         self._value = value
-        env.schedule(delay, LOW_PRIORITY, self)
+        env.schedule(self, LOW_PRIORITY, delay)
 
     def _desc(self):
         """Return a string *Timeout(delay[, value=value])*."""
@@ -358,7 +358,7 @@ class Initialize(Event):
         self.ok = True
         self._value = None
         self.callbacks = [process._resume]
-        env.enqueue(HIGH_PRIORITY, self)
+        env.schedule(self, HIGH_PRIORITY)
 
 
 class Process(Event):
@@ -432,7 +432,7 @@ class Process(Event):
         # Interrupts do not cause the simulation to crash.
         event.defused = True
         event.callbacks.append(self._resume)
-        self.env.enqueue(HIGH_PRIORITY, event)
+        self.env.schedule(event, HIGH_PRIORITY)
 
     def _resume(self, event):
         """Get the next event from this process and register as a callback.
@@ -472,7 +472,7 @@ class Process(Event):
                 event = None
                 self.ok = True
                 self._value = e.args[0] if len(e.args) else None
-                self.env.enqueue(DEFAULT_PRIORITY, self)
+                self.env.schedule(self, DEFAULT_PRIORITY)
                 break
             except BaseException as e:
                 # Process has failed.
@@ -482,7 +482,7 @@ class Process(Event):
                 self._value.__cause__ = e
                 if PY2:
                     self._value.__traceback__ = sys.exc_info()[2]
-                self.env.enqueue(DEFAULT_PRIORITY, self)
+                self.env.schedule(self, DEFAULT_PRIORITY)
                 break
 
             # Process returned another event to wait upon.
@@ -516,22 +516,25 @@ class EmptySchedule(Exception):
 
 
 class Scheduler(object):
-    """Schedulers trigger events at a specific points in time."""
+    """Schedulers manage the event queue of an :class:`Environment`.
+
+    They schedule/enqueue new events and pop events from the queue.
+
+    """
     def __init__(self, env):
         self.env = env
         self.eid = count()
         self.queue = []
         self.now = 0
 
-    def enqueue(self, priority, event):
-        heappush(self.queue, (self.now, priority, next(self.eid), event))
-
-    def schedule(self, delay, priority, event):
-        heappush(self.queue, (self.now + delay, priority, next(self.eid), event))
+    def schedule(self, event, priority, delay=0):
+        """Schedule an *event* with a given *priority* and a *delay*."""
+        heappush(self.queue, (self.now + delay, priority, next(self.eid),
+                              event))
 
     def peek(self):
-        """Get the time of the next scheduled event. If there are currently no
-        events scheduled, ``Infinity`` is returned."""
+        """Get the time of the next scheduled event. Return ``Infinity`` if the
+        event queue is empty."""
         try:
             return self.queue[0][0]
         except IndexError:
@@ -541,6 +544,7 @@ class Scheduler(object):
         """Remove and returns the next event from the queue.
 
         This method advances the simulation time of the environment.
+
         """
         try:
             self.now, _, _, event = heappop(self.queue)
@@ -568,7 +572,6 @@ class Environment(object):
         self.process = types.MethodType(Process, self)
         self.start = types.MethodType(Process, self)
 
-        self.enqueue = self.scheduler.enqueue
         self.schedule = self.scheduler.schedule
         self.fetch = self.scheduler.fetch
 
@@ -651,7 +654,7 @@ def simulate(env, until=None):
         # Schedule the event with before all regular timeouts.
         until = env.event()
         until._value = None
-        env.schedule(at - env.now, HIGH_PRIORITY, until)
+        env.schedule(until, HIGH_PRIORITY, at - env.now)
 
     until.callbacks.append(_stop_simulate)
 
