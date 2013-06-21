@@ -130,6 +130,14 @@
 .. autoclass:: Scheduler
     :members:
 
+    .. attribute:: env
+
+        The :class:`Environment` that the scheduler is associated with.
+
+    .. attribute:: now
+
+        The current simulation time.
+
     .. attribute:: queue
 
         A list with all currently scheduled events.

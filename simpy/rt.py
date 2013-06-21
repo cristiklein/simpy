@@ -16,15 +16,15 @@ Infinity = float('inf')
 
 
 class RealtimeScheduler(Scheduler):
-    def __init__(self, env, sim_start, factor, strict):
-        Scheduler.__init__(self, env)
-        self.sim_start = sim_start
+    def __init__(self, env, initial_time, factor, strict):
+        Scheduler.__init__(self, env, initial_time)
+        self.sim_start = initial_time
         self.real_start = time()
         self.factor = factor
         self.strict = strict
 
-    def fetch(self):
-        event = Scheduler.fetch(self)
+    def pop(self):
+        event = super(RealtimeScheduler, self).pop()
 
         sim_delta = self.now - self.sim_start
         real_delta = time() - self.real_start

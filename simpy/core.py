@@ -518,18 +518,19 @@ class EmptySchedule(Exception):
 class Scheduler(object):
     """Schedulers manage the event queue of an :class:`Environment`.
 
-    They schedule/enqueue new events and pop events from the queue.
+    They schedule/enqueue new events and pop events from the queue. They also
+    manage the current simulation time.
 
     """
-    def __init__(self, env):
+    def __init__(self, env, initial_time):
         self.env = env
-        self.eid = count()
+        self.now = initial_time
         self.queue = []
-        self.now = 0
+        self._eid = count()
 
     def schedule(self, event, priority, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
-        heappush(self.queue, (self.now + delay, priority, next(self.eid),
+        heappush(self.queue, (self.now + delay, priority, next(self._eid),
                               event))
 
     def peek(self):
@@ -540,10 +541,10 @@ class Scheduler(object):
         except IndexError:
             return Infinity
 
-    def fetch(self):
-        """Remove and returns the next event from the queue.
+    def pop(self):
+        """Remove and return the next event from the queue as ``(now, event)``.
 
-        This method advances the simulation time of the environment.
+        Raise :exc:`EmptySchedule` if the schedule is empty.
 
         """
         try:
@@ -559,11 +560,10 @@ class Environment(object):
 
     """
     def __init__(self, initial_time=0, scheduler=None):
-        self._now = initial_time
         self._active_proc = None
 
         if scheduler is None:
-            scheduler = Scheduler(self)
+            scheduler = Scheduler(self, initial_time)
         self.scheduler = scheduler
 
         self.event = types.MethodType(Event, self)
@@ -573,7 +573,7 @@ class Environment(object):
         self.start = types.MethodType(Process, self)
 
         self.schedule = self.scheduler.schedule
-        self.fetch = self.scheduler.fetch
+        self.pop = self.scheduler.pop
 
     @property
     def active_process(self):
@@ -611,7 +611,7 @@ def step(env):
     Raise an :exc:`IndexError` if no valid event is on the heap.
 
     """
-    event = env.fetch()
+    event = env.pop()
 
     # Process callbacks of the event.
     for callback in event.callbacks:
