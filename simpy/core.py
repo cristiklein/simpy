@@ -2,33 +2,6 @@
 This module contains the implementation of SimPy's core classes. The
 most important ones are directly importable via :mod:`simpy`.
 
-- :class:`Environment`: SimPy's central class. It contains the
-  simulation's state and lets the PEMs interact with it (i.e., schedule
-  events).
-
-- :class:`~simpy.core.Process`: This class represents a PEM while
-  it is executed in an environment. An instance of it is returned by
-  :meth:`Environment.start()`. It inherits :class:`Event`.
-
-- :class:`Interrupt`: This exception is thrown into a process if it gets
-  interrupted by another one.
-
-- :class:`Event`: A simple event that can be used to implement things
-  like shared resources.
-
-- :class:`Timeout`: Can be yielded by a PEM to hold its state or wait
-  for a certain amount of time.
-
-- :class:`Condition`: Groups multiple events and is triggered if a
-  custom condition on them evaluates to true. There are two default
-  evaluation functions (:func:`all_events()` and :func:`any_event()`
-  that are used for :class:`Event`'s implementation of ``__and__`` and
-  ``__or__``.
-
-This module also contains a few functions to simulate an
-:class:`Environment`: :func:`peek()`, :func:`step()` and the shortcut
-:func:`simulate()`.
-
 """
 import types
 from heapq import heappush, heappop
@@ -41,18 +14,13 @@ if PY2:
     import sys
 
 
-Infinity = float('inf')
-"""Convenience alias for infinity."""
+Infinity = float('inf')  # Convenience alias for infinity
 
-PENDING = object()
-"""Unique object to identify pending values of events."""
+PENDING = object()       # Unique object to identify pending values of events
 
-HIGH_PRIORITY = 0
-"""Priority of interrupts and process initialization events."""
-DEFAULT_PRIORITY = 1
-"""Default priority used by events."""
-LOW_PRIORITY = 2
-"""Priority of timeouts."""
+HIGH_PRIORITY = 0        # Priority of interrupts and Initialize events
+DEFAULT_PRIORITY = 1     # Default priority used by events
+LOW_PRIORITY = 2         # Priority of timeouts
 
 
 class Interrupt(Exception):
@@ -463,8 +431,8 @@ class Process(Event):
                 if event.ok:
                     event = self._generator.send(event._value)
                 else:
-                    # The process has no choice but to handle the failed event (or
-                    # fail itself).
+                    # The process has no choice but to handle the failed event
+                    # (or fail itself).
                     event.defused = True
                     event = self._generator.throw(event._value)
             except StopIteration as e:

@@ -5,15 +5,12 @@
 
 .. automodule:: simpy.core
 
-.. data:: PENDING = object()
-
-    Unique object to identify pending values of events.
+Performing the simulation of an environment
+===========================================
 
 .. autofunction:: peek
 .. autofunction:: step
 .. autofunction:: simulate
-.. autofunction:: all_events
-.. autofunction:: any_event
 
 .. autoclass:: Environment
 
@@ -41,6 +38,9 @@
 
         Convenience method. Also returns a new instance of :class:`Process`.
 
+
+Events and helpers
+==================
 
 .. autoclass:: Event(env, value=PENDING, name=None)
 
@@ -115,6 +115,9 @@
         Optional name for this event. Used for :class:`str` / :func:`repr` if
         not ``None``.
 
+.. autofunction:: all_events
+.. autofunction:: any_event
+
 
 .. autoclass:: Initialize
 
@@ -126,6 +129,9 @@
 
         The :class:`Environment` the event lives in.
 
+
+Miscellaneous (Scheduling, Interrupt, constants)
+================================================
 
 .. autoclass:: Scheduler
     :members:
@@ -146,3 +152,23 @@
 
 .. autoclass:: Interrupt
    :members: cause
+
+.. data:: Infinity = inf
+
+    Convenience alias for infinity
+
+.. data:: PENDING = object()
+
+    Unique object to identify pending values of events
+
+.. data:: HIGH_PRIORITY = 0
+
+    Priority of interrupts and Intialize events
+
+.. data:: DEFAULT_PRIORITY = 1
+
+    Default priority used by events
+
+.. data:: LOW_PRIORITY = 2
+
+    Priority of timeouts
