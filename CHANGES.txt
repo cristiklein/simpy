@@ -1,0 +1,84 @@
+Changelog for SimPy
+==============================
+
+
+v2.3.1 – 2012-01-28:
+--------------------
+
+- [NEW] More improvements on the documentation.
+- [FIX] Syntax error in tkconsole.py when installing on Py3.2.
+- [FIX] Added *mock* to the dep. list in SimPy.test().
+
+
+v2.3 – 2011-12-24:
+------------------
+
+- [NEW] Support for Python 3.2. Support for Python <= 2.5 has been dropped.
+- [NEW] SimPy.test() method to run the tests on the installed version of SimPy.
+– [NEW] Tutorials/examples were integrated into the test suite.
+– [CHANGE] Even more code clean-up (e.g., removed prints throughout the code,
+  removed if-main-blocks, ...).
+- [CHANGE] Many documentation improvements.
+
+
+v2.2 – 2011-09-27:
+------------------
+
+- [CHANGE] Restructured package layout to be conform to the `Hitchhiker’s Guide
+  to packaging <http://guide.python-distribute.org/>`_
+- [CHANGE] Tests have been ported to pytest.
+- [CHANGE] Documentation improvements and clean-ups.
+- [FIX] Fixed incorrect behavior of Store._put, thanks to Johannes Koomer for
+  the fix.
+
+
+v2.1 – 2010-06-03:
+------------------
+
+- [NEW] A function *step* has been added to the API. When called, it executes
+  the next scheduled event. (*step* is actually a method of *Simulation*.)
+- [NEW] Another new function is *peek*. It returns the time of the next event.
+  By using peek and step together, one can easily write e.g. an interactive
+  program to step through a simulation event by event.
+- [NEW] A simple interactive debugger ``stepping.py`` has been added. It allows
+  stepping through a simulation, with options to skip to a certain time, skip
+  to the next event of a given process, or viewing the event list.
+- [NEW] Versions of the Bank tutorials (documents and programs) using the
+  advanced- [NEW] object-oriented API have been added.
+- [NEW] A new document describes tools for gaining insight into and debugging
+  SimPy models.
+- [CHANGE] Major re-structuring of SimPy code, resulting in much less SimPy
+  code – great for the maintainers.
+- [CHANGE] Checks have been added which test whether entities belong to the
+  same Simulation instance.
+- [CHANGE] The Monitor and Tally methods timeAverage and timeVariance now
+  calculate only with the observed time-series. No value is assumed for the
+  period prior to the first observation.
+- [CHANGE] Changed class Lister so that circular references between objects no
+  longer lead to stack overflow and crash.
+- [FIX] Functions *allEventNotices* and *allEventTimes* are working again.
+- [FIX] Error messages for methods in SimPy.Lib work again.
+
+
+v2.0.1 – 2009-04-06:
+--------------------
+
+- [NEW] Tests for real time behavior (testRT_Behavior.py and
+  testRT_Behavior_OO.py in folder SimPy).
+- [FIX] Repaired a number of coding errors in several models in the SimPyModels
+  folder.
+- [FIX] Repaired SimulationRT.py bug introduced by recoding for the OO API.
+- [FIX] Repaired errors in sample programs in documents:
+
+  - Simulation with SimPy - In Depth Manual
+  - SimPy’s Object Oriented API Manual
+  - Simulation With Real Time Synchronization Manual
+  - SimPlot Manual
+  - Publication-quality Plot Production With Matplotlib Manual
+
+
+v2.0.0 - 2009-01-26:
+--------------------
+
+- [NEW] In addition to its existing API, SimPy now also has an object oriented
+  API.
