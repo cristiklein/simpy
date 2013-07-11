@@ -355,6 +355,7 @@ class Initialize(Event):
     """Initializes a process."""
     def __init__(self, env, process):
         self.env = env
+        self.name = None
         self.ok = True
         self._value = None
         self.callbacks = [process._resume]
@@ -528,7 +529,7 @@ class Scheduler(object):
         self.queue = []
         self._eid = count()
 
-    def schedule(self, event, priority, delay=0):
+    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
         heappush(self.queue, (self.now + delay, priority, next(self._eid),
                               event))
