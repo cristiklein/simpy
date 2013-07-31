@@ -2,8 +2,6 @@
 Examples
 ========
 
-
-
 All theory is grey. In this section, we present various practical examples that
 demonstrate how to uses SimPy's features.
 
@@ -79,13 +77,6 @@ All examples
    gas_station_refuel
    process_communication
    latency
-
-.. call_center
-.. cellphone
-.. central-server
-.. celluar_automata
-.. market
-.. mmc
 
 You have ideas for better examples? Please send them to our `mainling list
 <https://lists.sourceforge.net/lists/listinfo/simpy-users>`_ or make a pull
