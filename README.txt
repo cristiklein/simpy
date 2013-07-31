@@ -1,10 +1,6 @@
 SimPy
 =====
 
-**Note:** *Simpy 3 is currently in development. Everything we promise below may
-or may not yet exist, may dramatically change or even explode! Nevertheless, we
-encourage you to try out the development version and tell us what you think.*
-
 SimPy is a process-based discrete-event simulation framework based on standard
 Python. Its event dispatcher is based on Python’s `generators`__ and can also be
 used for asynchronous networking or to implement multi-agent systems (with

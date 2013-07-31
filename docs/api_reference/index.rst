@@ -11,10 +11,11 @@ components.
 
     simpy
     simpy.core
+    simpy.monitoring
     simpy.resources
     simpy.resources.base
     simpy.resources.container
     simpy.resources.resource
     simpy.resources.store
-    simpy.monitoring
+    simpy.rt
     simpy.util

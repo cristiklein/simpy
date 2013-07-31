@@ -28,6 +28,6 @@ refuel the gas station itself.
 
 .. literalinclude:: code/gas_station_refuel.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/gas_station_refuel.out

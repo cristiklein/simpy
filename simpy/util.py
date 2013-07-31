@@ -20,13 +20,14 @@ def start_delayed(env, peg, delay):
 
     Just pass it as a first parameter to ``start()``::
 
+        >>> from simpy import Environment, simulate
+        >>> from simpy.util import start_delayed
         >>> def pem(env, x):
         ...     print('%s, %s' % (env.now, x))
         ...     yield env.timeout(1)
         ...
         >>> env = Environment()
-        >>> start_delayed(env, pem(env, 3), 5)
-        Process(starter)
+        >>> proc = start_delayed(env, pem(env, 3), 5)
         >>> simulate(env)
         5, 3
 

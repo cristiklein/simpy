@@ -22,6 +22,6 @@ Example by:
 
 .. literalinclude:: code/latency.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/latency.out
