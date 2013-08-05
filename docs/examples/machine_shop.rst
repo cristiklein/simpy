@@ -27,6 +27,6 @@ priority).
 
 .. literalinclude:: code/machine_shop.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/machine_shop.out

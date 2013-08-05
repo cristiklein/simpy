@@ -31,6 +31,6 @@ movie and the number of tickets for the moviegoer.
 
 .. literalinclude:: code/movie_renege.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/movie_renege.out
