@@ -27,6 +27,6 @@ Example By:
 
 .. literalinclude:: code/process_communication.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/process_communication.out

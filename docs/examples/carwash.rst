@@ -25,6 +25,6 @@ simulation continues.
 
 .. literalinclude:: code/carwash.py
 
-The simulations output:
+The simulation's output:
 
 .. literalinclude:: code/carwash.out
