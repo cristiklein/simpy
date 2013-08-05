@@ -182,6 +182,7 @@ class Event(object):
         self.ok = True
         self._value = value
         self.env.schedule(self, DEFAULT_PRIORITY)
+        return self
 
     def fail(self, exception):
         """Schedule the event and mark it as failed.
@@ -203,6 +204,7 @@ class Event(object):
         self.ok = False
         self._value = exception
         self.env.schedule(self, DEFAULT_PRIORITY)
+        return self
 
     def __and__(self, other):
         return Condition(self.env, all_events, [self, other])
