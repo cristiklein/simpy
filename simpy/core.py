@@ -156,6 +156,16 @@ class Event(object):
             raise RuntimeError('Value of %s is not yet available' % self)
         return self._value
 
+    def trigger(self, event):
+        """Triggers the event with value of the provided ``event``.
+        
+        This method can be used directly as a callback function.
+        
+        """
+        self.ok = event.ok
+        self._value = event._value
+        self.env.schedule(self, DEFAULT_PRIORITY)
+
     def succeed(self, value=None):
         """Schedule the event and mark it as successful.
 
