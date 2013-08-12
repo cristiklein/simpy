@@ -1,0 +1,24 @@
+Gas Station refuelling
+Car 0 arriving at gas station at 203.0
+Calling tank truck at 210
+Car 0 finished refueling in 20.0 seconds.
+Car 1 arriving at gas station at 239.0
+Car 1 finished refueling in 15.0 seconds.
+Car 2 arriving at gas station at 329.0
+Car 2 finished refueling in 13.0 seconds.
+Tank truck arriving at time 510
+Tank truck refuelling 97.0 liters.
+Car 3 arriving at gas station at 542.0
+Calling tank truck at 550
+Car 3 finished refueling in 18.0 seconds.
+Car 4 arriving at gas station at 595.0
+Car 4 finished refueling in 20.0 seconds.
+Car 5 arriving at gas station at 633.0
+Car 5 finished refueling in 22.0 seconds.
+Car 6 arriving at gas station at 799.0
+Car 6 finished refueling in 16.0 seconds.
+Tank truck arriving at time 850
+Tank truck refuelling 155.0 liters.
+Car 7 arriving at gas station at 882.0
+Calling tank truck at 890
+Car 7 finished refueling in 20.0 seconds.
