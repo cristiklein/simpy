@@ -77,23 +77,18 @@ class Event(object):
     or one of them.
 
     """
-    def __init__(self, env, value=PENDING, name=None):
+    def __init__(self, env, value=PENDING):
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
         self.env = env
         """The :class:`Environment` the event lives in."""
-        self.name = name
-        """Optional name for this event. Used for :class:`str` / :func:`repr`
-        if not ``None``."""
         self._value = value
 
     def __repr__(self):
-        """Use ``self.name`` if defined or ``self._desc()`` else."""
-        if self.name is None:
-            return '<%s object at 0x%x>' % (self._desc(), id(self))
-        else:
-            return self.name
+        """Return the description of the event (see :meth:`_desc`) with the id
+        of the event."""
+        return '<%s object at 0x%x>' % (self._desc(), id(self))
 
     def _desc(self):
         """Return a string *Event()*."""
@@ -204,8 +199,8 @@ class Condition(Event):
     sub- or nested conditions.
 
     """
-    def __init__(self, env, evaluate, events, name=None):
-        Event.__init__(self, env, name=name)
+    def __init__(self, env, evaluate, events):
+        Event.__init__(self, env)
         self._evaluate = evaluate
         self._interim_values = {}
         self._events = []
@@ -311,14 +306,13 @@ class Timeout(Event):
     *success()* or *fail()* method.
 
     """
-    def __init__(self, env, delay, value=None, name=None):
+    def __init__(self, env, delay, value=None):
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
         self.callbacks = []
         self.env = env
-        self.name = name
         self._delay = delay
         self.ok = True
         self._value = value
@@ -335,7 +329,6 @@ class Initialize(Event):
     """Initializes a process."""
     def __init__(self, env, process):
         self.env = env
-        self.name = None
         self.ok = True
         self._value = None
         self.callbacks = [process._resume]
@@ -358,7 +351,7 @@ class Process(Event):
     :meth:`Environment.start()`.
 
     """
-    def __init__(self, env, generator, name=None):
+    def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
 
@@ -366,7 +359,6 @@ class Process(Event):
         # Event.__init__() for performance reasons.
         self.callbacks = []
         self.env = env
-        self.name = name
         self._generator = generator
         self._value = PENDING
 

@@ -201,19 +201,16 @@ def test_names(env):
         yield env.exit()
 
     assert re.match(r'<Event\(\) object at 0x.*>', str(env.event()))
-    assert str(env.event(name='Event')) == 'Event'
 
     assert re.match(r'<Timeout\(1\) object at 0x.*>', str(env.timeout(1)))
     assert re.match(r'<Timeout\(1, value=2\) object at 0x.*>',
                     str(env.timeout(1, value=2)))
-    assert str(env.timeout(1, name='Timeout')) == 'Timeout'
 
     assert re.match(r'<Condition\(all_events, \[<Event\(\) object at 0x.*>, '
                     r'<Event\(\) object at 0x.*>\]\) object at 0x.*>',
                     str(env.event() & env.event()))
 
     assert re.match(r'<Process\(pem\) object at 0x.*>', str(env.start(pem())))
-    assert str(env.start(pem(), name='pem')) == 'pem'
 
 
 def test_event_value(env):
