@@ -65,4 +65,4 @@ env = simpy.Environment()
 # Start processes and simulate
 counter = simpy.Resource(env, capacity=1)
 env.start(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counter))
-simpy.simulate(env)
+env.simulate()

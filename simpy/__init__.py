@@ -16,9 +16,6 @@ Core classes and functions
   :meth:`Environment.start()`. It inherits :class:`Event`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
-- :func:`peek()`: Return the next event's time.
-- :func:`step()`: Process the next event.
-- :func:`simulate()`: Execute the simulation until a given time.
 
 
 Resources
@@ -68,7 +65,7 @@ Other
 .. - :func:`test`: Run the test suite on the installed copy of Simpy.
 
 """
-from simpy.core import Environment, Interrupt, Process, peek, step, simulate
+from simpy.core import Environment, Interrupt, Process
 from simpy.resources.resource import (
     Resource, PriorityResource, PreemptiveResource)
 from simpy.resources.container import Container
@@ -77,7 +74,7 @@ from simpy.resources.store import Store, FilterStore
 
 __all__ = [
     'test',
-    'Environment', 'Interrupt', 'Process', 'peek', 'step', 'simulate',
+    'Environment', 'Interrupt', 'Process',
     'Resource', 'PriorityResource', 'PreemptiveResource',
     'Container',
     'Store', 'FilterStore',
