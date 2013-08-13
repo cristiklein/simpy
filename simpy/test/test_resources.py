@@ -217,7 +217,7 @@ def test_preemptive_resource(env, log):
                 yield env.timeout(5)
                 log.append((env.now, id))
             except simpy.Interrupt as ir:
-                log.append((env.now, id, tuple(ir.cause)))
+                log.append((env.now, id, (ir.cause.by, ir.cause.usage_since)))
 
     res = simpy.PreemptiveResource(env, capacity=2)
     p0 = env.start(process(0, env, res, 0, 1, log))
@@ -261,7 +261,7 @@ def test_mixed_preemption(env, log):
                 yield env.timeout(5)
                 log.append((env.now, id))
             except simpy.Interrupt as ir:
-                log.append((env.now, id, tuple(ir.cause)))
+                log.append((env.now, id, (ir.cause.by, ir.cause.usage_since)))
 
     res = simpy.PreemptiveResource(env, 2)
     p0 = env.start(process(0, env, res, 0, 1, True, log))

@@ -23,6 +23,29 @@ DEFAULT_PRIORITY = 1     # Default priority used by events
 LOW_PRIORITY = 2         # Priority of timeouts
 
 
+class BoundClass(object):
+    """Allows classes to behave like methods. The ``__get__()`` descriptor is
+    basically identical to ``function.__get__()`` and binds the first argument
+    of the ``cls`` to the descriptor instance."""
+
+    def __init__(self, cls):
+        self.cls = cls
+
+    def __get__(self, obj, type=None):
+        if obj is None:
+            return self.cls
+        return types.MethodType(self.cls, obj)
+
+    @staticmethod
+    def bind_early(instance):
+        cls = type(instance)
+        for name in dir(cls):
+            obj = getattr(cls, name)
+            if type(obj) is BoundClass:
+                bound_class = getattr(instance, name)
+                setattr(instance, name, bound_class)
+
+
 class Interrupt(Exception):
     """This exceptions is sent into a process if it was interrupted by
     another process (see :func:`Process.interrupt()`).
@@ -329,6 +352,7 @@ class Initialize(Event):
     """Initializes a process."""
     def __init__(self, env, process):
         self.env = env
+        self.name = None
         self.ok = True
         self._value = None
         self.callbacks = [process._resume]
@@ -528,9 +552,11 @@ class Scheduler(object):
 
 
 class Environment(object):
-    """The *environment* contains the simulation state and provides a
-    basic API for processes to interact with it.
+    """The *environment* executes processes and manages access to global
+    information (such as the time, see :attr:`now`).
 
+    This class also provides aliases for common event types, for example:
+    :attr:`process`, :attr:`timeout` and :attr:`event`.
     """
     def __init__(self, initial_time=0, scheduler=None):
         self._active_proc = None
@@ -539,24 +565,26 @@ class Environment(object):
             scheduler = Scheduler(self, initial_time)
         self.scheduler = scheduler
 
-        self.event = types.MethodType(Event, self)
-        self.suspend = types.MethodType(Event, self)
-        self.timeout = types.MethodType(Timeout, self)
-        self.process = types.MethodType(Process, self)
-        self.start = types.MethodType(Process, self)
-
         self.schedule = self.scheduler.schedule
         self.pop = self.scheduler.pop
+
+        BoundClass.bind_early(self)
+
+    @property
+    def now(self):
+        """Property that returns the current simulation time."""
+        return self.scheduler.now
 
     @property
     def active_process(self):
         """Property that returns the currently active process."""
         return self._active_proc
 
-    @property
-    def now(self):
-        """Property that returns the current simulation time."""
-        return self.scheduler.now
+    process = BoundClass(Process)
+    timeout = BoundClass(Timeout)
+    event = BoundClass(Event)
+    suspend = event
+    start = process
 
     def exit(self, value=None):
         """Stop the current process, optionally providing a ``value``.
