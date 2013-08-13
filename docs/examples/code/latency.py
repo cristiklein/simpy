@@ -68,4 +68,4 @@ cable = Cable(env, 10)
 env.start(sender(env, cable))
 env.start(receiver(env, cable))
 
-simpy.simulate(env, until=SIM_DURATION)
+env.simulate(until=SIM_DURATION)
