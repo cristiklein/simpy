@@ -7,9 +7,7 @@ modeled as an event that has to be yielded by the requesting process.
 :class:`Put` and :class:`Get` are the base event types for this.
 
 """
-import types
-
-from simpy.core import Event, PENDING
+from simpy.core import Event, PENDING, BoundClass
 
 
 class Put(Event):
@@ -158,16 +156,29 @@ class BaseResource(object):
     """
 
     PutQueue = list
+    """The type to be used for the :attr:`put_queue`. This can either be a
+    plain :class:`list` (default) or a subclass of it."""
+
     GetQueue = list
+    """The type to be used for the :attr:`get_queue`. This can either be a
+    plain :class:`list` (default) or a sublcass of it."""
 
     def __init__(self, env):
         self._env = env
         self.put_queue = self.PutQueue()
+        """Queue/list of events waiting to get something out of the
+        resource."""
         self.get_queue = self.GetQueue()
+        """Queue/list of events waiting to put something into the resource."""
 
-        # Add event constructors as methods
-        self.put = types.MethodType(Put, self)
-        self.get = types.MethodType(Get, self)
+        # Bind event constructors as methods
+        BoundClass.bind_early(self)
+
+    put = BoundClass(Put)
+    """Create a new :class:`Put` event."""
+
+    get = BoundClass(Get)
+    """Create a new :class:`Get` event."""
 
     def _do_put(self, event):
         """Actually perform the *put* operation.

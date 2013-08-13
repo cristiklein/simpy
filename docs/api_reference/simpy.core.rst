@@ -13,30 +13,7 @@ Performing the simulation of an environment
 .. autofunction:: simulate
 
 .. autoclass:: Environment
-
-    .. autoattribute:: active_process
-    .. autoattribute:: now
-    .. automethod:: exit
-
-    .. method:: event(self)
-
-        Returns a new instance of :class:`Event`.
-
-    .. method:: suspend(self)
-
-        Convenience method. Also returns a new instance of :class:`Event`.
-
-    .. method:: timeout(self, delay, value=None)
-
-        Returns a new instance of :class:`Timeout`.
-
-    .. method:: process(self, generator)
-
-        Returns a new instance of :class:`Process`.
-
-    .. method:: start(self, generator)
-
-        Convenience method. Also returns a new instance of :class:`Process`.
+    :members:
 
 
 Events and helpers

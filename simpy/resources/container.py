@@ -12,6 +12,7 @@ station's storage tanks.
 """
 import types
 
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
@@ -27,6 +28,8 @@ class ContainerPut(base.Put):
             raise ValueError('amount(=%s) must be > 0.' % amount)
         #: The amount to be put into the container.
         self.amount = amount
+        """The amount to be put into the container."""
+
         super(ContainerPut, self).__init__(container)
 
 
@@ -42,6 +45,8 @@ class ContainerGet(base.Get):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
         self.amount = amount
+        """The amount to be taken out of the container."""
+
         super(ContainerGet, self).__init__(resource)
 
 
@@ -74,10 +79,6 @@ class Container(base.BaseResource):
         self._capacity = capacity
         self._level = init
 
-        # Add event constructors as methods
-        self.put = types.MethodType(ContainerPut, self)
-        self.get = types.MethodType(ContainerGet, self)
-
     @property
     def capacity(self):
         """The maximum capactiy of the container. Read only."""
@@ -90,6 +91,12 @@ class Container(base.BaseResource):
 
         """
         return self._level
+
+    put = BoundClass(ContainerPut)
+    """Creates a new :class:`ContainerPut` event."""
+
+    get = BoundClass(ContainerGet)
+    """Creates a new :class:`ContainerGet` event."""
 
     def _do_put(self, event):
         if self._capacity - self._level >= event.amount:

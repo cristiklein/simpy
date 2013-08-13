@@ -22,13 +22,18 @@ other processes with a higher priority.
 
 """
 import collections
-import types
 
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
-Preempted = collections.namedtuple('Preempted', 'by, usage_since')
-"""Used as interrupt cause for preempted processes."""
+class Preempted(object):
+    def __init__(self, by, usage_since):
+        self.by = by
+        """The preempting :class:`simpy.core.Process`."""
+        self.usage_since = usage_since
+        """The simulation time at which the preempted process started to use
+        the resource."""
 
 
 class Request(base.Put):
@@ -62,6 +67,7 @@ class Release(base.Get):
     """
     def __init__(self, resource, request):
         self.request = request
+        """The request (:class:`Request`) that is to be released."""
         super(Release, self).__init__(resource)
 
 
@@ -78,9 +84,17 @@ class PriorityRequest(Request):
     """
     def __init__(self, resource, priority=0, preempt=True):
         self.priority = priority
+        """The priority of this request. A smaller number means higher
+        priority."""
         self.preempt = preempt
+        """Indicates wether the request should preempt a resource user or not
+        (this flag is not taken into account by :class:`PriorityResource`)."""
         self.time = resource._env.now
+        """The time at which the request was made."""
         self.key = (self.priority, self.time)
+        """Key for sorting events. Consists of the priority (lower value is
+        more important) and the time at witch the request was made (earlier
+        requests are more important)."""
         super(PriorityRequest, self).__init__(resource)
 
 
@@ -88,8 +102,8 @@ class SortedQueue(list):
     """Queue that sorts events by their ``key`` attribute."""
     def __init__(self, maxlen=None):
         super(SortedQueue, self).__init__()
-        #: Maximum length of the queue
         self.maxlen = maxlen
+        """Maximum length of the queue."""
 
     def append(self, item):
         """Append *item* to the queue and keep the queue sorted."""
@@ -120,11 +134,11 @@ class Resource(base.BaseResource):
         super(Resource, self).__init__(env)
         self._capacity = capacity
         self.users = []
+        """List of :class:`Request` events for the processes that are currently
+        using the resource."""
         self.queue = self.put_queue
-
-        # Add event constructors as methods
-        self.request = types.MethodType(Request, self)
-        self.release = types.MethodType(Release, self)
+        """Queue/list of pending :class:`Request` events that represent
+        processes waiting to use the resource."""
 
     @property
     def capacity(self):
@@ -135,6 +149,12 @@ class Resource(base.BaseResource):
     def count(self):
         """Number of users currently using the resource."""
         return len(self.users)
+
+    request = BoundClass(Request)
+    """Create a new :class:`Request` event."""
+
+    release = BoundClass(Release)
+    """Create a new :class:`Release` event."""
 
     def _do_put(self, event):
         if len(self.users) < self.capacity:
@@ -159,12 +179,17 @@ class PriorityResource(Resource):
 
     """
     PutQueue = SortedQueue
+    """The type to be used for the
+    :attr:`~simpy.resources.base.BaseResource.put_queue`."""
     GetQueue = SortedQueue
+    """The type to be used for the
+    :attr:`~simpy.resources.base.BaseResource.get_queue`."""
 
     def __init__(self, env, capacity=1):
         super(PriorityResource, self).__init__(env, capacity)
-        # Add event constructors as methods
-        self.request = types.MethodType(PriorityRequest, self)
+
+    request = BoundClass(PriorityRequest)
+    """Create a new :class:`PriorityRequest` event."""
 
 
 class PreemptiveResource(PriorityResource):

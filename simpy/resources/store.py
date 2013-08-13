@@ -9,8 +9,7 @@ Beside :class:`Store`, there is a :class:`FilterStore` that lets you
 use a custom function to filter the objects you get out of the store.
 
 """
-import types
-
+from simpy.core import BoundClass
 from simpy.resources import base
 
 
@@ -18,6 +17,7 @@ class StorePut(base.Put):
     """Put *item* into the store if possible or wait until it is."""
     def __init__(self, resource, item):
         self.item = item
+        """The item to put into the store."""
         super(StorePut, self).__init__(resource)
 
 
@@ -36,6 +36,7 @@ class FilterStoreGet(StoreGet):
     """
     def __init__(self, resource, filter=lambda item: True):
         self.filter = filter
+        """The filter function to use."""
         super(FilterStoreGet, self).__init__(resource)
 
 
@@ -93,15 +94,18 @@ class Store(base.BaseResource):
             raise ValueError('"capacity" must be > 0.')
         self._capacity = capacity
         self.items = []
-
-        # Add event constructors as methods
-        self.put = types.MethodType(StorePut, self)
-        self.get = types.MethodType(StoreGet, self)
+        """List of the items within the store."""
 
     @property
     def capacity(self):
         """The maximum capacity of the store."""
         return self._capacity
+
+    put = BoundClass(StorePut)
+    """Create a new :class:`StorePut` event."""
+
+    get = BoundClass(StoreGet)
+    """Create a new :class:`StoreGet` event."""
 
     def _do_put(self, event):
         if len(self.items) < self._capacity:
@@ -135,13 +139,15 @@ class FilterStore(Store):
 
     """
     GetQueue = FilterQueue
+    """The type to be used for the
+    :attr:`~simpy.resources.base.BaseResource.get_queue`."""
 
     def __init__(self, env, capacity=1):
         super(FilterStore, self).__init__(env, capacity)
         self.get_queue.store = self
 
-        # Add event constructors as methods
-        self.get = types.MethodType(FilterStoreGet, self)
+    get = BoundClass(FilterStoreGet)
+    """Create a new :class:`FilterStoreGet` event."""
 
     def _do_get(self, event):
         for item in self.items:
