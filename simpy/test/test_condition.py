@@ -1,7 +1,5 @@
 import pytest
 
-from simpy import simulate
-
 
 def test_operator_and(env):
     def process(env):
@@ -15,7 +13,7 @@ def test_operator_and(env):
         }
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_operator_or(env):
@@ -28,7 +26,7 @@ def test_operator_or(env):
         }
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_operator_nested_and(env):
@@ -43,7 +41,7 @@ def test_operator_nested_and(env):
         assert env.now == 1
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_operator_nested_or(env):
@@ -59,7 +57,7 @@ def test_operator_nested_or(env):
         assert env.now == 2
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_nested_cond_with_error(env):
@@ -75,7 +73,7 @@ def test_nested_cond_with_error(env):
             assert err.args == ('Onoes!',)
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_cond_with_error(env):
@@ -91,7 +89,7 @@ def test_cond_with_error(env):
             assert err.args == ('Onoes, failed after 0!',)
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_cond_with_nested_error(env):
@@ -107,7 +105,7 @@ def test_cond_with_nested_error(env):
             assert err.args == ('Onoes, failed after 0!',)
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_cond_with_uncaught_error(env):
@@ -122,7 +120,7 @@ def test_cond_with_uncaught_error(env):
 
     env.start(process(env))
     try:
-        simulate(env)
+        env.simulate()
         assert False, 'There should have been an exception.'
     except ValueError:
         pass
@@ -141,7 +139,7 @@ def test_iand_with_and_cond(env):
         assert sorted(results.values()) == [0, 1, 2]
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_iand_with_or_cond(env):
@@ -156,7 +154,7 @@ def test_iand_with_or_cond(env):
         assert sorted(results.values()) == [0, 1]
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_ior_with_or_cond(env):
@@ -171,7 +169,7 @@ def test_ior_with_or_cond(env):
         assert sorted(results.values()) == [0]
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_ior_with_and_cond(env):
@@ -186,7 +184,7 @@ def test_ior_with_and_cond(env):
         assert sorted(results.values()) == [0]
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_immutable_results(env):
@@ -207,7 +205,7 @@ def test_immutable_results(env):
         assert results == {timeout[0]: 0}
 
     env.start(process(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_shared_and_condition(env):
@@ -225,7 +223,7 @@ def test_shared_and_condition(env):
 
     env.start(p1(env, c1))
     env.start(p2(env, c2))
-    simulate(env)
+    env.simulate()
 
 
 def test_shared_or_condition(env):
@@ -243,4 +241,4 @@ def test_shared_or_condition(env):
 
     env.start(p1(env, c1))
     env.start(p2(env, c2))
-    simulate(env)
+    env.simulate()

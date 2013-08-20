@@ -131,7 +131,7 @@ machines = [Machine(env, 'Machine %d' % i, repairman)
 env.start(other_jobs(env, repairman))
 
 # Simulate!
-simpy.simulate(env, until=SIM_TIME)
+env.simulate(until=SIM_TIME)
 
 # Analyis/results
 print('Machine shop results after %s weeks' % WEEKS)

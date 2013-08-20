@@ -12,7 +12,6 @@ except ImportError:
 
 import pytest
 
-from simpy import simulate
 from simpy.rt import RealtimeEnvironment
 
 
@@ -36,7 +35,7 @@ def test_rt(log, factor):
     env.start(process(env, log, 0.02, 1))
 
     start = perf_counter()
-    simulate(env, 2)
+    env.simulate(2)
     duration = perf_counter() - start
 
     assert check_duration(duration, 2 * factor)
@@ -51,14 +50,14 @@ def test_rt_multiple_call(log):
     env.start(process(env, log, 0.01, 2))
     env.start(process(env, log, 0.01, 3))
 
-    simulate(env, 5)
+    env.simulate(5)
     duration = perf_counter() - start
 
     # assert almost_equal(duration, 0.2)
     assert check_duration(duration, 5 * 0.05)
     assert log == [2, 3, 4]
 
-    simulate(env, 12)
+    env.simulate(12)
     duration = perf_counter() - start
 
     assert check_duration(duration, 12 * 0.05)
@@ -71,7 +70,7 @@ def test_rt_slow_sim_default_behavior(log):
     env = RealtimeEnvironment(factor=0.05)
     env.start(process(env, log, 0.1, 1))
 
-    err = pytest.raises(RuntimeError, simulate, env, 3)
+    err = pytest.raises(RuntimeError, env.simulate, 3)
     assert 'Simulation too slow for real time (0.05' in err.value.args[0]
     assert log == []
 
@@ -82,7 +81,7 @@ def test_rt_slow_sim_no_error(log):
     env.start(process(env, log, 0.1, 1))
 
     start = perf_counter()
-    simulate(env, 2)
+    env.simulate(2)
     duration = perf_counter() - start
 
     assert check_duration(duration, 2 * 0.1)
@@ -92,6 +91,6 @@ def test_rt_slow_sim_no_error(log):
 def test_rt_illegal_until():
     """Test illegal value for *until*."""
     env = RealtimeEnvironment()
-    err = pytest.raises(ValueError, simulate, env, -1)
+    err = pytest.raises(ValueError, env.simulate, -1)
     assert err.value.args[0] == ('until(=-1.0) should be > the current '
             'simulation time.')

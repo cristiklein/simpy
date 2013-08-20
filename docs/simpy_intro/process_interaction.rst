@@ -57,7 +57,7 @@ returns, the ``run`` process starts waiting for it to finish::
     ...         yield self.env.timeout(duration)
 
 Starting the simulation is straight forward again: We create an environment,
-one (or more) cars and finally call :func:`simulate()`.
+one (or more) cars and finally call meth:`~Environment.simulate()`.
 
 ::
 

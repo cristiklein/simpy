@@ -6,7 +6,7 @@ import re
 
 import pytest
 
-from simpy import Interrupt, simulate
+from simpy import Interrupt
 from simpy.util import start_delayed, subscribe_at
 
 
@@ -16,7 +16,7 @@ def test_start_delayed(env):
         yield env.timeout(1)
 
     start_delayed(env, pem(env), delay=5)
-    simulate(env)
+    env.simulate()
 
 
 def test_start_delayed_error(env):
@@ -45,7 +45,7 @@ def test_subscribe(env):
             assert env.now == 3
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_subscribe_terminated_proc(env):
@@ -62,7 +62,7 @@ def test_subscribe_terminated_proc(env):
         pytest.raises(RuntimeError, subscribe_at, child_proc)
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_subscribe_with_join(env):
@@ -82,7 +82,7 @@ def test_subscribe_with_join(env):
             assert child_proc2.is_alive
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_subscribe_at_timeout(env):
@@ -97,7 +97,7 @@ def test_subscribe_at_timeout(env):
             assert env.now == 2
 
     env.start(pem(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_subscribe_at_timeout_with_value(env):
@@ -113,7 +113,7 @@ def test_subscribe_at_timeout_with_value(env):
             assert env.now == 2
 
     env.start(pem(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_all_of(env):
@@ -127,7 +127,7 @@ def test_all_of(env):
         assert env.now == 9
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_wait_for_all_with_errors(env):
@@ -156,7 +156,7 @@ def test_wait_for_all_with_errors(env):
         assert events[2] not in condition._interim_values
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_all_of_chaining(env):
@@ -172,7 +172,7 @@ def test_all_of_chaining(env):
         assert sorted(results.values()) == [0, 0, 1, 1]
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_all_of_chaining_intermediate_results(env):
@@ -192,7 +192,7 @@ def test_all_of_chaining_intermediate_results(env):
         assert sorted(results.values()) == [0, 0, 1, 1]
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_all_of_with_triggered_events(env):
@@ -209,7 +209,7 @@ def test_all_of_with_triggered_events(env):
                             r'been triggered', e.args[0])
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_any_of(env):
@@ -223,7 +223,7 @@ def test_any_of(env):
         assert env.now == 0
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_any_of_with_errors(env):
@@ -248,7 +248,7 @@ def test_any_of_with_errors(env):
         assert events[1] not in condition._interim_values
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_any_of_chaining(env):
@@ -264,7 +264,7 @@ def test_any_of_chaining(env):
         assert sorted(results.values()) == ['b']
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_any_of_with_triggered_events(env):
@@ -281,17 +281,17 @@ def test_any_of_with_triggered_events(env):
                             r'been triggered', e.args[0])
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_empty_any_of(env):
     """AnyOf will triggered immediately if there are no events."""
     def parent(env):
         results = yield env.any_of([])
-        assert results == {'a': 1}
+        assert results == {}
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()
 
 
 def test_empty_all_of(env):
@@ -301,4 +301,4 @@ def test_empty_all_of(env):
         assert results == {}
 
     env.start(parent(env))
-    simulate(env)
+    env.simulate()

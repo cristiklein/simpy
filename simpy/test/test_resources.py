@@ -35,7 +35,7 @@ def test_resource(env, log):
     assert resource.count == 0
     env.start(pem(env, 'a', resource, log))
     env.start(pem(env, 'b', resource, log))
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [('a', 1), ('b',  2)]
 
@@ -53,7 +53,7 @@ def test_resource_context_manager(env, log):
     resource = simpy.Resource(env, capacity=1)
     env.start(pem(env, 'a', resource, log))
     env.start(pem(env, 'b', resource, log))
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [('a', 1), ('b',  2)]
 
@@ -68,7 +68,7 @@ def test_resource_slots(env, log):
     resource = simpy.Resource(env, capacity=3)
     for i in range(9):
         env.start(pem(env, str(i), resource, log))
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [('0', 0), ('1', 0), ('2', 0),
             ('3', 1), ('4', 1), ('5', 1),
@@ -102,7 +102,7 @@ def test_resource_continue_after_interrupt(env):
     env.start(pem(env, res))
     proc = env.start(victim(env, res))
     env.start(interruptor(env, proc))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_resource_release_after_interrupt(env):
@@ -132,7 +132,7 @@ def test_resource_release_after_interrupt(env):
     env.start(blocker(env, res))
     victim_proc = env.start(victim(env, res))
     env.start(interruptor(env, victim_proc))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_resource_cm_exception(env, log):
@@ -153,7 +153,7 @@ def test_resource_cm_exception(env, log):
     # The second process is used to check if it was able to access the
     # resource:
     env.start(process(env, resource, log, False))
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [1, 2]
 
@@ -166,7 +166,7 @@ def test_resource_with_condition(env):
 
     resource = simpy.Resource(env, 1)
     env.start(process(env, resource))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_resource_with_priority_queue(env):
@@ -183,7 +183,7 @@ def test_resource_with_priority_queue(env):
     env.start(process(env, 2, resource, 3, 10))
     env.start(process(env, 2, resource, 3, 15))  # Test equal priority
     env.start(process(env, 4, resource, 1, 5))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_get_users(env):
@@ -194,11 +194,11 @@ def test_get_users(env):
 
     resource = simpy.Resource(env, 1)
     procs = [env.start(process(env, resource)) for i in range(3)]
-    simpy.simulate(env, until=1)
+    env.simulate(until=1)
     assert [evt.proc for evt in resource.users] == procs[0:1]
     assert [evt.proc for evt in resource.queue] == procs[1:]
 
-    simpy.simulate(env, until=2)
+    env.simulate(until=2)
     assert [evt.proc for evt in resource.users] == procs[1:2]
     assert [evt.proc for evt in resource.queue] == procs[2:]
 
@@ -225,7 +225,7 @@ def test_preemptive_resource(env, log):
     p2 = env.start(process(2, env, res, 1, 0, log))
     p3 = env.start(process(3, env, res, 2, 2, log))
 
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
 
@@ -249,7 +249,7 @@ def test_preemptive_resource_timeout_0(env):
     env.start(proc_a(env, resource, 1))
     env.start(proc_b(env, resource, 0))
 
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_mixed_preemption(env, log):
@@ -270,7 +270,7 @@ def test_mixed_preemption(env, log):
     p3 = env.start(process(3, env, res, 1, 0, True, log))
     p4 = env.start(process(4, env, res, 2, 2, True, log))
 
-    simpy.simulate(env)
+    env.simulate()
 
     assert log == [
         (1, 1, (p3, 0)),
@@ -312,7 +312,7 @@ def test_container(env, log):
     buf = simpy.Container(env, init=0, capacity=2)
     env.start(putter(env, buf, log))
     env.start(getter(env, buf, log))
-    simpy.simulate(env, until=5)
+    env.simulate(until=5)
 
     assert log == [('p', 1), ('g', 1), ('g', 2), ('p', 2)]
 
@@ -329,11 +329,11 @@ def test_container_get_queued(env):
     p2 = env.start(proc(env, 1, container, 'put'))
     p3 = env.start(proc(env, 1, container, 'put'))
 
-    simpy.simulate(env, until=1)
+    env.simulate(until=1)
     assert [ev.proc for ev in container.put_queue] == []
     assert [ev.proc for ev in container.get_queue] == [p0]
 
-    simpy.simulate(env, until=2)
+    env.simulate(until=2)
     assert [ev.proc for ev in container.put_queue] == [p3]
     assert [ev.proc for ev in container.get_queue] == []
 
@@ -380,7 +380,7 @@ def test_store(env):
     # NOTE: Does the start order matter? Need to test this.
     env.start(putter(env, store, item))
     env.start(getter(env, store, item))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_store_capacity(env):
@@ -400,4 +400,4 @@ def test_filter_store(env):
         assert get_event.triggered
 
     env.start(pem(env))
-    simpy.simulate(env)
+    env.simulate()

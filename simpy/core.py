@@ -564,19 +564,17 @@ class Scheduler(object):
             raise EmptySchedule()
 
 
-class Environment(object):
-    """The *environment* executes processes and manages access to global
-    information (such as the time, see :attr:`now`).
+class BaseEnvironment(object):
+    """Base class for an environment, which schedules and executes events and
+    processes.
 
     This class also provides aliases for common event types, for example:
     :attr:`process`, :attr:`timeout` and :attr:`event`.
     """
-    def __init__(self, initial_time=0, scheduler=None):
-        self._active_proc = None
 
-        if scheduler is None:
-            scheduler = Scheduler(self, initial_time)
+    def __init__(self, scheduler):
         self.scheduler = scheduler
+        self._active_proc = None
 
         self.schedule = self.scheduler.schedule
         self.pop = self.scheduler.pop
@@ -612,75 +610,81 @@ class Environment(object):
         """
         raise StopIteration(value)
 
+    def step(self):
+        """Process the next event for the Environment ``env``.
 
-def peek(env):
-    """Return the time of the Environment ``env``'s next event or
-    ``inf`` if the event queue is empty.
+        Raise an :exc:`EmptySchedule` if no valid event is on the heap.
 
-    """
-    return env.scheduler.peek()
+        """
+        event = self.pop()
 
+        # Process callbacks of the event.
+        for callback in event.callbacks:
+            callback(event)
+        event.callbacks = None
 
-def step(env):
-    """Get and process the next event for the Environment ``env``.
-
-    Raise an :exc:`IndexError` if no valid event is on the heap.
-
-    """
-    event = env.pop()
-
-    # Process callbacks of the event.
-    for callback in event.callbacks:
-        callback(event)
-    event.callbacks = None
-
-    if not event.ok:
-        # The event has failed, check if it is defused. Raise the value if not.
-        if not hasattr(event, 'defused'):
-            raise event._value
+        if not event.ok:
+            # The event has failed, check if it is defused. Raise the value if not.
+            if not hasattr(event, 'defused'):
+                raise event._value
 
 
-def simulate(env, until=None):
-    """Simulate the environment until the given criterion *until* is met.
-
-    The parameter ``until`` specifies when the simulation ends.
-
-    - If it is ``None`` (which is the default) the simulation will only
-      stop if there are no further events.
-
-    - If it is an :class:`Event` the simulation will stop once this
-      event has happened.
-
-    - If it can be converted to a number the simulation will stop when the
-      simulation time reaches *until*. (*Note:* Internally, an event is
-      created, so the simulation time will be exactly *until* afterwards. No
-      other events scheduled for *until* will be processed, though---as it is
-      at the very beginning of the simulation.)
+class Environment(BaseEnvironment):
+    """The *environment* contains the simulation state and provides a
+    basic API for processes to interact with it.
 
     """
-    if until is None:
-        until = env.event()
-    elif not isinstance(until, Event):
-        at = float(until)
+    def __init__(self, initial_time=0, scheduler=None):
+        if scheduler is None:
+            scheduler = Scheduler(self, initial_time)
+        super(Environment, self).__init__(scheduler)
 
-        if at <= env.now:
-            raise ValueError('until(=%s) should be > the current simulation '
-                             'time.' % at)
+    def peek(self):
+        """Return the time at which the next event is scheduled or ``inf`` if
+        the event queue is empty.
 
-        # Schedule the event with before all regular timeouts.
-        until = env.event()
-        until._value = None
-        env.schedule(until, HIGH_PRIORITY, at - env.now)
+        """
+        return self.scheduler.peek()
 
-    until.callbacks.append(_stop_simulate)
+    def simulate(self, until=None):
+        """Executes events until the given criterion *until* is met.
 
-    try:
-        while True:
-            step(env)
-    except EmptySchedule:
-        pass
+        - If it is ``None`` (which is the default) the execution will only
+          stop if there are no further events.
 
-    return until.value if until.triggered else None
+        - If it is an :class:`Event` the execution will stop once this
+          event has been triggered.
+
+        - If it can be converted to a number the execution will stop when the
+          simulation time reaches *until*. (*Note:* Internally, an event is
+          created, so the simulation time will be exactly *until* afterwards.
+          No other events scheduled for *until* will be processed, though---as
+          it is at the very beginning of the simulation.)
+
+        """
+        if until is None:
+            until = Event(self)
+        elif not isinstance(until, Event):
+            at = float(until)
+
+            if at <= self.now:
+                raise ValueError('until(=%s) should be > the current '
+                        'simulation time.' % at)
+
+            # Schedule the event with before all regular timeouts.
+            until = Event(self)
+            until._value = None
+            self.schedule(until, HIGH_PRIORITY, at - self.now)
+
+        until.callbacks.append(_stop_simulate)
+
+        try:
+            while True:
+                self.step()
+        except EmptySchedule:
+            pass
+
+        return until.value if until.triggered else None
 
 
 def _describe_frame(frame):
