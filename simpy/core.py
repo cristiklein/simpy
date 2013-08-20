@@ -569,9 +569,9 @@ class BaseEnvironment(object):
         raise StopIteration(value)
 
     def step(env):
-        """Get and process the next event for the Environment ``env``.
+        """Process the next event for the Environment ``env``.
 
-        Raise an :exc:`IndexError` if no valid event is on the heap.
+        Raise an :exc:`EmptySchedule` if no valid event is on the heap.
 
         """
         event = env.pop()
