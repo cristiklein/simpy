@@ -18,15 +18,15 @@ Performing the simulation of an environment
     .. automethod:: simulate
     .. automethod:: exit
 
-    .. method:: event(self)
+    .. method:: event()
 
         Returns a new instance of :class:`Event`.
 
-    .. method:: suspend(self)
+    .. method:: suspend()
 
         Convenience method. Also returns a new instance of :class:`Event`.
 
-    .. method:: timeout(self, delay, value=None)
+    .. method:: timeout(delay, value=None)
 
         Returns a new instance of :class:`Timeout`.
 
@@ -34,7 +34,7 @@ Performing the simulation of an environment
 
         Returns a new instance of :class:`Process`.
 
-    .. method:: start(self, generator)
+    .. method:: start(generator)
 
         Convenience method. Also returns a new instance of :class:`Process`.
 
