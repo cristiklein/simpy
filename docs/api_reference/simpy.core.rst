@@ -30,7 +30,7 @@ Performing the simulation of an environment
 
         Returns a new instance of :class:`Timeout`.
 
-    .. method:: process(self, generator)
+    .. method:: process(generator)
 
         Returns a new instance of :class:`Process`.
 
