@@ -7,7 +7,7 @@ This modules contains various utility functions:
 - :func:`any_of()`: Wait until one of the passed events occurred.
 
 """
-from simpy.core import Condition, all_events, any_event
+from simpy.core import Condition
 
 
 def start_delayed(env, peg, delay):
@@ -66,31 +66,3 @@ def subscribe_at(event):
         env.start(signaller(event, subscriber))
     else:
         raise RuntimeError('%s has already terminated.' % event)
-
-
-def all_of(events):
-    """Return a :class:`~simpy.core.Condition` event that waits for all
-    ``events``.
-
-    Raise a :exc:`ValueError` if no events are passed.
-
-    """
-    if not events:
-        raise ValueError('No events were passed.')
-
-    env = events[0].env
-    return Condition(env, all_events, events)
-
-
-def any_of(events):
-    """Return a :class:`~simpy.core.Condition` event that waits for the
-    first of ``events`` to occur.
-
-    Raise a :exc:`ValueError` if no events are passed.
-
-    """
-    if not events:
-        raise ValueError('No events were passed.')
-
-    env = events[0].env
-    return Condition(env, any_event, events)

@@ -30,7 +30,6 @@ Example By:
 import random
 
 import simpy
-import simpy.util
 
 
 RANDOM_SEED = 42
@@ -59,7 +58,7 @@ class BroadcastPipe(object):
         if not self.pipes:
             raise RuntimeError('There are no output pipes.')
         events = [store.put(value) for store in self.pipes]
-        return simpy.util.all_of(events)  # Condition event for all "events"
+        return self.env.all_of(events)  # Condition event for all "events"
 
     def get_output_conn(self):
         """Get a new output connection for this broadcast pipe.

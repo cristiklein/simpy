@@ -193,10 +193,10 @@ class Event(object):
         return self
 
     def __and__(self, other):
-        return Condition(self.env, all_events, [self, other])
+        return Condition(self.env, Condition.all_events, [self, other])
 
     def __or__(self, other):
-        return Condition(self.env, any_event, [self, other])
+        return Condition(self.env, Condition.any_events, [self, other])
 
 
 class Condition(Event):
@@ -236,6 +236,10 @@ class Condition(Event):
         # condition once it is being processed.
         self.callbacks.append(self._collect_values)
 
+        # Immediately trigger the condition if it is already met.
+        if self._evaluate(self._events, self._interim_values):
+            self.succeed({})
+
     def _desc(self):
         """Return a string *Condition(and_or_or, [events])*."""
         return '%s(%s, %s)' % (self.__class__.__name__,
@@ -268,7 +272,7 @@ class Condition(Event):
         if event.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % event)
 
-        if type(event) is Condition:
+        if isinstance(event, Condition):
             self._sub_conditions.append(event)
 
         self._events.append(event)
@@ -293,30 +297,39 @@ class Condition(Event):
                 self.succeed({})
 
     def __iand__(self, other):
-        if self._evaluate is not all_events:
+        if self._evaluate is not Condition.all_events:
             # Use self.__and__
             return NotImplemented
 
         return self._add_event(other)
 
     def __ior__(self, other):
-        if self._evaluate is not any_event:
+        if self._evaluate is not Condition.any_events:
             # Use self.__or__
             return NotImplemented
 
         return self._add_event(other)
 
+    @staticmethod
+    def all_events(events, values):
+        return len(events) == len(values)
 
-def all_events(events, values):
-    """Helper for :class:`Condition`. Return ``True`` if there are
-    values for all ``events``."""
-    return len(events) == len(values)
+    @staticmethod
+    def any_events(events, values):
+        return len(values) > 0 or len(events) == 0
 
 
-def any_event(events, values):
-    """Helper for :class:`Condition`. Return ``True`` if there is at
-    least one value available from ``events``."""
-    return len(values) > 0
+class AllOf(Condition):
+    """A condition event that waits for all ``events``."""
+    def __init__(self, env, events):
+        Condition.__init__(self, env, Condition.all_events, events)
+
+
+class AnyOf(Condition):
+    def __init__(self, env, events):
+        """A condition event that waits until the first of ``events`` is
+        triggered."""
+        Condition.__init__(self, env, Condition.any_events, events)
 
 
 class Timeout(Event):
@@ -583,6 +596,8 @@ class Environment(object):
     process = BoundClass(Process)
     timeout = BoundClass(Timeout)
     event = BoundClass(Event)
+    all_of = BoundClass(AllOf)
+    any_of = BoundClass(AnyOf)
     suspend = event
     start = process
 
