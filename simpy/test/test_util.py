@@ -7,7 +7,7 @@ import re
 import pytest
 
 from simpy import Interrupt, simulate
-from simpy.util import start_delayed, subscribe_at, all_of, any_of
+from simpy.util import start_delayed, subscribe_at
 
 
 def test_start_delayed(env):
@@ -121,7 +121,7 @@ def test_all_of(env):
     def parent(env):
         # Start 10 events.
         events = [env.timeout(i, value=i) for i in range(10)]
-        results = yield all_of(events)
+        results = yield env.all_of(events)
 
         assert results == {events[i]: i for i in range(10)}
         assert env.now == 9
@@ -131,7 +131,7 @@ def test_all_of(env):
 
 
 def test_wait_for_all_with_errors(env):
-    """On default wait_for_all should fail immediately if one of its events
+    """On default AllOf should fail immediately if one of its events
     fails."""
     def child_with_error(env, value):
         yield env.timeout(value)
@@ -143,7 +143,7 @@ def test_wait_for_all_with_errors(env):
             env.timeout(3, value=3)]
 
         try:
-            condition = all_of(events)
+            condition = env.all_of(events)
             yield condition
             assert False, 'There should have been an exception'
         except RuntimeError as e:
@@ -163,8 +163,8 @@ def test_all_of_chaining(env):
     """If a wait_for_all condition A is chained to a wait_for_all condition B,
     B will be merged into A."""
     def parent(env):
-        condition_A = all_of([env.timeout(i, value=i) for i in range(2)])
-        condition_B = all_of([env.timeout(i, value=i) for i in range(2)])
+        condition_A = env.all_of([env.timeout(i, value=i) for i in range(2)])
+        condition_B = env.all_of([env.timeout(i, value=i) for i in range(2)])
 
         condition_A &= condition_B
 
@@ -180,8 +180,8 @@ def test_all_of_chaining_intermediate_results(env):
     another wait_for_all condition B, the results are copied into condition
     A."""
     def parent(env):
-        condition_A = all_of([env.timeout(i, value=i) for i in range(2)])
-        condition_B = all_of([env.timeout(i, value=i) for i in range(2)])
+        condition_A = env.all_of([env.timeout(i, value=i) for i in range(2)])
+        condition_B = env.all_of([env.timeout(i, value=i) for i in range(2)])
 
         yield env.timeout(0)
 
@@ -202,7 +202,7 @@ def test_all_of_with_triggered_events(env):
         yield env.timeout(2)
 
         try:
-            all_of([event])
+            env.all_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
             assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
@@ -217,7 +217,7 @@ def test_any_of(env):
     def parent(env):
         # Start 10 events.
         events = [env.timeout(i, value=i) for i in range(10)]
-        results = yield any_of(events)
+        results = yield env.any_of(events)
 
         assert results == {events[0]: 0}
         assert env.now == 0
@@ -237,7 +237,7 @@ def test_any_of_with_errors(env):
             env.timeout(2, value=2)]
 
         try:
-            condition = any_of(events)
+            condition = env.any_of(events)
             yield condition
             assert False, 'There should have been an exception'
         except RuntimeError as e:
@@ -255,8 +255,8 @@ def test_any_of_chaining(env):
     """If a any_of condition A is chained to a any_of condition B,
     B will be merged into A."""
     def parent(env):
-        condition_A = any_of([env.timeout(2, value='a')])
-        condition_B = any_of([env.timeout(1, value='b')])
+        condition_A = env.any_of([env.timeout(2, value='a')])
+        condition_B = env.any_of([env.timeout(1, value='b')])
 
         condition_A |= condition_B
 
@@ -274,11 +274,31 @@ def test_any_of_with_triggered_events(env):
         yield env.timeout(2)
 
         try:
-            any_of([event])
+            env.any_of([event])
             assert False, 'Expected an exception'
         except RuntimeError as e:
             assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
                             r'been triggered', e.args[0])
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_empty_any_of(env):
+    """AnyOf will triggered immediately if there are no events."""
+    def parent(env):
+        results = yield env.any_of([])
+        assert results == {'a': 1}
+
+    env.start(parent(env))
+    simulate(env)
+
+
+def test_empty_all_of(env):
+    """AllOf will triggered immediately if there are no events."""
+    def parent(env):
+        results = yield env.all_of([])
+        assert results == {}
 
     env.start(parent(env))
     simulate(env)
