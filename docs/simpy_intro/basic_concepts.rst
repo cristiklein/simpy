@@ -90,8 +90,8 @@ The :class:`Process` returned by :meth:`~Environment.start()` can be used for
 process interactions (we will cover that in the next section, so we will ignore
 it for now).
 
-Finally, we start the simulation by calling :func:`simulate()` and passing the
-environment as well as an end time to it.
+Finally, we start the simulation by calling meth:`Environment.simulate()` and
+passing the environment as well as an end time to it.
 
 
 What's Next?

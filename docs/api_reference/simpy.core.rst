@@ -8,14 +8,14 @@
 Performing the simulation of an environment
 ===========================================
 
-.. autofunction:: peek
-.. autofunction:: step
-.. autofunction:: simulate
-
 .. autoclass:: Environment
 
     .. autoattribute:: active_process
     .. autoattribute:: now
+
+    .. automethod:: step
+    .. automethod:: peek
+    .. automethod:: simulate
     .. automethod:: exit
 
     .. method:: event(self)

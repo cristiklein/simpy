@@ -24,8 +24,8 @@ class RealtimeScheduler(Scheduler):
 
     A simulation time step will take *factor* seconds of real time (one second
     by default), e.g. if you simulate from ``0`` until ``3`` with
-    ``factor=0.5``, the :func:`~simpy.core.simulate()` call will take at least
-    1.5 seconds.
+    ``factor=0.5``, the :meth:`~simpy.core.Environment.simulate()` call will
+    take at least 1.5 seconds.
 
     If the processing of the events for a time step takes too long,
     a :exc:`RuntimeError` is raised by :meth:`pop()`. You can disable this
