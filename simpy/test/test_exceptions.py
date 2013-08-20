@@ -25,7 +25,7 @@ def test_error_forwarding(env):
             assert err.args[0] == 'Onoes!'
 
     env.start(parent(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_no_parent_process(env):
@@ -45,7 +45,7 @@ def test_no_parent_process(env):
             pytest.fail('There should be no error (%s).' % err)
 
     env.start(parent(env))
-    pytest.raises(ValueError, simpy.simulate, env)
+    pytest.raises(ValueError, env.simulate)
 
 
 def test_crashing_child_traceback(env):
@@ -70,7 +70,7 @@ def test_crashing_child_traceback(env):
             assert 'raise RuntimeError(\'Oh noes,' in stacktrace
 
     env.start(root(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 @pytest.mark.skipif('sys.version_info[0] < 3')
@@ -93,7 +93,7 @@ def test_exception_chaining(env):
 
     env.start(grandparent(env))
     try:
-        simpy.simulate(env)
+        env.simulate()
         pytest.fail('There should have been an exception')
     except RuntimeError:
         import traceback
@@ -111,7 +111,7 @@ def test_invalid_event(env):
 
     env.start(root(env))
     try:
-        simpy.simulate(env)
+        env.simulate()
         pytest.fail('Hey, this is not allowed!')
     except RuntimeError as err:
         assert err.args[0].endswith('Invalid yield value "None"')
@@ -124,7 +124,7 @@ def test_exception_handling(env):
     event = env.event()
     event.fail(RuntimeError())
     try:
-        simpy.simulate(env, until=1)
+        env.simulate(until=1)
         assert False, 'There must be a RuntimeError!'
     except RuntimeError:
         pass
@@ -140,7 +140,7 @@ def test_callback_exception_handling(env):
     event.callbacks.append(callback)
     event.fail(RuntimeError())
     assert not hasattr(event, 'defused'), 'Event has been defused immediately'
-    simpy.simulate(env, until=1)
+    env.simulate(until=1)
     assert event.defused, 'Event has not been defused'
 
 
@@ -158,5 +158,5 @@ def test_process_exception_handling(env):
     event.fail(RuntimeError())
 
     assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'
-    simpy.simulate(env, until=1)
+    env.simulate(until=1)
     assert event.defused, 'Event has not been defused'

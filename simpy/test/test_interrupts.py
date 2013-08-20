@@ -28,7 +28,7 @@ def test_interruption(env):
         child_process.interrupt('interrupt!')
 
     env.start(interruptor(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_concurrent_interrupts(env, log):
@@ -51,7 +51,7 @@ def test_concurrent_interrupts(env, log):
     for name in ('boggis', 'bunce', 'beans'):
         env.start(farmer(env, name, fantastic_mr_fox))
 
-    simpy.simulate(env, 20)
+    env.simulate(20)
     assert log == [(0, 'boggis'), (0, 'bunce'), (0, 'beans')]
 
 
@@ -72,7 +72,7 @@ def test_init_interrupt(env):
         yield env.timeout(1)
 
     env.start(root(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_interrupt_terminated_process(env):
@@ -91,7 +91,7 @@ def test_interrupt_terminated_process(env):
         yield env.timeout(1)
 
     env.start(parent(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_multiple_interrupts(env):
@@ -116,7 +116,7 @@ def test_multiple_interrupts(env):
         assert result == 1
 
     env.start(parent(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_interrupt_self(env):
@@ -126,7 +126,7 @@ def test_interrupt_self(env):
         yield env.timeout(0)
 
     env.start(pem(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_immediate_interrupt(env, log):
@@ -143,7 +143,7 @@ def test_immediate_interrupt(env, log):
 
     c = env.start(child(env, log))
     env.start(resumer(env, c))
-    simpy.simulate(env)
+    env.simulate()
 
     # Confirm that child has been interrupted immediately at timestep 0.
     assert log == [0]
@@ -163,7 +163,7 @@ def test_interrupt_suspend(env):
         child_proc.interrupt()
 
     env.start(parent(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_interrupt_event(env):
@@ -180,7 +180,7 @@ def test_interrupt_event(env):
         child_proc.interrupt()
 
     env.start(parent(env))
-    simpy.simulate(env)
+    env.simulate()
 
 
 def test_concurrent_behaviour(env):
@@ -201,4 +201,4 @@ def test_concurrent_behaviour(env):
     proc_a = env.start(proc_a(env))
     env.start(proc_b(env, proc_a))
 
-    simpy.simulate(env)
+    env.simulate()

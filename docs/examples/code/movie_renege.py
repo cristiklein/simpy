@@ -95,7 +95,7 @@ theater = Theater(counter, movies, available, sold_out, when_sold_out,
 
 # Start process and simulate
 env.start(customer_arrivals(env, theater))
-simpy.simulate(env, until=SIM_TIME)
+env.simulate(until=SIM_TIME)
 
 # Analysis/results
 for movie in movies:

@@ -8,10 +8,6 @@
 Performing the simulation of an environment
 ===========================================
 
-.. autofunction:: peek
-.. autofunction:: step
-.. autofunction:: simulate
-
 .. autoclass:: Environment
     :members:
 

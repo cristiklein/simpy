@@ -94,4 +94,4 @@ env = simpy.Environment()
 env.start(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
 
 # Simulate!
-simpy.simulate(env, until=SIM_TIME)
+env.simulate(until=SIM_TIME)

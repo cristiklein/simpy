@@ -101,4 +101,4 @@ env.start(gas_station_control(env, fuel_pump))
 env.start(car_generator(env, gas_station, fuel_pump))
 
 # Simulate!
-simpy.simulate(env, until=SIM_TIME)
+env.simulate(until=SIM_TIME)
