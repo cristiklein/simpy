@@ -62,7 +62,7 @@ print('Bank renege')
 random.seed(RANDOM_SEED)
 env = simpy.Environment()
 
-# Start processes and simulate
+# Start processes and run
 counter = simpy.Resource(env, capacity=1)
 env.start(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counter))
-env.simulate()
+env.run()

@@ -100,5 +100,5 @@ fuel_pump = simpy.Container(env, GAS_STATION_SIZE, init=GAS_STATION_SIZE)
 env.start(gas_station_control(env, fuel_pump))
 env.start(car_generator(env, gas_station, fuel_pump))
 
-# Simulate!
-env.simulate(until=SIM_TIME)
+# Execute!
+env.run(until=SIM_TIME)

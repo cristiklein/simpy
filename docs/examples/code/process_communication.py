@@ -122,7 +122,7 @@ env.start(message_generator('Generator A', env, pipe))
 env.start(message_consumer('Consumer A', env, pipe))
 
 print('\nOne-to-one pipe communication\n')
-env.simulate(until=SIM_TIME)
+env.run(until=SIM_TIME)
 
 # For one-to many use BroadcastPipe
 # (Note: could also be used for one-to-one,many-to-one or many-to-many)
@@ -134,4 +134,4 @@ env.start(message_consumer('Consumer A', env, bc_pipe.get_output_conn()))
 env.start(message_consumer('Consumer B', env, bc_pipe.get_output_conn()))
 
 print('\nOne-to-many pipe communication\n')
-env.simulate(until=SIM_TIME)
+env.run(until=SIM_TIME)

@@ -1,5 +1,5 @@
 """
-Helpers for real-time (aka *wallclock time*) simulations.
+Helpers for real-time (aka *wallclock time*) environments.
 
 """
 try:
@@ -22,9 +22,9 @@ class RealtimeScheduler(Scheduler):
     The arguments *env* and an *initial_time* are passed to
     :class:`~simpy.core.Scheduler`.
 
-    A simulation time step will take *factor* seconds of real time (one second
-    by default), e.g. if you simulate from ``0`` until ``3`` with
-    ``factor=0.5``, the :meth:`~simpy.core.Environment.simulate()` call will
+    A time step will take *factor* seconds of real time (one second
+    by default), e.g. if you step from ``0`` until ``3`` with
+    ``factor=0.5``, the :meth:`simpy.core.BaseEnvironment.run()` call will
     take at least 1.5 seconds.
 
     If the processing of the events for a time step takes too long,
@@ -45,8 +45,8 @@ class RealtimeScheduler(Scheduler):
         The call is delayed corresponding to the real-time *factor* of the
         scheduler.
 
-        If the events of a simulation time step are processed to slowly for the
-        given *factor* and if *strict* is enabled, raise a :exc:`RuntimeError`.
+        If the events of a time step are processed too slowly for the given
+        *factor* and if *strict* is enabled, raise a :exc:`RuntimeError`.
 
         """
         event = super(RealtimeScheduler, self).pop()
@@ -67,8 +67,8 @@ class RealtimeScheduler(Scheduler):
 
 class RealtimeEnvironment(Environment):
     """This :class:`~simpy.core.Environment` uses a :class:`RealtimeScheduler`
-    by default, so a simulation time step will take *factor* seconds of real
-    time (see :class:`RealtimeScheduler` for more information).
+    by default, so a time step will take *factor* seconds of real time (see
+    :class:`RealtimeScheduler` for more information).
 
     """
     def __init__(self, initial_time=0, factor=1.0, strict=True):

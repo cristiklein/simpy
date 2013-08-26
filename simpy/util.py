@@ -3,8 +3,6 @@ This modules contains various utility functions:
 
 - :func:`start_delayed()`: Start a process with a given delay.
 - :func:`subscribe_at()`: Receive an interrupt if an event occurs.
-- :func:`all_of()`: Wait until all passed events have occurred.
-- :func:`any_of()`: Wait until one of the passed events occurred.
 
 """
 from simpy.core import Condition

@@ -5,15 +5,19 @@
 
 .. automodule:: simpy.core
 
-Performing the simulation of an environment
-===========================================
+Environments
+============
 
 .. autoclass:: Environment
     :members:
+    :show-inheritance:
+    :inherited-members:
 
+.. autoclass:: BaseEnvironment
+    :members:
 
-Events and helpers
-==================
+Events
+======
 
 .. autoclass:: Event(env, value=PENDING, name=None)
 
@@ -88,8 +92,8 @@ Events and helpers
         Optional name for this event. Used for :class:`str` / :func:`repr` if
         not ``None``.
 
-.. autofunction:: all_events
-.. autofunction:: any_event
+    .. automethod:: all_events
+    .. automethod:: any_events
 
 
 .. autoclass:: Initialize
@@ -102,6 +106,10 @@ Events and helpers
 
         The :class:`Environment` the event lives in.
 
+
+.. autoclass:: AllOf
+
+.. autoclass:: AnyOf
 
 Miscellaneous (Scheduling, Interrupt, constants)
 ================================================
