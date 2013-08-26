@@ -111,23 +111,8 @@ Events
 
 .. autoclass:: AnyOf
 
-Miscellaneous (Scheduling, Interrupt, constants)
-================================================
-
-.. autoclass:: Scheduler
-    :members:
-
-    .. attribute:: env
-
-        The :class:`Environment` that the scheduler is associated with.
-
-    .. attribute:: now
-
-        The current simulation time.
-
-    .. attribute:: queue
-
-        A list with all currently scheduled events.
+Miscellaneous (Interrupt and constants)
+=======================================
 
 .. autoclass:: EmptySchedule
 
