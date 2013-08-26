@@ -101,11 +101,11 @@ class Event(object):
 
     """
     def __init__(self, env, value=PENDING):
+        self.env = env
+        """The :class:`Environment` the event lives in."""
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self.env = env
-        """The :class:`Environment` the event lives in."""
         self._value = value
 
     def __repr__(self):
@@ -213,10 +213,9 @@ class Condition(Event):
 
     The ``evaluate`` function receives the list of target events and the
     dictionary with all values currently available. If it returns
-    ``True``, the condition is scheduled. SimPy provides the
-    :func:`Condition.all_events()` and :func:`Condition.any_events()` functions
-    that are used for the implementation of *and* (``&``) and *or* (``|``) of
-    all SimPy event types.
+    ``True``, the condition is scheduled. The :func:`Condition.all_events()`
+    and :func:`Condition.any_events()` functions are used to implement *and*
+    (``&``) and *or* (``|``) for events.
 
     Since condition are normal events, too, they can also be used as
     sub- or nested conditions.
@@ -366,7 +365,7 @@ class Timeout(Event):
 
 
 class Initialize(Event):
-    """Initializes a process."""
+    """Initializes a process. Only used internally by :class:`Process`."""
     def __init__(self, env, process):
         self.env = env
         self.name = None
