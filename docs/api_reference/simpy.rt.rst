@@ -6,6 +6,3 @@
 
 .. autoclass:: RealtimeEnvironment
    :members:
-
-.. autoclass:: RealtimeScheduler
-   :members:

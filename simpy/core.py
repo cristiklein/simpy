@@ -524,48 +524,9 @@ class Process(Event):
 
 
 class EmptySchedule(Exception):
-    """Thrown by a :class:`Scheduler` if its :attr:`~Scheduler.queue` is
-    empty."""
+    """Thrown by the :class:`Environment` if there are no further events to be
+    processed."""
     pass
-
-
-class Scheduler(object):
-    """Schedulers manage the event queue of an :class:`Environment`.
-
-    They schedule/enqueue new events and pop events from the queue. They also
-    manage the current simulation time.
-
-    """
-    def __init__(self, env, initial_time):
-        self.env = env
-        self.now = initial_time
-        self.queue = []
-        self._eid = count()
-
-    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
-        """Schedule an *event* with a given *priority* and a *delay*."""
-        heappush(self.queue, (self.now + delay, priority, next(self._eid),
-                              event))
-
-    def peek(self):
-        """Get the time of the next scheduled event. Return ``Infinity`` if the
-        event queue is empty."""
-        try:
-            return self.queue[0][0]
-        except IndexError:
-            return Infinity
-
-    def pop(self):
-        """Remove and return the next event from the queue as ``(now, event)``.
-
-        Raise :exc:`EmptySchedule` if the schedule is empty.
-
-        """
-        try:
-            self.now, _, _, event = heappop(self.queue)
-            return event
-        except IndexError:
-            raise EmptySchedule()
 
 
 class BaseEnvironment(object):
@@ -637,21 +598,19 @@ class Environment(BaseEnvironment):
     This class also provides aliases for common event types, for example:
     :attr:`process`, :attr:`timeout` and :attr:`event`."""
 
-    def __init__(self, initial_time=0, scheduler=None):
-        if scheduler is None:
-            scheduler = Scheduler(self, initial_time)
-        self.scheduler = scheduler
+    def __init__(self, initial_time=0):
+        self._now = initial_time
+        self._queue = []
+        """A list with all currently scheduled events."""
+        self._eid = count()
         self._active_proc = None
-
-        self.schedule = self.scheduler.schedule
-        self.pop = self.scheduler.pop
 
         BoundClass.bind_early(self)
 
     @property
     def now(self):
         """Property that returns the current simulation time."""
-        return self.scheduler.now
+        return self._now
 
     @property
     def active_process(self):
@@ -667,27 +626,34 @@ class Environment(BaseEnvironment):
     start = process
 
     def exit(self, value=None):
-        """Stop the current process, optionally providing a ``value``.
-
-        The ``value`` is sent to processes waiting for the current
-        process.
+        """Convenience function provided for Python versions prior to 3.3. Stop
+        the current process, optionally providing a ``value``.
 
         .. note::
 
-            From Python 3.3, you can use ``return value`` instead.
-
-        """
+            From Python 3.3, you can use ``return value`` instead."""
         raise StopIteration(value)
 
+    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
+        """Schedule an *event* with a given *priority* and a *delay*."""
+        heappush(self._queue, (self._now + delay, priority, next(self._eid),
+                              event))
+
     def peek(self):
-        """Return the time at which the next event is scheduled or ``inf`` if
-        there are no futher events."""
-        return self.scheduler.peek()
+        """Get the time of the next scheduled event. Return ``Infinity`` if
+        there is no further event."""
+        try:
+            return self._queue[0][0]
+        except IndexError:
+            return Infinity
 
     def step(self):
         """Process the next event. If there are no further events an
         :exc:`EmptySchedule` will be risen."""
-        event = self.pop()
+        try:
+            self._now, _, _, event = heappop(self._queue)
+        except IndexError:
+            raise EmptySchedule()
 
         # Process callbacks of the event.
         for callback in event.callbacks:

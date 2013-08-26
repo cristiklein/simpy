@@ -1,7 +1,6 @@
-"""
-Helpers for real-time (aka *wallclock time*) environments.
+"""Provides an environment whose time passes according to the (scaled)
+real-time (aka *wallclock time*)."""
 
-"""
 try:
     # Python >= 3.3
     from time import monotonic as time, sleep
@@ -9,49 +8,46 @@ except ImportError:
     # Python < 3.3
     from time import time, sleep
 
-from simpy.core import Environment, Scheduler
+from simpy.core import Environment, Infinity
 
 
-Infinity = float('inf')
+class RealtimeEnvironment(Environment):
+    """An environment which uses the real (e.g. wallclock) time.
 
-
-class RealtimeScheduler(Scheduler):
-    """This :class:`~simpy.core.Scheduler` delays the :meth:`pop()` operation
-    to adjust to the wallclock time.
-
-    The arguments *env* and an *initial_time* are passed to
-    :class:`~simpy.core.Scheduler`.
-
-    A time step will take *factor* seconds of real time (one second
-    by default), e.g. if you step from ``0`` until ``3`` with
-    ``factor=0.5``, the :meth:`simpy.core.BaseEnvironment.run()` call will
-    take at least 1.5 seconds.
+    A time step will take *factor* seconds of real time (one second by
+    default), e.g. if you step from ``0`` until ``3`` with ``factor=0.5``, the
+    :meth:`simpy.core.BaseEnvironment.run()` call will take at least 1.5
+    seconds.
 
     If the processing of the events for a time step takes too long,
-    a :exc:`RuntimeError` is raised by :meth:`pop()`. You can disable this
-    behavior by setting *strict* to ``False``.
+    a :exc:`RuntimeError` is raised in :meth:`step()`. You can disable this
+    behavior by setting *strict* to ``False``."""
 
-    """
-    def __init__(self, env, initial_time, factor=1.0, strict=True):
-        Scheduler.__init__(self, env, initial_time)
-        self.sim_start = initial_time
+    def __init__(self, initial_time=0, factor=1.0, strict=True):
+        Environment.__init__(self, initial_time)
+
+        self.env_start = initial_time
         self.real_start = time()
         self.factor = factor
+        """Scaling factor of the realtime."""
         self.strict = strict
+        """Running mode of the environment. :meth:`step()` will raise a
+        :exc:`RuntimeError` if this is set to ``True`` and the processing of
+        events took too long."""
 
-    def pop(self):
-        """Return the next event from the schedule.
+    def step(self):
+        """Waits until enough realtime has passed for the next event to happen.
 
-        The call is delayed corresponding to the real-time *factor* of the
-        scheduler.
+        The delay is scaled according to the real-time :attr:`factor`. If the
+        events of a time step are processed too slowly for the given
+        :attr:`factor` and if :attr:`strict` is enabled, a :exc:`RuntimeError`
+        is risen."""
+        evt_time = self.peek()
 
-        If the events of a time step are processed too slowly for the given
-        *factor* and if *strict* is enabled, raise a :exc:`RuntimeError`.
+        if evt_time is Infinity:
+            raise EmptySchedule()
 
-        """
-        event = super(RealtimeScheduler, self).pop()
-
-        sim_delta = self.now - self.sim_start
+        sim_delta = evt_time - self.env_start
         real_delta = time() - self.real_start
         delay = sim_delta * self.factor - real_delta
 
@@ -62,15 +58,5 @@ class RealtimeScheduler(Scheduler):
             # for their computation, before an error is raised.
             raise RuntimeError(
                 'Simulation too slow for real time (%.3fs).' % -delay)
-        return event
 
-
-class RealtimeEnvironment(Environment):
-    """This :class:`~simpy.core.Environment` uses a :class:`RealtimeScheduler`
-    by default, so a time step will take *factor* seconds of real time (see
-    :class:`RealtimeScheduler` for more information).
-
-    """
-    def __init__(self, initial_time=0, factor=1.0, strict=True):
-        Environment.__init__(self, initial_time, RealtimeScheduler(
-            self, initial_time, factor, strict))
+        return Environment.step(self)
