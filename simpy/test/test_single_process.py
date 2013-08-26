@@ -19,7 +19,7 @@ def test_discrete_time_steps(env, log):
             yield env.timeout(delay=1)
 
     env.start(pem(env, log))
-    env.simulate(until=3)
+    env.run(until=3)
 
     assert log == [0, 1, 2]
 
@@ -32,7 +32,7 @@ def test_stop_self(env, log):
             yield env.timeout(1)
 
     env.start(pem(env, log))
-    env.simulate(10)
+    env.run(10)
 
     assert log == [0, 1]
 
@@ -51,7 +51,7 @@ def test_negative_timeout(env):
         yield env.timeout(-1)
 
     env.start(pem(env))
-    pytest.raises(ValueError, env.simulate)
+    pytest.raises(ValueError, env.run)
 
 
 def test_get_process_state(env):
@@ -68,12 +68,12 @@ def test_get_process_state(env):
 
     proc_a = env.start(pem_a(env))
     env.start(pem_b(env, proc_a))
-    env.simulate()
+    env.run()
 
 
-def test_simulate_negative_until(env):
-    """Test passing a negative time to simulate."""
-    pytest.raises(ValueError, env.simulate, -3)
+def test_run_negative_until(env):
+    """Test passing a negative time to run."""
+    pytest.raises(ValueError, env.run, -3)
 
 
 def test_timeout_value(env):
@@ -89,7 +89,7 @@ def test_timeout_value(env):
         assert val == 'ohai'
 
     env.start(pem(env))
-    env.simulate()
+    env.run()
 
 
 def test_event_succeeds(env):
@@ -106,7 +106,7 @@ def test_event_succeeds(env):
         event.succeed('ohai')
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 def test_event_fails(env):
@@ -126,7 +126,7 @@ def test_event_fails(env):
         event.fail(ValueError('ohai'))
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 def test_exit_with_process(env):
@@ -140,7 +140,7 @@ def test_exit_with_process(env):
         assert type(result) is Process
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 def test_shared_timeout(env, log):
@@ -152,7 +152,7 @@ def test_shared_timeout(env, log):
     for i in range(3):
         env.start(child(env, timeout, i, log))
 
-    env.simulate()
+    env.run()
     assert log == [(0, 1), (1, 1), (2, 1)]
 
 
@@ -170,29 +170,29 @@ def test_process_target(env):
     proc.interrupt()
 
 
-def test_simulate_resume(env):
+def test_run_resume(env):
     """Stopped simulation can be resumed."""
     events = [env.timeout(t) for t in (5, 10, 15)]
 
-    env.simulate(until=10)
+    env.run(until=10)
     assert events[0].processed
     assert not events[1].processed
     assert not events[2].processed
     assert env.now == 10
 
-    env.simulate(until=15)
+    env.run(until=15)
     assert events[1].processed
     assert not events[2].processed
     assert env.now == 15
 
-    env.simulate()
+    env.run()
     assert events[2].processed
     assert env.now == 15
 
 
-def test_simulate_until_value(env):
+def test_run_until_value(env):
     """Anything that can be converted to a float is a valid until value."""
-    env.simulate(until='3.141592')
+    env.run(until='3.141592')
     assert env.now == 3.141592
 
 
@@ -217,7 +217,7 @@ def test_event_value(env):
     """After an event has been triggered, its value becomes accessible."""
     event = env.timeout(0, 'I am the value')
 
-    env.simulate()
+    env.run()
 
     assert event.value == 'I am the value'
 
@@ -242,7 +242,7 @@ def test_triggered_event(env):
     event = env.event()
     event.succeed('i was already done')
 
-    result = env.simulate(env.start(pem(env, event)))
+    result = env.run(env.start(pem(env, event)))
 
     assert result == 'i was already done'
 

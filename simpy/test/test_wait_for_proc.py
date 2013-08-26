@@ -19,7 +19,7 @@ def test_wait_for_proc(env):
         assert env.now == 5
 
     env.start(waiter(env, finisher))
-    env.simulate()
+    env.run()
 
 
 def test_exit(env):
@@ -38,7 +38,7 @@ def test_exit(env):
         assert [result1, result2] == [1, 2]
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 @pytest.mark.skipif('sys.version_info[:2] < (3, 3)')
@@ -61,7 +61,7 @@ def test_return_value(env):
         assert [result1, result2] == [1, 2]
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 def test_child_exception(env):
@@ -78,7 +78,7 @@ def test_child_exception(env):
         assert isinstance(result, Exception)
 
     env.start(parent(env))
-    env.simulate()
+    env.run()
 
 
 def test_interrupted_join(env):
@@ -109,7 +109,7 @@ def test_interrupted_join(env):
 
     parent_proc = env.start(parent(env))
     env.start(interruptor(env, parent_proc))
-    env.simulate()
+    env.run()
 
 
 def test_interrupted_join_and_rejoin(env):
@@ -138,7 +138,7 @@ def test_interrupted_join_and_rejoin(env):
 
     parent_proc = env.start(parent(env))
     env.start(interruptor(env, parent_proc))
-    env.simulate()
+    env.run()
 
 
 def test_unregister_after_interrupt(env):
@@ -168,7 +168,7 @@ def test_unregister_after_interrupt(env):
 
     parent_proc = env.start(parent(env))
     env.start(interruptor(env, parent_proc))
-    env.simulate()
+    env.run()
 
 
 def test_error_and_interrupted_join(env):
@@ -195,4 +195,4 @@ def test_error_and_interrupted_join(env):
         yield env.timeout(0)
 
     env.start(parent(env))
-    pytest.raises(AttributeError, env.simulate)
+    pytest.raises(AttributeError, env.run)

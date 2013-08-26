@@ -6,6 +6,7 @@
 
 .. autoclass:: BaseResource
     :members:
+    :private-members:
 
 .. autoclass:: Put
     :members:

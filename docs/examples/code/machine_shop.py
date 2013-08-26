@@ -130,8 +130,8 @@ machines = [Machine(env, 'Machine %d' % i, repairman)
         for i in range(NUM_MACHINES)]
 env.start(other_jobs(env, repairman))
 
-# Simulate!
-env.simulate(until=SIM_TIME)
+# Execute!
+env.run(until=SIM_TIME)
 
 # Analyis/results
 print('Machine shop results after %s weeks' % WEEKS)

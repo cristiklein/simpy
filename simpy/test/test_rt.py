@@ -29,13 +29,13 @@ def check_duration(real, expected):
 
 @pytest.mark.parametrize('factor', [0.1, 0.05, 0.15])
 def test_rt(log, factor):
-    """Basic tests for simulate()."""
+    """Basic tests for run()."""
     env = RealtimeEnvironment(factor=factor)
     env.start(process(env, log, 0.01, 1))
     env.start(process(env, log, 0.02, 1))
 
     start = perf_counter()
-    env.simulate(2)
+    env.run(2)
     duration = perf_counter() - start
 
     assert check_duration(duration, 2 * factor)
@@ -43,21 +43,21 @@ def test_rt(log, factor):
 
 
 def test_rt_multiple_call(log):
-    """Test multiple calls to simulate()."""
+    """Test multiple calls to run()."""
     env = RealtimeEnvironment(factor=0.05)
     start = perf_counter()
 
     env.start(process(env, log, 0.01, 2))
     env.start(process(env, log, 0.01, 3))
 
-    env.simulate(5)
+    env.run(5)
     duration = perf_counter() - start
 
     # assert almost_equal(duration, 0.2)
     assert check_duration(duration, 5 * 0.05)
     assert log == [2, 3, 4]
 
-    env.simulate(12)
+    env.run(12)
     duration = perf_counter() - start
 
     assert check_duration(duration, 12 * 0.05)
@@ -70,7 +70,7 @@ def test_rt_slow_sim_default_behavior(log):
     env = RealtimeEnvironment(factor=0.05)
     env.start(process(env, log, 0.1, 1))
 
-    err = pytest.raises(RuntimeError, env.simulate, 3)
+    err = pytest.raises(RuntimeError, env.run, 3)
     assert 'Simulation too slow for real time (0.05' in err.value.args[0]
     assert log == []
 
@@ -81,7 +81,7 @@ def test_rt_slow_sim_no_error(log):
     env.start(process(env, log, 0.1, 1))
 
     start = perf_counter()
-    env.simulate(2)
+    env.run(2)
     duration = perf_counter() - start
 
     assert check_duration(duration, 2 * 0.1)
@@ -91,6 +91,6 @@ def test_rt_slow_sim_no_error(log):
 def test_rt_illegal_until():
     """Test illegal value for *until*."""
     env = RealtimeEnvironment()
-    err = pytest.raises(ValueError, env.simulate, -1)
+    err = pytest.raises(ValueError, env.run, -1)
     assert err.value.args[0] == ('until(=-1.0) should be > the current '
             'simulation time.')

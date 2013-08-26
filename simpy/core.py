@@ -214,9 +214,9 @@ class Condition(Event):
     The ``evaluate`` function receives the list of target events and the
     dictionary with all values currently available. If it returns
     ``True``, the condition is scheduled. SimPy provides the
-    :func:`all_events()` and :func:`any_event()` functions that are used
-    for the implementation of *and* (``&``) and *or* (``|``) of all
-    SimPy event types.
+    :func:`Condition.all_events()` and :func:`Condition.any_events()` functions
+    that are used for the implementation of *and* (``&``) and *or* (``|``) of
+    all SimPy event types.
 
     Since condition are normal events, too, they can also be used as
     sub- or nested conditions.
@@ -312,10 +312,14 @@ class Condition(Event):
 
     @staticmethod
     def all_events(events, values):
+        """A condition function that returns ``True`` if all ``events`` have
+        been triggered."""
         return len(events) == len(values)
 
     @staticmethod
     def any_events(events, values):
+        """A condition function that returns ``True`` if there is at least one
+        of ``events`` has been triggered."""
         return len(values) > 0 or len(events) == 0
 
 
@@ -565,14 +569,77 @@ class Scheduler(object):
 
 
 class BaseEnvironment(object):
-    """Base class for an environment, which schedules and executes events and
-    processes.
+    """The abstract definition of an environment. An implementation must at
+    least provide the means to access the current time in the environment (see
+    :attr:`now`), to schedule (see :meth:`schedule()`) and execute (see
+    :meth:`step()` and :meth:`run()`) events.
+
+    The class is meant to be subclassed for different execution environments.
+    :class:`Environment` is for example a simulation environment with a virtual
+    time concept, whereas the :class:`~simpy.rt.RealtimeEnvironment` is
+    schedules and executes events in real (e.g. wallclock) time."""
+
+    @property
+    def now(self):
+        """Property that returns the current time in the environment."""
+        raise NotImplemented(self)
+
+    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
+        """Schedule an *event* with a given *priority* and a *delay*."""
+        raise NotImplemented(self)
+
+    def step(self):
+        """Process the next event."""
+        raise NotImplemented(self)
+
+    def run(self, until=None):
+        """Executes :meth:`step()` until the given criterion *until* is met.
+
+        - If it is ``None`` (which is the default) this method will return if
+          there are no further events to be processed.
+
+        - If it is an :class:`Event` the method will continue stepping until
+          this event has been triggered and returns its value.
+
+        - If it can be converted to a number the method will continue stepping
+          until the time in the environment reaches *until*.
+
+        """
+        if until is None:
+            until = Event(self)
+        elif not isinstance(until, Event):
+            at = float(until)
+
+            if at <= self.now:
+                raise ValueError('until(=%s) should be > the current '
+                        'simulation time.' % at)
+
+            # Schedule the event with before all regular timeouts.
+            until = Event(self)
+            until._value = None
+            self.schedule(until, HIGH_PRIORITY, at - self.now)
+
+        until.callbacks.append(_stop_simulate)
+
+        try:
+            while True:
+                self.step()
+        except EmptySchedule:
+            pass
+
+        return until.value if until.triggered else None
+
+
+class Environment(BaseEnvironment):
+    """The simulation *environment* which simulates the passing of time by
+    stepping from event to event.
 
     This class also provides aliases for common event types, for example:
-    :attr:`process`, :attr:`timeout` and :attr:`event`.
-    """
+    :attr:`process`, :attr:`timeout` and :attr:`event`."""
 
-    def __init__(self, scheduler):
+    def __init__(self, initial_time=0, scheduler=None):
+        if scheduler is None:
+            scheduler = Scheduler(self, initial_time)
         self.scheduler = scheduler
         self._active_proc = None
 
@@ -605,17 +672,21 @@ class BaseEnvironment(object):
         The ``value`` is sent to processes waiting for the current
         process.
 
-        From Python 3.3, you can use ``return value`` instead.
+        .. note::
+
+            From Python 3.3, you can use ``return value`` instead.
 
         """
         raise StopIteration(value)
 
+    def peek(self):
+        """Return the time at which the next event is scheduled or ``inf`` if
+        there are no futher events."""
+        return self.scheduler.peek()
+
     def step(self):
-        """Process the next event for the Environment ``env``.
-
-        Raise an :exc:`EmptySchedule` if no valid event is on the heap.
-
-        """
+        """Process the next event. If there are no further events an
+        :exc:`EmptySchedule` will be risen."""
         event = self.pop()
 
         # Process callbacks of the event.
@@ -627,64 +698,6 @@ class BaseEnvironment(object):
             # The event has failed, check if it is defused. Raise the value if not.
             if not hasattr(event, 'defused'):
                 raise event._value
-
-
-class Environment(BaseEnvironment):
-    """The *environment* contains the simulation state and provides a
-    basic API for processes to interact with it.
-
-    """
-    def __init__(self, initial_time=0, scheduler=None):
-        if scheduler is None:
-            scheduler = Scheduler(self, initial_time)
-        super(Environment, self).__init__(scheduler)
-
-    def peek(self):
-        """Return the time at which the next event is scheduled or ``inf`` if
-        the event queue is empty.
-
-        """
-        return self.scheduler.peek()
-
-    def simulate(self, until=None):
-        """Executes events until the given criterion *until* is met.
-
-        - If it is ``None`` (which is the default) the execution will only
-          stop if there are no further events.
-
-        - If it is an :class:`Event` the execution will stop once this
-          event has been triggered.
-
-        - If it can be converted to a number the execution will stop when the
-          simulation time reaches *until*. (*Note:* Internally, an event is
-          created, so the simulation time will be exactly *until* afterwards.
-          No other events scheduled for *until* will be processed, though---as
-          it is at the very beginning of the simulation.)
-
-        """
-        if until is None:
-            until = Event(self)
-        elif not isinstance(until, Event):
-            at = float(until)
-
-            if at <= self.now:
-                raise ValueError('until(=%s) should be > the current '
-                        'simulation time.' % at)
-
-            # Schedule the event with before all regular timeouts.
-            until = Event(self)
-            until._value = None
-            self.schedule(until, HIGH_PRIORITY, at - self.now)
-
-        until.callbacks.append(_stop_simulate)
-
-        try:
-            while True:
-                self.step()
-        except EmptySchedule:
-            pass
-
-        return until.value if until.triggered else None
 
 
 def _describe_frame(frame):

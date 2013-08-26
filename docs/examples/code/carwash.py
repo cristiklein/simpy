@@ -93,5 +93,5 @@ random.seed(RANDOM_SEED)  # This helps reproducing the results
 env = simpy.Environment()
 env.start(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
 
-# Simulate!
-env.simulate(until=SIM_TIME)
+# Execute!
+env.run(until=SIM_TIME)
