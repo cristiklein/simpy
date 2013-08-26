@@ -20,96 +20,31 @@ Events
 ======
 
 .. autoclass:: Event(env, value=PENDING, name=None)
-
-    .. attribute:: callbacks
-
-        List of functions that are called when the event is processed.
-
-    .. attribute:: env
-
-        The :class:`Environment` the event lives in.
-
-    .. attribute:: name
-
-        Optional name for this event. Used for :class:`str` / :func:`repr` if
-        not ``None``.
-
-    .. autoattribute:: triggered
-    .. autoattribute:: processed
-    .. autoattribute:: value
-    .. automethod:: succeed
-    .. automethod:: fail
-
+    :members:
 
 .. autoclass:: Process
-
-    .. attribute:: callbacks
-
-        List of functions that are called when the event is processed.
-
-    .. attribute:: env
-
-        The :class:`Environment` the event lives in.
-
-    .. attribute:: name
-
-        Optional name for this event. Used for :class:`str` / :func:`repr` if
-        not ``None``.
-
-    .. autoattribute:: target
-    .. autoattribute:: is_alive
-    .. automethod:: interrupt
-
+    :members:
+    :show-inheritance:
 
 .. autoclass:: Timeout
-
-    .. attribute:: callbacks
-
-        List of functions that are called when the event is processed.
-
-    .. attribute:: env
-
-        The :class:`Environment` the event lives in.
-
-    .. attribute:: name
-
-        Optional name for this event. Used for :class:`str` / :func:`repr` if
-        not ``None``.
-
+    :members:
+    :show-inheritance:
 
 .. autoclass:: Condition
-
-    .. attribute:: callbacks
-
-        List of functions that are called when the event is processed.
-
-    .. attribute:: env
-
-        The :class:`Environment` the event lives in.
-
-    .. attribute:: name
-
-        Optional name for this event. Used for :class:`str` / :func:`repr` if
-        not ``None``.
-
-    .. automethod:: all_events
-    .. automethod:: any_events
-
+    :members:
+    :show-inheritance:
 
 .. autoclass:: Initialize
-
-    .. attribute:: callbacks
-
-        List of functions that are called when the event is processed.
-
-    .. attribute:: env
-
-        The :class:`Environment` the event lives in.
-
+    :members:
+    :show-inheritance:
 
 .. autoclass:: AllOf
+    :members:
+    :show-inheritance:
 
 .. autoclass:: AnyOf
+    :members:
+    :show-inheritance:
 
 Miscellaneous (Interrupt and constants)
 =======================================
