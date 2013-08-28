@@ -64,7 +64,7 @@ one (or more) cars and finally call meth:`~Environment.simulate()`.
     >>> import simpy
     >>> env = simpy.Environment()
     >>> car = Car(env)
-    >>> simpy.simulate(env, until=15)
+    >>> env.run(until=15)
     Start parking and charging at 0
     Start driving at 5
     Start parking and charging at 7
@@ -124,7 +124,7 @@ you'll notice that the car now starts driving at time ``3`` instead of ``5``::
     >>> car = Car(env)
     >>> env.start(driver(env, car))
     <Process(driver) object at 0x...>
-    >>> simpy.simulate(env, until=15)
+    >>> env.run(until=15)
     Start parking and charging at 0
     Was interrupted. Hope, the battery is full enough ...
     Start driving at 3

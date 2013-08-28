@@ -42,8 +42,8 @@ each step::
     ...
     >>> env = simpy.Environment()
     >>> env.start(clock(env))
-    Process(clock)
-    >>> simpy.simulate(env, until=3)
+    <Process(clock) object at 0x...>
+    >>> env.run(until=3)
     0
     1
     2
