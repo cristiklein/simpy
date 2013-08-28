@@ -39,8 +39,7 @@ class BoundClass(object):
     @staticmethod
     def bind_early(instance):
         cls = type(instance)
-        for name in dir(cls):
-            obj = getattr(cls, name)
+        for name, obj in cls.__dict__.items():
             if type(obj) is BoundClass:
                 bound_class = getattr(instance, name)
                 setattr(instance, name, bound_class)
