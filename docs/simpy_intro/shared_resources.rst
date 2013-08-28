@@ -72,7 +72,7 @@ Finally, we can start the simulation. Since the car processes all terminate on
 their own in this simulation, we don't need to specify an *until* time---the
 simulation will automatically stop when there are no more events left::
 
-    >>> simpy.simulate(env)
+    >>> env.run()
     Car 0 arriving at 0
     Car 0 starting to charge at 0
     Car 1 arriving at 2
