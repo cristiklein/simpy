@@ -246,3 +246,17 @@ def test_triggered_event(env):
 
     assert result == 'i was already done'
 
+
+def test_triggered_timeout(env):
+    def process(env):
+        def child(env, event):
+            value = yield event
+            env.exit(value)
+
+        event = env.timeout(1, 'i was already done')
+        # Start the child after the timeout has already happened.
+        yield env.timeout(2)
+        value = yield env.process(child(env, event))
+        assert value == 'i was already done'
+
+    env.run(env.start(process(env)))
