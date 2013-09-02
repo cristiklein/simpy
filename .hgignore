@@ -1,0 +1,16 @@
+syntax: glob
+
+*.pyc
+*~
+*.egg-info/
+*.swp
+
+.ropeproject/
+.tox/
+.DS_Store
+.coverage
+
+docs/_build/*
+dist/*
+htmlcov/*
+MANIFEST
