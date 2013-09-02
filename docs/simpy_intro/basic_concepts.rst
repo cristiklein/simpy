@@ -71,7 +71,7 @@ it and see how it behaves::
     >>> env = simpy.Environment()
     >>> env.start(car(env))
     <Process(car) object at 0x...>
-    >>> simpy.simulate(env, until=15)
+    >>> env.run(until=15)
     Start parking at 0
     Start driving at 5
     Start parking at 7
