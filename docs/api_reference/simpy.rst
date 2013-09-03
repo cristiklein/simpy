@@ -1,7 +1,5 @@
 ==============================
-``simpy`` --- The user API
+``simpy`` --- The end user API
 ==============================
 
-
 .. automodule:: simpy
-

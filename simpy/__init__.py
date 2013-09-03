@@ -1,6 +1,7 @@
 """
-The ``simpy`` module provides SimPy's end-user API. It therefore
-aggregates Simpy's various classes and methods:
+The ``simpy`` module provides SimPy's end-user API. It aggregates Simpy's most
+important classes and methods. This is purely for your convenience. You can of
+course also access everything (and more!) via their actual submodules.
 
 
 Core classes and functions
@@ -11,7 +12,7 @@ Core classes and functions
 - :class:`Environment`: SimPy's central class. It contains
   the simulation's state and lets the PEMs interact with it (i.e.,
   schedule events).
-- :class:`Process`: This class represents a PEM while
+- :class:`Process`: This class represents a process function while
   it is executed in an environment. An instance of it is returned by
   :meth:`Environment.start()`. It inherits :class:`Event`.
 - :class:`Interrupt`: This exception is thrown into a process if it gets
