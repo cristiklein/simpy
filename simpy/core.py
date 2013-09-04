@@ -14,6 +14,18 @@ if PY2:
     import sys
 
 
+# Contents:
+#
+# - Constants
+# - Helpers and exceptions
+# - Event types
+# - Environments
+# - Internal helpers
+
+###############################################################################
+# Constants
+#
+
 Infinity = float('inf')  #: Convenience alias for infinity
 
 PENDING = object()       #: Unique object to identify pending values of events
@@ -21,6 +33,11 @@ PENDING = object()       #: Unique object to identify pending values of events
 HIGH_PRIORITY = 0        #: Priority of interrupts and Initialize events
 DEFAULT_PRIORITY = 1     #: Default priority used by events
 LOW_PRIORITY = 2         #: Priority of timeouts
+
+
+###############################################################################
+# Helpers and exceptions
+#
 
 
 class BoundClass(object):
@@ -78,6 +95,17 @@ class Interrupt(Exception):
         """The cause of the interrupt or ``None`` if no cause was provided
         (read-only)."""
         return self.args[0]
+
+
+class EmptySchedule(Exception):
+    """Thrown by the :class:`Environment` if there are no further events to be
+    processed."""
+    pass
+
+
+###############################################################################
+# Event types
+#
 
 
 class Event(object):
@@ -527,10 +555,9 @@ class Process(Event):
         self.env._active_proc = None
 
 
-class EmptySchedule(Exception):
-    """Thrown by the :class:`Environment` if there are no further events to be
-    processed."""
-    pass
+###############################################################################
+# Environments
+#
 
 
 class BaseEnvironment(object):
@@ -689,6 +716,11 @@ class Environment(BaseEnvironment):
             # The event has failed, check if it is defused.
             # Raise the value if not.
             raise event._value
+
+
+###############################################################################
+# Internal helpers
+#
 
 
 def _describe_frame(frame):
