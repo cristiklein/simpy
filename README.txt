@@ -2,23 +2,28 @@ SimPy
 =====
 
 SimPy is a process-based discrete-event simulation framework based on standard
-Python. Its event dispatcher is based on Python’s `generators`__ and can also be
-used for asynchronous networking or to implement multi-agent systems (with
+Python. Its event dispatcher is based on Python’s `generators`__ and can also
+be used for asynchronous networking or to implement multi-agent systems (with
 both, simulated and real communication).
 
 Processes in SimPy are simple Python generator functions and are used to model
 active components like customers, vehicles or agents. SimPy also provides
-various types of shared *resource* to model limited capacity congestion points
-(like servers, checkout counters and tunnels). It will also provides monitoring
-capabilities to aid in gathering statistics about resources and processes.
+various types of shared *resources* to model limited capacity congestion points
+(like servers, checkout counters and tunnels). From version 3.1, it will also
+provide monitoring capabilities to aid in gathering statistics about resources
+and processes.
 
 Simulations can be performed “as fast as possible”, in real time (wall clock
 time) or by manually stepping through the events.
 
-The distribution contains in-depth documentation, tutorials, and a large number
-of examples.
+SimPy is not suited for continuous simulation. And it is overkill for
+simulations with a fixed step size where your processes don’t interact with
+each other or with shared resources — use a simple ``while`` loop in this case.
 
-Simpy is released under the GNU LGPL. Simulation model developers are
+The SimPy distribution contains tutorials, in-depth documentation, and a large
+number of examples.
+
+SimPy is released under the GNU LGPL. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
 Please post a message to the `SimPy-Users mailing list`__.
 
@@ -54,7 +59,7 @@ Installation
 
 SimPy requires Python 2.7, 3.2, PyPy 2.0 or above.
 
-You can install SimPy easily via `PIP <http://pypi.python.org/pypi/pip>`_::
+You can install SimPy easily via `pip <http://pypi.python.org/pypi/pip>`_::
 
     $ pip install -U SimPy
 
@@ -71,28 +76,33 @@ To run SimPy’s test suite on your installation, execute::
 Getting started
 ---------------
 
-If you’ve never used SimPy before, the `SimPy tutorial
-<https://simpy.readthedocs.org/en/latest/simpy_intro/index.html>`_ is a good
-starting point for you. You can also try out some of the `Examples <https://simpy.readthedocs.org/en/latest/examples/index.html>`_ shipped with SimPy.
+If you’ve never used SimPy before, the `SimPy tutorial`__ is a good starting
+point for you. You can also try out some of the `Examples`__ shipped with
+SimPy.
+
+__ https://simpy.readthedocs.org/en/latest/simpy_intro/index.html
+__ https://simpy.readthedocs.org/en/latest/examples/index.html
 
 
 Documentation and Help
 ----------------------
 
-In our `online documentation <https://simpy.readthedocs.org/>`_, you can find
-`a tutorial <https://simpy.readthedocs.org/en/latest/simpy_intro/index.html>`_,
-`examples <https://simpy.readthedocs.org/en/latest/examples/index.html>`_,
-`topical guides
-<https://simpy.readthedocs.org/en/latest/topical_guides/index.html>`_ and an
-`API reference
-<https://simpy.readthedocs.org/en/latest/api_reference/index.html>`_, as well
-as some information about `SimPy and its history
-<https://simpy.readthedocs.org/en/latest/about/index.html>`_.  For more help,
-contact the `SimPy-Users mailing list
-<mailto:simpy-users@lists.sourceforge.net>`_. SimPy users are pretty helpful.
+You can find `a tutorial`__, `examples`__, `topical guides`__ and an `API
+reference`__, as well as some information about `SimPy and its history`__ in
+our `online documentation`__. For more help, contact the `SimPy-Users mailing
+list`__. SimPy users are pretty helpful. You can, of course, also dig through
+the `source code`__.
 
-If you find any bugs, please post them on our `issue tracker
-<https://bitbucket.org/simpy/simpy/issues?status=new&status=open>`_.
+If you find any bugs, please post them on our `issue tracker`__.
 
+__ https://simpy.readthedocs.org/en/latest/simpy_intro/index.html
+__ https://simpy.readthedocs.org/en/latest/examples/index.html
+__ https://simpy.readthedocs.org/en/latest/topical_guides/index.html
+__ https://simpy.readthedocs.org/en/latest/api_reference/index.html
+__ https://simpy.readthedocs.org/en/latest/about/index.html
+__ https://simpy.readthedocs.org/
+__ mailto:simpy-users@lists.sourceforge.net
+__ https://bitbucket.org/simpy/simpy/src
+__ https://bitbucket.org/simpy/simpy/issues?status=new&status=open
 
 Enjoy simulation programming in SimPy!

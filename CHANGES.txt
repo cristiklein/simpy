@@ -1,5 +1,5 @@
 Changelog for SimPy
-==============================
+===================
 
 
 v2.3.1 – 2012-01-28:
@@ -82,3 +82,7 @@ v2.0.0 - 2009-01-26:
 
 - [NEW] In addition to its existing API, SimPy now also has an object oriented
   API.
+
+You can find information on older changes on SimPy’s `history`__ page.
+
+__ https://simpy.readthedocs.org/en/latest/about/history.html
