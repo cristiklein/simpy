@@ -12,36 +12,41 @@ from simpy.core import Environment, Infinity
 
 
 class RealtimeEnvironment(Environment):
-    """An environment which uses the real (e.g. wallclock) time.
+    """An :class:`~simpy.core.Environment` which uses the real (e.g. wallclock)
+    time.
 
     A time step will take *factor* seconds of real time (one second by
-    default), e.g. if you step from ``0`` until ``3`` with ``factor=0.5``, the
+    default); e.g., if you step from ``0`` until ``3`` with ``factor=0.5``, the
     :meth:`simpy.core.BaseEnvironment.run()` call will take at least 1.5
     seconds.
 
     If the processing of the events for a time step takes too long,
     a :exc:`RuntimeError` is raised in :meth:`step()`. You can disable this
-    behavior by setting *strict* to ``False``."""
+    behavior by setting *strict* to ``False``.
 
+    """
     def __init__(self, initial_time=0, factor=1.0, strict=True):
         Environment.__init__(self, initial_time)
 
         self.env_start = initial_time
         self.real_start = time()
         self.factor = factor
-        """Scaling factor of the realtime."""
+        """Scaling factor of the real-time."""
         self.strict = strict
         """Running mode of the environment. :meth:`step()` will raise a
         :exc:`RuntimeError` if this is set to ``True`` and the processing of
-        events took too long."""
+        events takes too long."""
 
     def step(self):
-        """Waits until enough realtime has passed for the next event to happen.
+        """Waits until enough real-time has passed for the next event to
+        happen.
 
         The delay is scaled according to the real-time :attr:`factor`. If the
         events of a time step are processed too slowly for the given
         :attr:`factor` and if :attr:`strict` is enabled, a :exc:`RuntimeError`
-        is risen."""
+        is raised.
+
+        """
         evt_time = self.peek()
 
         if evt_time is Infinity:

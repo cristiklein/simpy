@@ -639,7 +639,7 @@ class BaseEnvironment(object):
 
 
 class Environment(BaseEnvironment):
-    """Inherits :class`BaseEnvironment` and implements a simulation environment
+    """Inherits :class:`BaseEnvironment` and implements a simulation environment
     which simulates the passing of time by stepping from event to event.
 
     You can provide an *initial_time* for the environment. By defaults, it
