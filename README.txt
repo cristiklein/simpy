@@ -27,7 +27,7 @@ SimPy is released under the GNU LGPL. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
 Please post a message to the `SimPy-Users mailing list`__.
 
-__ http://docs.python.org/2/glossary.html#term-generator
+__ http://docs.python.org/3/glossary.html#term-generator
 __ http://lists.sourceforge.net/lists/listinfo/simpy-users
 
 
