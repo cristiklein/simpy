@@ -126,15 +126,13 @@ class Event(object):
     of them.
 
     """
-    # TODO: Remove "value" param. Add it to Types that trigger the event in
-    # __init__()
-    def __init__(self, env, value=PENDING):
+    def __init__(self, env):
         self.env = env
         """The :class:`Environment` the event lives in."""
         self.callbacks = []
         """List of functions that are called when the event is
         processed."""
-        self._value = value
+        self._value = PENDING
 
     def __repr__(self):
         """Return the description of the event (see :meth:`_desc`) with the id
@@ -181,7 +179,8 @@ class Event(object):
         self.env.schedule(self, DEFAULT_PRIORITY)
 
     def succeed(self, value=None):
-        """Schedule the event and mark it as successful.
+        """Schedule the event and mark it as successful. Return the event
+        instance.
 
         You can optionally pass an arbitrary ``value`` that will be sent into
         processes waiting for that event.
@@ -198,7 +197,7 @@ class Event(object):
         return self
 
     def fail(self, exception):
-        """Schedule the event and mark it as failed.
+        """Schedule the event and mark it as failed. Return the event instance.
 
         The ``exception`` will be thrown into processes waiting for that event.
 
@@ -207,10 +206,10 @@ class Event(object):
         Raise a :exc:`RuntimeError` if this event has already been scheduled.
 
         """
-        if not isinstance(exception, Exception):
-            raise ValueError('%s is not an exception.' % exception)
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
+        if not isinstance(exception, Exception):
+            raise ValueError('%s is not an exception.' % exception)
         self.ok = False
         self._value = exception
         self.env.schedule(self, DEFAULT_PRIORITY)
@@ -383,6 +382,7 @@ class Timeout(Event):
         self.callbacks = []
         self._value = value
 
+        # NOTE: The succeed() call is inlined for performance reasons.
         self._delay = delay
         self.ok = True
         env.schedule(self, LOW_PRIORITY, delay)
@@ -403,6 +403,7 @@ class Initialize(Event):
         self.callbacks = [process._resume]
         self._value = None
 
+        # Note: The succeed() call is inlined for performance reasons.
         self.ok = True
         env.schedule(self, HIGH_PRIORITY)
 
@@ -470,7 +471,10 @@ class Process(Event):
             raise RuntimeError('A process is not allowed to interrupt itself.')
 
         # Schedule interrupt event
-        event = self.env.event(Interrupt(cause))
+        # NOTE: The succeed() call is inline for performance reasons and to
+        # set a HIGH_PRIORITY.
+        event = self.env.event()
+        event._value = Interrupt(cause)
         event.ok = False
         # Interrupts do not cause the simulation to crash.
         event.defused = True
