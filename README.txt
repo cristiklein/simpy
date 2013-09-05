@@ -23,7 +23,7 @@ each other or with shared resources — use a simple ``while`` loop in this case
 The SimPy distribution contains tutorials, in-depth documentation, and a large
 number of examples.
 
-SimPy is released under the GNU LGPL. Simulation model developers are
+SimPy is released under the MIT License. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
 Please post a message to the `SimPy-Users mailing list`__.
 
