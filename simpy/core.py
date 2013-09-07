@@ -541,15 +541,15 @@ class BaseEnvironment(object):
     @property
     def now(self):
         """Property that returns the current time in the environment."""
-        raise NotImplemented(self)
+        raise NotImplementedError(self)
 
     def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
-        raise NotImplemented(self)
+        raise NotImplementedError(self)
 
     def step(self):
         """Process the next event."""
-        raise NotImplemented(self)
+        raise NotImplementedError(self)
 
     def run(self, until=None):
         """Executes :meth:`step()` until the given criterion *until* is met.
