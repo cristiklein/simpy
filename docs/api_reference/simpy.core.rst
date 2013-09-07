@@ -2,19 +2,19 @@
 ``simpy.core`` --- SimPy's core components
 ==========================================
 
-
 .. automodule:: simpy.core
+
 
 Environments
 ============
 
-.. autoclass:: Environment
-    :members:
-    :show-inheritance:
-    :inherited-members:
-
 .. autoclass:: BaseEnvironment
     :members:
+
+.. autoclass:: Environment
+    :members:
+    :inherited-members:
+
 
 Events
 ======
@@ -24,52 +24,36 @@ Events
 
 .. autoclass:: Process
     :members:
-    :show-inheritance:
 
 .. autoclass:: Timeout
     :members:
-    :show-inheritance:
 
 .. autoclass:: Condition
     :members:
-    :show-inheritance:
-
-.. autoclass:: Initialize
-    :members:
-    :show-inheritance:
 
 .. autoclass:: AllOf
     :members:
-    :show-inheritance:
 
 .. autoclass:: AnyOf
     :members:
-    :show-inheritance:
+
+.. autoclass:: Initialize
+    :members:
+
 
 Miscellaneous (Interrupt and constants)
 =======================================
+
+.. autoclass:: BoundClass
+    :members:
 
 .. autoclass:: EmptySchedule
 
 .. autoclass:: Interrupt
    :members: cause
 
-.. data:: Infinity = inf
-
-    Convenience alias for infinity
-
-.. data:: PENDING = object()
-
-    Unique object to identify pending values of events
-
-.. data:: HIGH_PRIORITY = 0
-
-    Priority of interrupts and Intialize events
-
-.. data:: DEFAULT_PRIORITY = 1
-
-    Default priority used by events
-
-.. data:: LOW_PRIORITY = 2
-
-    Priority of timeouts
+.. autodata:: Infinity
+.. autodata:: PENDING
+.. autodata:: HIGH_PRIORITY
+.. autodata:: DEFAULT_PRIORITY
+.. autodata:: LOW_PRIORITY
