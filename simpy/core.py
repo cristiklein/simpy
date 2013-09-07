@@ -580,6 +580,7 @@ class BaseEnvironment(object):
 
             # Schedule the event with before all regular timeouts.
             until = Event(self)
+            until.ok = True
             until._value = None
             self.schedule(until, HIGH_PRIORITY, at - self.now)
 
@@ -591,7 +592,13 @@ class BaseEnvironment(object):
         except EmptySchedule:
             pass
 
-        return until.value if until.triggered else None
+        if not until.triggered:
+            return None
+
+        if not until.ok:
+            raise until.value
+
+        return until.value
 
 
 class Environment(BaseEnvironment):
