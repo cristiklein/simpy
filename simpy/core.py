@@ -543,6 +543,11 @@ class BaseEnvironment(object):
         """Property that returns the current time in the environment."""
         raise NotImplementedError(self)
 
+    @property
+    def active_process(self):
+        """Property that returns the currently active process."""
+        raise NotImplementedError(self)
+
     def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
         raise NotImplementedError(self)
