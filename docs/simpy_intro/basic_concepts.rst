@@ -22,12 +22,12 @@ the process, when the event occurs (we say that the event is *triggered*).
 Multiple processes can wait for the same event. SimPy resumes them in the same
 order in which they yielded that event.
 
-An important event type is the :class:`Timeout`. Events of this type are
-triggered after a certain amount of (simulated) time has passed. They allow
-a process to sleep (or hold its state) for the given time. A :class:`Timeout`
-and all other events can be created by calling the appropriate method of the
-:class:`Environment` that the process lives in (:meth:`Environment.timeout()`
-for example).
+An important event type is the :class:`~simpy.events.Timeout`. Events of this
+type are triggered after a certain amount of (simulated) time has passed. They
+allow a process to sleep (or hold its state) for the given time.
+A :class:`~simpy.events.Timeout` and all other events can be created by calling
+the appropriate method of the :class:`Environment` that the process lives in
+(:meth:`Environment.timeout()` for example).
 
 
 Our First Process
@@ -59,10 +59,10 @@ will resume the function at this statement.
 As I said before, our car switches between the states *parking* and *driving*.
 It announces its new state by printing a message and the current simulation
 time (as returned by the :attr:`Environment.now` property). It then calls the
-:meth:`Environment.timeout()` factory function to create a :class:`Timeout`
-event. This event describes the point in time the car is done *parking* (or
-*driving*, respectively). By yielding the event, it signals the simulation that
-it wants to wait for the event to occur.
+:meth:`Environment.timeout()` factory function to create
+a :class:`~simpy.events.Timeout` event. This event describes the point in time
+the car is done *parking* (or *driving*, respectively). By yielding the event,
+it signals the simulation that it wants to wait for the event to occur.
 
 Now that the behaviour of our car has been modelled, lets create an instance of
 it and see how it behaves::
@@ -86,9 +86,9 @@ a *process generator* that needs to be started and added to the environment via
 Note, that at this time, none of the code of our process function is being
 executed. It's execution is merely scheduled at the current simulation time.
 
-The :class:`Process` returned by :meth:`~Environment.start()` can be used for
-process interactions (we will cover that in the next section, so we will ignore
-it for now).
+The :class:`~simpy.events.Process` returned by :meth:`~Environment.start()` can
+be used for process interactions (we will cover that in the next section, so we
+will ignore it for now).
 
 Finally, we start the simulation by calling meth:`Environment.simulate()` and
 passing the environment as well as an end time to it.

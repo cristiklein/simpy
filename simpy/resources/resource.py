@@ -30,7 +30,7 @@ from simpy.resources import base
 class Preempted(object):
     def __init__(self, by, usage_since):
         self.by = by
-        """The preempting :class:`simpy.core.Process`."""
+        """The preempting :class:`simpy.events.Process`."""
         self.usage_since = usage_since
         """The simulation time at which the preempted process started to use
         the resource."""
@@ -199,7 +199,7 @@ class PreemptiveResource(PriorityResource):
     Furthermore, the queue of requests is also sorted by *priority*.
 
     If a less important request is preempted, the process of that
-    request will receive an :class:`~simpy.core.Interrupt` with
+    request will receive an :class:`~simpy.events.Interrupt` with
     a :class:`Preempted` instance as cause.
 
     """

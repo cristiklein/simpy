@@ -7,7 +7,8 @@ modeled as an event that has to be yielded by the requesting process.
 :class:`Put` and :class:`Get` are the base event types for this.
 
 """
-from simpy.core import Event, PENDING, BoundClass
+from simpy.core import BoundClass
+from simpy.events import Event, PENDING
 
 
 class Put(Event):
@@ -18,7 +19,7 @@ class Put(Event):
     This event (and all of its subclasses) can act as context manager
     and can be used with the :keyword:`with` statement to automatically
     cancel a put request if an exception or an
-    :class:`simpy.core.Interrupt` occurs:
+    :class:`simpy.events.Interrupt` occurs:
 
     .. code-block:: python
 
@@ -61,7 +62,7 @@ class Put(Event):
     """Cancel the current put request.
 
     This method has to be called if a process received an
-    :class:`~simpy.core.Interrupt` or an exception while yielding this
+    :class:`~simpy.events.Interrupt` or an exception while yielding this
     event and is not going to yield this event again.
 
     If the event was created in a :keyword:`with` statement, this method
@@ -78,7 +79,7 @@ class Get(Event):
     This event (and all of its subclasses) can act as context manager
     and can be used with the :keyword:`with` statement to automatically
     cancel a get request if an exception or an
-    :class:`simpy.core.Interrupt` occurs:
+    :class:`simpy.events.Interrupt` occurs:
 
     .. code-block:: python
 
@@ -120,7 +121,7 @@ class Get(Event):
     """Cancel the current get request.
 
     This method has to be called if a process received an
-    :class:`~simpy.core.Interrupt` or an exception while yielding this
+    :class:`~simpy.events.Interrupt` or an exception while yielding this
     event and is not going to yield this event again.
 
     If the event was created in a :keyword:`with` statement, this method

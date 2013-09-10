@@ -5,7 +5,7 @@ This modules contains various utility functions:
 - :func:`subscribe_at()`: Receive an interrupt if an event occurs.
 
 """
-from simpy.core import Condition
+from simpy.events import Condition
 
 
 def start_delayed(env, peg, delay):
@@ -47,7 +47,7 @@ def subscribe_at(event):
     """Register at the ``event`` to receive an interrupt when it occurs.
 
     The most common use case for this is to pass
-    a :class:`~simpy.core.Process` to get notified when it terminates.
+    a :class:`~simpy.events.Process` to get notified when it terminates.
 
     Raise a :exc:`RuntimeError` if ``event`` has already occurred.
 
