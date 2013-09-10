@@ -164,9 +164,6 @@ class Environment(BaseEnvironment):
         """The currently active process of the environment."""
         return self._active_proc
 
-    """
-    .. currentmodule:: simpy.events
-    """
     process = BoundClass(Process)
     timeout = BoundClass(Timeout)
     event = BoundClass(Event)
@@ -174,9 +171,6 @@ class Environment(BaseEnvironment):
     any_of = BoundClass(AnyOf)
     suspend = event
     start = process
-    """
-    .. currentmodule:: simpy.core
-    """
 
     def exit(self, value=None):
         """Convenience function provided for Python versions prior to 3.3. Stop
