@@ -11,6 +11,7 @@ components.
 
     simpy
     simpy.core
+    simpy.events
     simpy.monitoring
     simpy.resources
     simpy.resources.base

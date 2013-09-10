@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from simpy import Process
+from simpy.events import Process
 
 
 def test_discrete_time_steps(env, log):

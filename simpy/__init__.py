@@ -12,9 +12,9 @@ Core classes and functions
 - :class:`Environment`: SimPy's central class. It contains
   the simulation's state and lets the PEMs interact with it (i.e.,
   schedule events).
-- :class:`Process`: This class represents a process function while
-  it is executed in an environment. An instance of it is returned by
-  :meth:`Environment.start()`. It inherits :class:`Event`.
+
+.. currentmodule:: simpy.events
+
 - :class:`Interrupt`: This exception is thrown into a process if it gets
   interrupted by another one.
 
@@ -66,7 +66,8 @@ Other
 .. - :func:`test`: Run the test suite on the installed copy of Simpy.
 
 """
-from simpy.core import Environment, Interrupt, Process
+from simpy.core import Environment
+from simpy.events import Interrupt
 from simpy.resources.resource import (
     Resource, PriorityResource, PreemptiveResource)
 from simpy.resources.container import Container
@@ -75,7 +76,8 @@ from simpy.resources.store import Store, FilterStore
 
 __all__ = [
     'test',
-    'Environment', 'Interrupt', 'Process',
+    'Environment',
+    'Interrupt',
     'Resource', 'PriorityResource', 'PreemptiveResource',
     'Container',
     'Store', 'FilterStore',

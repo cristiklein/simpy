@@ -4,56 +4,57 @@
 
 .. automodule:: simpy.core
 
-
-Environments
-============
-
 .. autoclass:: BaseEnvironment
     :members:
 
 .. autoclass:: Environment
-    :members:
-    :inherited-members:
+
+    .. autoattribute:: now
+    .. autoattribute:: active_process
+
+    .. method:: start(generator)
+
+        Start a new process from *generator*. Alias of :meth:`process`.
+
+    .. method:: process(generator)
+
+        Return a new :class:`~simpy.events.Process` instance for *generator*.
+
+    .. method:: timeout(delay, value=None)
+
+        Return a new :class:`~simpy.events.Timeout` event with a *delay* and,
+        optionally, a *value*.
 
 
-Events
-======
+    .. method:: suspend()
 
-.. autoclass:: Event(env, value=PENDING, name=None)
-    :members:
-
-.. autoclass:: Process
-    :members:
-
-.. autoclass:: Timeout
-    :members:
-
-.. autoclass:: Condition
-    :members:
-
-.. autoclass:: AllOf
-    :members:
-
-.. autoclass:: AnyOf
-    :members:
-
-.. autoclass:: Initialize
-    :members:
+        Alias of :meth:`event()`. Yielding this event suspends a process until
+        another process triggers the event.
 
 
-Miscellaneous (Interrupt and constants)
-=======================================
+    .. method:: event()
+
+        Return a new :class:`~simpy.events.Event` instance.
+
+    .. method:: all_of(events)
+
+        Return a new :class:`~simpy.events.AllOf` condition for a list of
+        *events*.
+
+    .. method:: any_of(events)
+
+        Return a new :class:`~simpy.events.AnyOf` condition for a list of
+        *events*.
+
+    .. automethod:: exit
+    .. automethod:: schedule
+    .. automethod:: peek
+    .. automethod:: step
+    .. automethod:: run
 
 .. autoclass:: BoundClass
     :members:
 
 .. autoclass:: EmptySchedule
 
-.. autoclass:: Interrupt
-   :members: cause
-
 .. autodata:: Infinity
-.. autodata:: PENDING
-.. autodata:: HIGH_PRIORITY
-.. autodata:: DEFAULT_PRIORITY
-.. autodata:: LOW_PRIORITY

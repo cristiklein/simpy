@@ -22,8 +22,9 @@ simulation (``SimPy.Simulation``), a real-time simulation
 keywords (``hold`` or ``passivate``, for example) from that package.
 
 In SimPy 3, you usually need to import much less classes and modules (e.g., you
-don't need direct access to :class:`~simpy.core.Process` and the SimPy keywords
-anymore). In most use cases you will now only need to import :mod:`simpy`.
+don't need direct access to :class:`~simpy.events.Process` and the SimPy
+keywords anymore). In most use cases you will now only need to import
+:mod:`simpy`.
 
 
 **SimPy 2**
@@ -176,7 +177,7 @@ additional parameters (at least ``self``). These keywords had to be import from
 to a function that generated the according event.
 
 SimPy 3 directly exposes these event-generating functions via the
-:class:`~simpy.core.Environment`, :class:`~simpy.core.Process` or resource
+:class:`~simpy.core.Environment`, :class:`~simpy.events.Process` or resource
 types, depending on were they make most sense. You don't need to import
 something separately anymore.
 
@@ -240,8 +241,8 @@ of the victim.
 Explicitly checking for an interrupt is obviously error prone as it is too easy
 to be forgotten.
 
-In SimPy 3, you call :meth:`~simpy.core.Process.interrupt()` on the victim
-process. You can optionally pass a cause. An :exc:`~simpy.core.Interrupt` is
+In SimPy 3, you call :meth:`~simpy.events.Process.interrupt()` on the victim
+process. You can optionally pass a cause. An :exc:`~simpy.events.Interrupt` is
 then thrown into the victim process, which has to handle the interrupt via
 ``try: ... except Interrupt: ...``.
 
