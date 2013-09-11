@@ -2,23 +2,21 @@
 This module contains all :class:`Container` like resources.
 
 Containers model the production and consumption of a homogeneous,
-undifferentiated bulk. It may either be continuous (like water) or
-discrete (like apples).
+undifferentiated bulk. It may either be continuous (like water) or discrete
+(like apples).
 
-For example, a gasoline station stores gas (petrol) in large tanks.
-Tankers increase, and refuelled cars decrease, the amount of gas in the
-station's storage tanks.
+For example, a gasoline station stores gas (petrol) in large tanks.  Tankers
+increase, and refuelled cars decrease, the amount of gas in the station's
+storage tanks.
 
 """
-import types
-
 from simpy.core import BoundClass
 from simpy.resources import base
 
 
 class ContainerPut(base.Put):
-    """An event that puts *amount* into the *container*. The event is
-    triggered as soon as there's enough space in the *container*.
+    """An event that puts *amount* into the *container*. The event is triggered
+    as soon as there's enough space in the *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
 
@@ -34,9 +32,8 @@ class ContainerPut(base.Put):
 
 
 class ContainerGet(base.Get):
-    """An event that gets *amount* from the *container*. The event is
-    triggered as soon as there's enough content available in the
-    *container*.
+    """An event that gets *amount* from the *container*. The event is triggered
+    as soon as there's enough content available in the *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
 
@@ -51,17 +48,16 @@ class ContainerGet(base.Get):
 
 
 class Container(base.BaseResource):
-    """Models the production and consumption of a homogeneous,
-    undifferentiated bulk. It may either be continuous (like water) or
-    discrete (like apples).
+    """Models the production and consumption of a homogeneous, undifferentiated
+    bulk. It may either be continuous (like water) or discrete (like apples).
 
-    The ``env`` parameter is the :class:`~simpy.core.Environment`
-    instance the container is bound to.
+    The *env* parameter is the :class:`~simpy.core.Environment` instance the
+    container is bound to.
 
-    The ``capacity`` defines the size of the container and must be
-    a positive number (> 0). By default, a container is of unlimited
-    size.  You can specify the initial level of the container via
-    ``init``. It must be >= 0 and is 0 by default.
+    The *capacity* defines the size of the container and must be a positive
+    number (> 0). By default, a container is of unlimited size.  You can
+    specify the initial level of the container via *init*. It must be >=
+    0 and is 0 by default.
 
     Raise a :exc:`ValueError` if ``capacity <= 0``, ``init < 0`` or
     ``init > capacity``.
@@ -81,13 +77,13 @@ class Container(base.BaseResource):
 
     @property
     def capacity(self):
-        """The maximum capactiy of the container. Read only."""
+        """The maximum capacity of the container."""
         return self._capacity
 
     @property
     def level(self):
-        """The current level of the container (a number between ``0``
-        and ``capacity``). Read only.
+        """The current level of the container (a number between ``0`` and
+        ``capacity``).
 
         """
         return self._level
