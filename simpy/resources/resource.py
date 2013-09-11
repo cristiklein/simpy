@@ -106,9 +106,13 @@ class SortedQueue(list):
         """Maximum length of the queue."""
 
     def append(self, item):
-        """Append *item* to the queue and keep the queue sorted."""
+        """Append *item* to the queue and keep the queue sorted.
+
+        Raise a :class:`RuntimeError` if the queue is full.
+
+        """
         if self.maxlen is not None and len(self) >= self.maxlen:
-            raise ValueError('Cannot append event. Queue is full.')
+            raise RuntimeError('Cannot append event. Queue is full.')
 
         super(SortedQueue, self).append(item)
         super(SortedQueue, self).sort(key=lambda e: e.key)

@@ -224,13 +224,13 @@ def test_event_value(env):
 
 def test_unavailable_event_value(env):
     """If an event has not yet been triggered, its value is not availabe and
-    trying to access it will result in a RuntimeError."""
+    trying to access it will result in a AttributeError."""
     event = env.event()
 
     try:
         event.value
         assert False, 'Expected an exception'
-    except RuntimeError as e:
+    except AttributeError as e:
         assert e.args[0].endswith('is not yet available')
 
 
