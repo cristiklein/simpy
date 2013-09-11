@@ -92,11 +92,11 @@ class Event(object):
 
         The value is available when the event has been triggered.
 
-        Raise a :exc:`RuntimeError` if the value is not yet available.
+        Raise a :exc:`AttributeError` if the value is not yet available.
 
         """
         if self._value is PENDING:
-            raise RuntimeError('Value of %s is not yet available' % self)
+            raise AttributeError('Value of %s is not yet available' % self)
         return self._value
 
     def trigger(self, event):
@@ -414,13 +414,13 @@ class Condition(Event):
     def _add_event(self, event):
         """Add another *event* to the condition.
 
-        Raise a :exc:`RuntimeError` if *event* belongs to a different
-        environment, or either this condition or *event* has already been
-        triggered.
+        Raise a :exc:`ValueError` if *event* belongs to a different
+        environment. Raise a :exc:`RuntimeError` if either this condition or
+        *event* has already been triggered.
 
         """
         if self.env != event.env:
-            raise RuntimeError('It is not allowed to mix events from '
+            raise ValueError('It is not allowed to mix events from '
                                'different environments')
         if self.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % self)
