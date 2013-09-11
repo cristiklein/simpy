@@ -5,31 +5,28 @@ This modules contains various utility functions:
 - :func:`subscribe_at()`: Receive an interrupt if an event occurs.
 
 """
-from simpy.events import Condition
 
 
-def start_delayed(env, peg, delay):
-    """Return a helper process that starts another PEM after a delay of
-    ``delay``.
+def start_delayed(env, generator, delay):
+    """Return a helper process that starts another process for *generator*
+    after a certain *delay*.
 
-    :meth:`~simpy.core.Environment.start` starts a PEM at the current
-    simulation time. This helper allows you to start a PEM after a delay
-    of ``delay`` simulation time units.
+    :meth:`~simpy.core.Environment.start` starts a process at the current
+    simulation time. This helper allows you to start a process after a delay of
+    *delay* simulation time units::
 
-    Just pass it as a first parameter to ``start()``::
-
-        >>> from simpy import Environment, simulate
+        >>> from simpy import Environment
         >>> from simpy.util import start_delayed
-        >>> def pem(env, x):
+        >>> def my_process(env, x):
         ...     print('%s, %s' % (env.now, x))
         ...     yield env.timeout(1)
         ...
         >>> env = Environment()
-        >>> proc = start_delayed(env, pem(env, 3), 5)
-        >>> simulate(env)
+        >>> proc = start_delayed(env, my_process(env, 3), 5)
+        >>> env.run()
         5, 3
 
-    Raises a :exc:`ValueError` if ``delay <= 0``.
+    Raise a :exc:`ValueError` if ``delay <= 0``.
 
     """
     if delay <= 0:
@@ -37,14 +34,14 @@ def start_delayed(env, peg, delay):
 
     def starter():
         yield env.timeout(delay)
-        proc = env.start(peg)
+        proc = env.start(generator)
         env.exit(proc)
 
     return env.start(starter())
 
 
 def subscribe_at(event):
-    """Register at the ``event`` to receive an interrupt when it occurs.
+    """Register at the *event* to receive an interrupt when it occurs.
 
     The most common use case for this is to pass
     a :class:`~simpy.events.Process` to get notified when it terminates.
