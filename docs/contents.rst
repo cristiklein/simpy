@@ -2,7 +2,6 @@
 Documentation for SimPy
 =======================
 
-
 Contents:
 
 .. toctree::
