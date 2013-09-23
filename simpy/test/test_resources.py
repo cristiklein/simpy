@@ -186,6 +186,25 @@ def test_resource_with_priority_queue(env):
     env.run()
 
 
+def test_sorted_queue_maxlen(env):
+    """Requests must fail if more than *maxlen* requests happen
+    concurrently."""
+    resource = simpy.PriorityResource(env, capacity=10)
+    resource.put_queue.maxlen = 1
+
+    def process(env, resource):
+        resource.request(priority=1)
+        try:
+            resource.request(priority=1)
+            pytest.fail('Expected a RuntimeError')
+        except RuntimeError as e:
+            assert e.args[0] == 'Cannot append event. Queue is full.'
+        yield env.timeout(0)
+
+    env.process(process(env, resource))
+    env.run()
+
+
 def test_get_users(env):
     def process(env, resource):
         with resource.request() as req:
