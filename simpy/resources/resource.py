@@ -184,7 +184,7 @@ class PriorityResource(Resource):
     PutQueue = SortedQueue
     """The type to be used for the
     :attr:`~simpy.resources.base.BaseResource.put_queue`."""
-    GetQueue = SortedQueue
+    GetQueue = list
     """The type to be used for the
     :attr:`~simpy.resources.base.BaseResource.get_queue`."""
 
