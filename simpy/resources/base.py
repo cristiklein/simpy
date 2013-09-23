@@ -8,7 +8,7 @@ event that has to be yielded by the requesting process. :class:`Put` and
 
 """
 from simpy.core import BoundClass
-from simpy.events import Event, PENDING
+from simpy.events import Event
 
 
 class Put(Event):
@@ -34,27 +34,16 @@ class Put(Event):
         self.resource = resource
         self.proc = self.env.active_process
 
+        resource.put_queue.append(self)
+        self.callbacks.append(resource._trigger_get)
         resource._do_put(self)
-        if self._value is not PENDING:
-            # The put request has been added to the container and triggered.
-            # Check if get requests may now be triggered.
-            while resource.get_queue:
-                get_event = resource.get_queue[0]
-                resource._do_get(get_event)
-                if get_event._value is PENDING:
-                    break
-
-                resource.get_queue.remove(get_event)
-        else:
-            # The put request has not been added to the container.
-            resource.put_queue.append(self)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # If the request has been interrupted, remove it from the queue:
-        if self._value is PENDING:
+        if not self.triggered:
             self.resource.put_queue.remove(self)
 
     cancel = __exit__
@@ -93,26 +82,16 @@ class Get(Event):
         self.resource = resource
         self.proc = self.env.active_process
 
+        resource.get_queue.append(self)
+        self.callbacks.append(resource._trigger_put)
         resource._do_get(self)
-        if self._value is not PENDING:
-            # The get request has been added to the container and triggered.
-            # Check if put requests may now be triggered.
-            while resource.put_queue:
-                put_event = resource.put_queue[0]
-                resource._do_put(put_event)
-                if put_event._value is PENDING:
-                    break
-
-                resource.put_queue.remove(put_event)
-        else:
-            resource.get_queue.append(self)
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
         # If the request has been interrupted, remove it from the queue:
-        if self._value is PENDING:
+        if not self.triggered:
             self.resource.get_queue.remove(self)
 
     cancel = __exit__
@@ -189,6 +168,16 @@ class BaseResource(object):
         """
         raise NotImplementedError(self)
 
+    def _trigger_put(self, get_event):
+        """Trigger pending put events after a get event has been executed."""
+        self.get_queue.remove(get_event)
+
+        for put_event in self.put_queue:
+            if not put_event.triggered:
+                self._do_put(put_event)
+                if not put_event.triggered:
+                    break
+
     def _do_get(self, event):
         """Actually perform the *get* operation.
 
@@ -198,3 +187,13 @@ class BaseResource(object):
 
         """
         raise NotImplementedError(self)
+
+    def _trigger_get(self, put_event):
+        """Trigger pending get events after a put event has been executed."""
+        self.put_queue.remove(put_event)
+
+        for get_event in self.get_queue:
+            if not get_event.triggered:
+                self._do_get(get_event)
+                if not get_event.triggered:
+                    break
