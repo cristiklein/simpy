@@ -7,8 +7,8 @@ import types
 from heapq import heappush, heappop
 from itertools import count
 
-from simpy.events import (AllOf, AnyOf, Event, Process, Timeout,
-                          HIGH_PRIORITY, DEFAULT_PRIORITY)
+from simpy.events import (AllOf, AnyOf, Event, Process, Timeout, URGENT,
+        NORMAL)
 
 
 Infinity = float('inf')  #: Convenience alias for infinity
@@ -73,14 +73,11 @@ class BaseEnvironment(object):
         """The currently active process of the environment."""
         raise NotImplementedError(self)
 
-    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
+    def schedule(self, event, priority=NORMAL, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*.
 
-        *priority* should be one of :data:`~simpy.events.HIGH_PRIORITY`,
-        :data:`~simpy.events.DEFAULT_PRIORITY` (default) or
-        :data:`~simpy.events.LOW_PRIORITY`.
-
-        """
+        There are two default priority values, :data:`~simpy.events.URGENT` and
+        :data:`~simpy.events.NORMAL`."""
         raise NotImplementedError(self)
 
     def step(self):
@@ -114,7 +111,7 @@ class BaseEnvironment(object):
             until = Event(self)
             until.ok = True
             until._value = None
-            self.schedule(until, HIGH_PRIORITY, at - self.now)
+            self.schedule(until, URGENT, at - self.now)
 
         until.callbacks.append(_stop_simulate)
 
@@ -183,10 +180,10 @@ class Environment(BaseEnvironment):
         """
         raise StopIteration(value)
 
-    def schedule(self, event, priority=DEFAULT_PRIORITY, delay=0):
+    def schedule(self, event, priority=NORMAL, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
-        heappush(self._queue, (self._now + delay, priority, next(self._eid),
-                               event))
+        heappush(self._queue,
+                (self._now + delay, priority, next(self._eid), event))
 
     def peek(self):
         """Get the time of the next scheduled event. Return :data:`Infinity`

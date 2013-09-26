@@ -35,9 +35,9 @@ at time 65: Consumer A received message: Generator A says hello at 65.
 at time 65: Consumer B received message: Generator A says hello at 65.
 at time 74: Consumer A received message: Generator A says hello at 74.
 at time 74: Consumer B received message: Generator A says hello at 74.
-at time 82: Consumer B received message: Generator A says hello at 82.
 at time 82: Consumer A received message: Generator A says hello at 82.
+at time 82: Consumer B received message: Generator A says hello at 82.
 at time 92: Consumer A received message: Generator A says hello at 92.
 at time 92: Consumer B received message: Generator A says hello at 92.
-at time 98: Consumer A received message: Generator A says hello at 98.
 at time 98: Consumer B received message: Generator A says hello at 98.
+at time 98: Consumer A received message: Generator A says hello at 98.

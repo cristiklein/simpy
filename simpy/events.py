@@ -32,11 +32,13 @@ if PY2:
     import sys
 
 
-PENDING = object()       #: Unique object to identify pending values of events
+PENDING = object()
+"""Unique object to identify pending values of events."""
 
-HIGH_PRIORITY = 0        #: Priority of interrupts and Initialize events
-DEFAULT_PRIORITY = 1     #: Default priority used by events
-LOW_PRIORITY = 2         #: Priority of timeouts
+URGENT = 0
+"""Priority of interrupts and process initialization events."""
+NORMAL = 1
+"""Default priority used by events."""
 
 
 class Event(object):
@@ -107,7 +109,7 @@ class Event(object):
         """
         self.ok = event.ok
         self._value = event._value
-        self.env.schedule(self, DEFAULT_PRIORITY)
+        self.env.schedule(self)
 
     def succeed(self, value=None):
         """Schedule the event and mark it as successful. Return the event
@@ -124,7 +126,7 @@ class Event(object):
 
         self.ok = True
         self._value = value
-        self.env.schedule(self, DEFAULT_PRIORITY)
+        self.env.schedule(self)
         return self
 
     def fail(self, exception):
@@ -143,7 +145,7 @@ class Event(object):
             raise ValueError('%s is not an exception.' % exception)
         self.ok = False
         self._value = exception
-        self.env.schedule(self, DEFAULT_PRIORITY)
+        self.env.schedule(self)
         return self
 
     def __and__(self, other):
@@ -172,11 +174,9 @@ class Timeout(Event):
         self.env = env
         self.callbacks = []
         self._value = value
-
-        # NOTE: The succeed() call is inlined for performance reasons.
         self._delay = delay
         self.ok = True
-        env.schedule(self, LOW_PRIORITY, delay)
+        env.schedule(self, NORMAL, delay)
 
     def _desc(self):
         """Return a string *Timeout(delay[, value=value])*."""
@@ -194,9 +194,11 @@ class Initialize(Event):
         self.callbacks = [process._resume]
         self._value = None
 
-        # Note: The succeed() call is inlined for performance reasons.
+        # The initialization events needs to be scheduled as urgent so that it
+        # will be handled before interrupts. Otherwise a process whose
+        # generator has not yet been started could be interrupted.
         self.ok = True
-        env.schedule(self, HIGH_PRIORITY)
+        env.schedule(self, URGENT)
 
 
 class Process(Event):
@@ -257,21 +259,19 @@ class Process(Event):
         """
         if self._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                               self)
+                    self)
 
         if self is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
 
-        # Schedule interrupt event
-        # NOTE: The succeed() call is inline for performance reasons and to
-        # set a HIGH_PRIORITY.
+        # Create an event for this interrupt and schedule it as being urgent.
         event = self.env.event()
         event._value = Interrupt(cause)
         event.ok = False
         # Interrupts do not cause the simulation to crash.
         event.defused = True
         event.callbacks.append(self._resume)
-        self.env.schedule(event, HIGH_PRIORITY)
+        self.env.schedule(event, URGENT)
 
     def _resume(self, event):
         """Resume the execution of the process.
@@ -314,7 +314,7 @@ class Process(Event):
                 event = None
                 self.ok = True
                 self._value = e.args[0] if len(e.args) else None
-                self.env.schedule(self, DEFAULT_PRIORITY)
+                self.env.schedule(self)
                 break
             except BaseException as e:
                 # Process has failed.
@@ -324,7 +324,7 @@ class Process(Event):
                 self._value.__cause__ = e
                 if PY2:
                     self._value.__traceback__ = sys.exc_info()[2]
-                self.env.schedule(self, DEFAULT_PRIORITY)
+                self.env.schedule(self)
                 break
 
             # Process returned another event to wait upon.
@@ -485,9 +485,9 @@ class AllOf(Condition):
 
 
 class AnyOf(Condition):
+    """A :class:`Condition` event that waits until the first of *events* is
+    triggered."""
     def __init__(self, env, events):
-        """A :class:`Condition` event that waits until the first of *events* is
-        triggered."""
         super(AnyOf, self).__init__(env, Condition.any_events, events)
 
 
