@@ -28,20 +28,22 @@ def test_run_resume(env):
     """Stopped simulation can be resumed."""
     events = [env.timeout(t) for t in (5, 10, 15)]
 
+    assert env.now == 0
+    assert not any(event.processed for event in events)
+
     env.run(until=10)
-    assert events[0].processed
-    assert not events[1].processed
-    assert not events[2].processed
     assert env.now == 10
+    assert all(event.processed for event in events[:1])
+    assert not any(event.processed for event in events[1:])
 
     env.run(until=15)
-    assert events[1].processed
-    assert not events[2].processed
     assert env.now == 15
+    assert all(event.processed for event in events[:2])
+    assert not any(event.processed for event in events[2:])
 
     env.run()
-    assert events[2].processed
     assert env.now == 15
+    assert all(event.processed for event in events)
 
 
 def test_run_until_value(env):
