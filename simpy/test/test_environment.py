@@ -3,6 +3,7 @@ General test for the the `simpy.core.Environment`.
 
 """
 # Pytest gets the parameters "env" and "log" from the *conftest.py* file
+import pytest
 
 
 def test_stop_self(env, log):
