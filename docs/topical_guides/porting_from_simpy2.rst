@@ -55,12 +55,12 @@ object-orient API. This led to some confusion and problems, because you had to
 pass the ``Simulation`` instance around when you were using the OO API but not
 if you were using the procedural API.
 
-In SimPy 3, an :class:`~simpy.core.Environment` replaces the various
-``Simulation*`` classes and you always need to explicitly instantiate it (no
-more global state).
+In SimPy 3, an :class:`~simpy.core.Environment` replaces ``Simulation`` and
+:class:`~simpy.rt.RealtimeEnvironment` replaces ``SimulationRT``. You always
+need to instantiate an environment. There's no more global state.
 
-To execute a simulation, you call ``simpy.simulate()`` and pass the environment
-that you want to simulate.
+To execute a simulation, you call the environment's
+:meth:`~simpy.core.Environment.run()` method.
 
 **SimPy 2**
 
@@ -91,7 +91,7 @@ that you want to simulate.
 
     env = simpy.Environment()
     # Start processes
-    simpy.simulate(env, until=10)
+    env.run(until=10)
 
 
 Defining a Process
@@ -108,13 +108,14 @@ Processes were started by passing the ``Process`` and the generator returned by
 the PEM to either the global ``activate()`` function or the corresponding
 ``Simulation`` method.
 
-Process in SimPy 3 can be any Python generator function---normal functions or
+A process in SimPy 3 can be any Python generator function---normal functions or
 instance methods. Hence, they are now just called process functions.  They
 usually require a reference to the :class:`~simpy.core.Environment` to interact
 with, but this is completely optional.
 
-Processes are now started by passing the process generator to the environment's
-:meth:`~simpy.core.Environment.start()` method.
+Processes are can be started by creating a :class:`~simpy.events.Process`
+instance and passing the generator to it. The environment provides a shortcut
+for this: :meth:`~simpy.core.Environment.process()`.
 
 
 **SimPy 2**
@@ -165,29 +166,31 @@ Processes are now started by passing the process generator to the environment's
         """Implement the process' behavior."""
 
     env = simpy.Environment()
-    proc = env.start(my_process(env, 'Spam'))
+    proc = env.process(my_process(env, 'Spam'))
 
 
 SimPy Keywords (``hold`` etc.)
 ==============================
 
 In SimPy 2, processes created new events by yielding a *SimPy Keyword* and some
-additional parameters (at least ``self``). These keywords had to be import from
-``SimPy.Simulation*`` if they were used. Internally, the keywords were mapped
-to a function that generated the according event.
+additional parameters (at least ``self``). These keywords had to be imported
+from ``SimPy.Simulation*`` if they were used. Internally, the keywords were
+mapped to a function that generated the according event.
 
-SimPy 3 directly exposes these event-generating functions via the
-:class:`~simpy.core.Environment`, :class:`~simpy.events.Process` or resource
-types, depending on were they make most sense. You don't need to import
-something separately anymore.
+In SimPy 3, you directly yield :mod:`~simpy.events`. You can instantiate an
+event directly or use the shortcuts provided by
+:class:`~simpy.core.Environment`.
 
-Generally, whenever you see a ``yield`` statement in a process, this process is
-going to wait for the event following the ``yield`` statement. To motivate this
-understanding, some of the events were renamed.
+Generally, whenever a process yields an event, this process is going to wait
+for that event. To motivate this understanding, some of the events were
+renamed. For example, the ``hold`` keyword meant to wait until some time has
+passed. In terms of events this means that a timeout has happened. Therefore
+``hold`` has been replaced by a :class:`~simpy.events.Timeout` event.
 
-For example the ``hold`` keyword meant to wait until some time has passed. In
-terms of events this means that a timeout has happened. Therefore ``hold`` has
-been replaced by a ``timeout`` event.
+.. note::
+
+    :class:`~simpy.events.Process` now inherits :class:`~simpy.events.Event`.
+    You can thus yield a process to wait until the process terminates.
 
 
 **SimPy 2**
@@ -212,18 +215,20 @@ been replaced by a ``timeout`` event.
 
     from simpy.util import wait_for_any, wait_for_all
 
-    yield env.timeout(duration)      # hold: renamed
-    yield env.suspend()              # passivate: renamed
-    yield resource.request()         # Request is now bound to class Resource
-    resource.release()               # Release is no longer yielded
-    yield event                      # waitevent: just yield the event
+    yield env.timeout(duration)        # hold: renamed
+    yield env.event()                  # passivate: renamed
+    yield resource.request()           # Request is now bound to class Resource
+    resource.release()                 # Release no longer needs to be yielded
+    yield event                        # waitevent: just yield the event
     yield wait_for_any([event_a, event_b, event_c])  # waitevent
-    yield wait_for_all([event_a, event_b, event_c])  # This is new
+    yield wait_for_all([event_a, event_b, event_c])  # This is new.
+    yield event_a | event_b            # Wait for either a or b. This is new.
+    yield event_a & event_b            # Wait for a and b. This is new.
     # There is no direct equivalent for "queueevent"
-    yield env.start(cond_func(env))  # cond_func is now a process that
-                                     # terminates when the cond. is True
-                                     # (Yes, you can wait for processes now!)
-    yield container.get(amount)      # Level is now called Container
+    yield env.process(cond_func(env))  # cond_func is now a process that
+                                       # terminates when the cond. is True
+                                       # (Yes, you can wait for processes now!)
+    yield container.get(amount)        # Level is now called Container
     yield container.put(amount)
 
 
@@ -259,7 +264,7 @@ then thrown into the victim process, which has to handle the interrupt via
         def run(self):
             yield hold, self, 1
             self.interrupt(self.victim_proc)
-            self.victim_proc.interruptCause = 'Spam')
+            self.victim_proc.interruptCause = 'Spam'
 
     class Victim(Process):
         def run(self):
