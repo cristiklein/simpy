@@ -1,0 +1,44 @@
+Process communication
+
+One-to-one pipe communication
+
+at time 9: Consumer A received message: Generator A says hello at 9.
+at time 15: Consumer A received message: Generator A says hello at 15.
+at time 22: Consumer A received message: Generator A says hello at 22.
+at time 31: Consumer A received message: Generator A says hello at 31.
+at time 37: Consumer A received message: Generator A says hello at 37.
+at time 43: Consumer A received message: Generator A says hello at 43.
+at time 51: Consumer A received message: Generator A says hello at 51.
+LATE Getting Message: at time 58: Consumer A received message: Generator A says hello at 57
+at time 65: Consumer A received message: Generator A says hello at 65.
+at time 73: Consumer A received message: Generator A says hello at 73.
+LATE Getting Message: at time 81: Consumer A received message: Generator A says hello at 79
+at time 88: Consumer A received message: Generator A says hello at 88.
+LATE Getting Message: at time 96: Consumer A received message: Generator A says hello at 94
+
+One-to-many pipe communication
+
+at time 6: Consumer A received message: Generator A says hello at 6.
+at time 6: Consumer B received message: Generator A says hello at 6.
+at time 16: Consumer A received message: Generator A says hello at 16.
+at time 16: Consumer B received message: Generator A says hello at 16.
+at time 25: Consumer A received message: Generator A says hello at 25.
+at time 25: Consumer B received message: Generator A says hello at 25.
+at time 32: Consumer A received message: Generator A says hello at 32.
+LATE Getting Message: at time 33: Consumer B received message: Generator A says hello at 32
+at time 41: Consumer A received message: Generator A says hello at 41.
+at time 41: Consumer B received message: Generator A says hello at 41.
+at time 50: Consumer A received message: Generator A says hello at 50.
+at time 50: Consumer B received message: Generator A says hello at 50.
+at time 57: Consumer A received message: Generator A says hello at 57.
+at time 57: Consumer B received message: Generator A says hello at 57.
+at time 63: Consumer A received message: Generator A says hello at 63.
+LATE Getting Message: at time 64: Consumer B received message: Generator A says hello at 63
+at time 70: Consumer A received message: Generator A says hello at 70.
+at time 70: Consumer B received message: Generator A says hello at 70.
+at time 77: Consumer B received message: Generator A says hello at 77.
+LATE Getting Message: at time 78: Consumer A received message: Generator A says hello at 77
+at time 86: Consumer A received message: Generator A says hello at 86.
+at time 86: Consumer B received message: Generator A says hello at 86.
+at time 92: Consumer A received message: Generator A says hello at 92.
+LATE Getting Message: at time 94: Consumer B received message: Generator A says hello at 92
