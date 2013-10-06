@@ -7,9 +7,9 @@ def test_operator_and(env):
         results = yield timeout[0] & timeout[1] & timeout[2]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
-                timeout[2]: 2,
+            timeout[0]: 0,
+            timeout[1]: 1,
+            timeout[2]: 2,
         }
 
     env.process(process(env))
@@ -22,7 +22,7 @@ def test_operator_or(env):
         results = yield timeout[0] | timeout[1] | timeout[2]
 
         assert results == {
-                timeout[0]: 0,
+            timeout[0]: 0,
         }
 
     env.process(process(env))
@@ -35,8 +35,8 @@ def test_operator_nested_and(env):
         results = yield (timeout[0] & timeout[2]) | timeout[1]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
+            timeout[0]: 0,
+            timeout[1]: 1,
         }
         assert env.now == 1
 
@@ -50,9 +50,9 @@ def test_operator_nested_or(env):
         results = yield (timeout[0] | timeout[1]) & timeout[2]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
-                timeout[2]: 2,
+            timeout[0]: 0,
+            timeout[1]: 1,
+            timeout[2]: 2,
         }
         assert env.now == 2
 
@@ -99,7 +99,8 @@ def test_cond_with_nested_error(env):
 
     def process(env):
         try:
-            yield env.process(explode(env, 0)) & env.timeout(1) | env.timeout(1)
+            yield (env.process(explode(env, 0)) & env.timeout(1) |
+                   env.timeout(1))
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes, failed after 0!',)
