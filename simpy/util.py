@@ -34,10 +34,10 @@ def start_delayed(env, generator, delay):
 
     def starter():
         yield env.timeout(delay)
-        proc = env.start(generator)
+        proc = env.process(generator)
         env.exit(proc)
 
-    return env.start(starter())
+    return env.process(starter())
 
 
 def subscribe_at(event):
@@ -58,6 +58,6 @@ def subscribe_at(event):
             receiver.interrupt((signaller, result))
 
     if event.callbacks is not None:
-        env.start(signaller(event, subscriber))
+        env.process(signaller(event, subscriber))
     else:
         raise RuntimeError('%s has already terminated.' % event)

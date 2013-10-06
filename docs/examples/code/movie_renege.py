@@ -70,7 +70,7 @@ def customer_arrivals(env, theater):
         movie = random.choice(theater.movies)
         num_tickets = random.randint(1, 6)
         if theater.available[movie]:
-            env.start(moviegoer(env, movie, num_tickets, theater))
+            env.process(moviegoer(env, movie, num_tickets, theater))
 
 
 Theater = collections.namedtuple('Theater', 'counter, movies, available, '
@@ -94,7 +94,7 @@ theater = Theater(counter, movies, available, sold_out, when_sold_out,
                   num_renegers)
 
 # Start process and run
-env.start(customer_arrivals(env, theater))
+env.process(customer_arrivals(env, theater))
 env.run(until=SIM_TIME)
 
 # Analysis/results

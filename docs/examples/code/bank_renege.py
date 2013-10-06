@@ -27,7 +27,7 @@ def source(env, number, interval, counter):
     """Source generates customers randomly"""
     for i in range(number):
         c = customer(env, 'Customer%02d' % i, counter, time_in_bank=12.0)
-        env.start(c)
+        env.process(c)
         t = random.expovariate(1.0 / interval)
         yield env.timeout(t)
 
@@ -64,5 +64,5 @@ env = simpy.Environment()
 
 # Start processes and run
 counter = simpy.Resource(env, capacity=1)
-env.start(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counter))
+env.process(source(env, NEW_CUSTOMERS, INTERVAL_CUSTOMERS, counter))
 env.run()

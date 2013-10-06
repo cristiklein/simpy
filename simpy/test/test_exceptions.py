@@ -19,12 +19,12 @@ def test_error_forwarding(env):
 
     def parent(env):
         try:
-            yield env.start(child(env))
+            yield env.process(child(env))
             pytest.fail('We should not have gotten here ...')
         except ValueError as err:
             assert err.args[0] == 'Onoes!'
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -39,12 +39,12 @@ def test_no_parent_process(env):
 
     def parent(env):
         try:
-            env.start(child(env))
+            env.process(child(env))
             yield env.timeout(1)
         except Exception as err:
             pytest.fail('There should be no error (%s).' % err)
 
-    env.start(parent(env))
+    env.process(parent(env))
     pytest.raises(ValueError, env.run)
 
 
@@ -55,7 +55,7 @@ def test_crashing_child_traceback(env):
 
     def root(env):
         try:
-            yield env.start(panic(env))
+            yield env.process(panic(env))
             pytest.fail("Hey, where's the roflcopter?")
         except RuntimeError:
             if not _compat.PY2:
@@ -66,10 +66,10 @@ def test_crashing_child_traceback(env):
                 stacktrace = ''.join(_compat.format_chain(*sys.exc_info()))
 
             # The current frame must be visible in the stacktrace.
-            assert 'yield env.start(panic(env))' in stacktrace
+            assert 'yield env.process(panic(env))' in stacktrace
             assert 'raise RuntimeError(\'Oh noes,' in stacktrace
 
-    env.start(root(env))
+    env.process(root(env))
     env.run()
 
 
@@ -84,14 +84,14 @@ def test_exception_chaining(env):
         raise RuntimeError('foo')
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         yield child_proc
 
     def grandparent(env):
-        parent_proc = env.start(parent(env))
+        parent_proc = env.process(parent(env))
         yield parent_proc
 
-    env.start(grandparent(env))
+    env.process(grandparent(env))
     try:
         env.run()
         pytest.fail('There should have been an exception')
@@ -109,7 +109,7 @@ def test_invalid_event(env):
     def root(env):
         yield None
 
-    env.start(root(env))
+    env.process(root(env))
     try:
         env.run()
         pytest.fail('Hey, this is not allowed!')
@@ -154,7 +154,7 @@ def test_process_exception_handling(env):
             pass
 
     event = env.event()
-    env.start(pem(env, event))
+    env.process(pem(env, event))
     event.fail(RuntimeError())
 
     assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'

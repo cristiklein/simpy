@@ -34,17 +34,17 @@ def test_subscribe(env):
         env.exit('ohai')
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         subscribe_at(child_proc)
 
         try:
-            yield env.suspend()
+            yield env.event()
         except Interrupt as interrupt:
             assert interrupt.cause[0] is child_proc
             assert interrupt.cause[1] == 'ohai'
             assert env.now == 3
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -57,11 +57,11 @@ def test_subscribe_terminated_proc(env):
         yield env.timeout(1)
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         yield env.timeout(2)
         pytest.raises(RuntimeError, subscribe_at, child_proc)
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -71,8 +71,8 @@ def test_subscribe_with_join(env):
         yield env.timeout(i)
 
     def parent(env):
-        child_proc1 = env.start(child(env, 1))
-        child_proc2 = env.start(child(env, 2))
+        child_proc1 = env.process(child(env, 1))
+        child_proc2 = env.process(child(env, 2))
         try:
             subscribe_at(child_proc1)
             yield child_proc2
@@ -81,7 +81,7 @@ def test_subscribe_with_join(env):
             assert interrupt.cause[0] is child_proc1
             assert child_proc2.is_alive
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -96,7 +96,7 @@ def test_subscribe_at_timeout(env):
             assert interrupt.cause == (to, None)
             assert env.now == 2
 
-    env.start(pem(env))
+    env.process(pem(env))
     env.run()
 
 
@@ -112,7 +112,7 @@ def test_subscribe_at_timeout_with_value(env):
             assert interrupt.cause == (to, val)
             assert env.now == 2
 
-    env.start(pem(env))
+    env.process(pem(env))
     env.run()
 
 
@@ -126,7 +126,7 @@ def test_all_of(env):
         assert results == {events[i]: i for i in range(10)}
         assert env.now == 9
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -139,7 +139,7 @@ def test_wait_for_all_with_errors(env):
 
     def parent(env):
         events = [env.timeout(1, value=1),
-            env.start(child_with_error(env, 2)),
+            env.process(child_with_error(env, 2)),
             env.timeout(3, value=3)]
 
         try:
@@ -155,7 +155,7 @@ def test_wait_for_all_with_errors(env):
         # The last child has not terminated yet.
         assert events[2] not in condition._interim_values
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -171,7 +171,7 @@ def test_all_of_chaining(env):
         results = yield condition_A
         assert sorted(results.values()) == [0, 0, 1, 1]
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -191,7 +191,7 @@ def test_all_of_chaining_intermediate_results(env):
         results = yield condition
         assert sorted(results.values()) == [0, 0, 1, 1]
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -208,7 +208,7 @@ def test_all_of_with_triggered_events(env):
             assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
                             r'been triggered', e.args[0])
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -222,7 +222,7 @@ def test_any_of(env):
         assert results == {events[0]: 0}
         assert env.now == 0
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -233,7 +233,7 @@ def test_any_of_with_errors(env):
         raise RuntimeError('crashing')
 
     def parent(env):
-        events = [env.start(child_with_error(env, 1)),
+        events = [env.process(child_with_error(env, 1)),
             env.timeout(2, value=2)]
 
         try:
@@ -247,7 +247,7 @@ def test_any_of_with_errors(env):
         # The last event has not terminated yet.
         assert events[1] not in condition._interim_values
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -263,7 +263,7 @@ def test_any_of_chaining(env):
         results = yield condition_A
         assert sorted(results.values()) == ['b']
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -280,7 +280,7 @@ def test_any_of_with_triggered_events(env):
             assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
                             r'been triggered', e.args[0])
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -290,7 +290,7 @@ def test_empty_any_of(env):
         results = yield env.any_of([])
         assert results == {}
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -300,5 +300,5 @@ def test_empty_all_of(env):
         results = yield env.all_of([])
         assert results == {}
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()

@@ -166,8 +166,6 @@ class Environment(BaseEnvironment):
     event = BoundClass(Event)
     all_of = BoundClass(AllOf)
     any_of = BoundClass(AnyOf)
-    suspend = event
-    start = process
 
     def exit(self, value=None):
         """Convenience function provided for Python versions prior to 3.3. Stop
