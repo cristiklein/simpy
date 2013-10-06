@@ -12,29 +12,19 @@
     .. autoattribute:: now
     .. autoattribute:: active_process
 
-    .. method:: start(generator)
-
-        Start a new process from *generator*. Alias of :meth:`process`.
-
     .. method:: process(generator)
 
-        Return a new :class:`~simpy.events.Process` instance for *generator*.
+        Create a new :class:`~simpy.events.Process` instance for *generator*.
 
     .. method:: timeout(delay, value=None)
 
         Return a new :class:`~simpy.events.Timeout` event with a *delay* and,
         optionally, a *value*.
 
-
-    .. method:: suspend()
-
-        Alias of :meth:`event()`. Yielding this event suspends a process until
-        another process triggers the event.
-
-
     .. method:: event()
 
-        Return a new :class:`~simpy.events.Event` instance.
+        Return a new :class:`~simpy.events.Event` instance. Yielding this event
+        suspends a process until another process triggers the event.
 
     .. method:: all_of(events)
 

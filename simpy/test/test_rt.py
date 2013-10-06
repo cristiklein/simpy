@@ -31,8 +31,8 @@ def check_duration(real, expected):
 def test_rt(log, factor):
     """Basic tests for run()."""
     env = RealtimeEnvironment(factor=factor)
-    env.start(process(env, log, 0.01, 1))
-    env.start(process(env, log, 0.02, 1))
+    env.process(process(env, log, 0.01, 1))
+    env.process(process(env, log, 0.02, 1))
 
     start = perf_counter()
     env.run(2)
@@ -47,8 +47,8 @@ def test_rt_multiple_call(log):
     env = RealtimeEnvironment(factor=0.05)
     start = perf_counter()
 
-    env.start(process(env, log, 0.01, 2))
-    env.start(process(env, log, 0.01, 3))
+    env.process(process(env, log, 0.01, 2))
+    env.process(process(env, log, 0.01, 3))
 
     env.run(5)
     duration = perf_counter() - start
@@ -68,7 +68,7 @@ def test_rt_slow_sim_default_behavior(log):
     """By default, SimPy should raise an error if a simulation is too
     slow for the selected real-time factor."""
     env = RealtimeEnvironment(factor=0.05)
-    env.start(process(env, log, 0.1, 1))
+    env.process(process(env, log, 0.1, 1))
 
     err = pytest.raises(RuntimeError, env.run, 3)
     assert 'Simulation too slow for real time (0.05' in err.value.args[0]
@@ -78,7 +78,7 @@ def test_rt_slow_sim_default_behavior(log):
 def test_rt_slow_sim_no_error(log):
     """Test ignoring slow simulations."""
     env = RealtimeEnvironment(factor=0.05, strict=False)
-    env.start(process(env, log, 0.1, 1))
+    env.process(process(env, log, 0.1, 1))
 
     start = perf_counter()
     env.run(2)

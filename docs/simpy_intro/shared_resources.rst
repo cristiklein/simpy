@@ -62,7 +62,7 @@ We can now create the ``car`` processes and pass a reference to our resource as
 well as some additional parameters to them::
 
     >>> for i in range(4):
-    ...     env.start(car(env, 'Car %d' % i, bcs, i*2, 5))
+    ...     env.process(car(env, 'Car %d' % i, bcs, i*2, 5))
     <Process(car) object at 0x...>
     <Process(car) object at 0x...>
     <Process(car) object at 0x...>

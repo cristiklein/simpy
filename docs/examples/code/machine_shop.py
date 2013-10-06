@@ -58,8 +58,8 @@ class Machine(object):
         self.broken = False
 
         # Start "working" and "break_machine" processes for this machine.
-        self.process = env.start(self.working(repairman))
-        env.start(self.break_machine())
+        self.process = env.process(self.working(repairman))
+        env.process(self.break_machine())
 
     def working(self, repairman):
         """Produce parts as long as the simulation runs.
@@ -128,7 +128,7 @@ env = simpy.Environment()
 repairman = simpy.PreemptiveResource(env, capacity=1)
 machines = [Machine(env, 'Machine %d' % i, repairman)
         for i in range(NUM_MACHINES)]
-env.start(other_jobs(env, repairman))
+env.process(other_jobs(env, repairman))
 
 # Execute!
 env.run(until=SIM_TIME)

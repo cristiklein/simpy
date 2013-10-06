@@ -62,7 +62,7 @@ def car(env, name, cw):
         yield request
 
         print('%s enters the carwash at %.2f.' % (name, env.now))
-        yield env.start(cw.wash(name))
+        yield env.process(cw.wash(name))
 
         print('%s leaves the carwash at %.2f.' % (name, env.now))
 
@@ -75,13 +75,13 @@ def setup(env, num_machines, washtime, t_inter):
 
     # Create 4 initial cars
     for i in range(4):
-        env.start(car(env, 'Car %d' % i, carwash))
+        env.process(car(env, 'Car %d' % i, carwash))
 
     # Create more cars while the simulation is running
     while True:
         yield env.timeout(random.randint(t_inter-2, t_inter+2))
         i += 1
-        env.start(car(env, 'Car %d' % i, carwash))
+        env.process(car(env, 'Car %d' % i, carwash))
 
 
 # Setup and start the simulation
@@ -91,7 +91,7 @@ random.seed(RANDOM_SEED)  # This helps reproducing the results
 
 # Create an environment and start the setup process
 env = simpy.Environment()
-env.start(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
+env.process(setup(env, NUM_MACHINES, WASHTIME, T_INTER))
 
 # Execute!
 env.run(until=SIM_TIME)

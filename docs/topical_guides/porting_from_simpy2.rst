@@ -114,7 +114,7 @@ usually require a reference to the :class:`~simpy.core.Environment` to interact
 with, but this is completely optional.
 
 Processes are now started by passing the process generator to the environment's
-:meth:`~simpy.core.Environment.start()` method.
+:meth:`~simpy.core.Environment.process()` method.
 
 
 **SimPy 2**
@@ -165,7 +165,7 @@ Processes are now started by passing the process generator to the environment's
         """Implement the process' behavior."""
 
     env = simpy.Environment()
-    proc = env.start(my_process(env, 'Spam'))
+    proc = env.process(my_process(env, 'Spam'))
 
 
 SimPy Keywords (``hold`` etc.)
@@ -213,14 +213,14 @@ been replaced by a ``timeout`` event.
     from simpy.util import wait_for_any, wait_for_all
 
     yield env.timeout(duration)      # hold: renamed
-    yield env.suspend()              # passivate: renamed
+    yield env.event()                  # passivate: renamed
     yield resource.request()         # Request is now bound to class Resource
     resource.release()               # Release is no longer yielded
     yield event                      # waitevent: just yield the event
     yield wait_for_any([event_a, event_b, event_c])  # waitevent
     yield wait_for_all([event_a, event_b, event_c])  # This is new
     # There is no direct equivalent for "queueevent"
-    yield env.start(cond_func(env))  # cond_func is now a process that
+    yield env.process(cond_func(env))  # cond_func is now a process that
                                      # terminates when the cond. is True
                                      # (Yes, you can wait for processes now!)
     yield container.get(amount)      # Level is now called Container

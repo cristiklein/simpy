@@ -118,8 +118,8 @@ env = simpy.Environment()
 
 # For one-to-one or many-to-one type pipes, use Store
 pipe = simpy.Store(env)
-env.start(message_generator('Generator A', env, pipe))
-env.start(message_consumer('Consumer A', env, pipe))
+env.process(message_generator('Generator A', env, pipe))
+env.process(message_consumer('Consumer A', env, pipe))
 
 print('\nOne-to-one pipe communication\n')
 env.run(until=SIM_TIME)
@@ -129,9 +129,9 @@ env.run(until=SIM_TIME)
 env = simpy.Environment()
 bc_pipe = BroadcastPipe(env)
 
-env.start(message_generator('Generator A', env, bc_pipe))
-env.start(message_consumer('Consumer A', env, bc_pipe.get_output_conn()))
-env.start(message_consumer('Consumer B', env, bc_pipe.get_output_conn()))
+env.process(message_generator('Generator A', env, bc_pipe))
+env.process(message_consumer('Consumer A', env, bc_pipe.get_output_conn()))
+env.process(message_consumer('Consumer B', env, bc_pipe.get_output_conn()))
 
 print('\nOne-to-many pipe communication\n')
 env.run(until=SIM_TIME)
