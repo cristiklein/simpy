@@ -5,7 +5,6 @@ Tests for forwarding exceptions from child to parent processes.
 import pytest
 
 from simpy import _compat
-import simpy
 
 
 def test_error_forwarding(env):

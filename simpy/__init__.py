@@ -89,7 +89,7 @@ def test():
     """Runs SimPy's test suite via `py.test <http://pytest.org/latest/>`_."""
     import os.path
     try:
-        import mock
+        import mock  # NOQA
         import pytest
     except ImportError:
         print('You need pytest and mock to run the tests. '

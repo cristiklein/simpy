@@ -8,7 +8,7 @@ from heapq import heappush, heappop
 from itertools import count
 
 from simpy.events import (AllOf, AnyOf, Event, Process, Timeout, URGENT,
-        NORMAL)
+                          NORMAL)
 
 
 Infinity = float('inf')  #: Convenience alias for infinity

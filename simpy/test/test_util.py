@@ -139,8 +139,8 @@ def test_wait_for_all_with_errors(env):
 
     def parent(env):
         events = [env.timeout(1, value=1),
-            env.process(child_with_error(env, 2)),
-            env.timeout(3, value=3)]
+                  env.process(child_with_error(env, 2)),
+                  env.timeout(3, value=3)]
 
         try:
             condition = env.all_of(events)
@@ -234,7 +234,7 @@ def test_any_of_with_errors(env):
 
     def parent(env):
         events = [env.process(child_with_error(env, 1)),
-            env.timeout(2, value=2)]
+                  env.timeout(2, value=2)]
 
         try:
             condition = env.any_of(events)

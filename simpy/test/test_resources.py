@@ -20,7 +20,6 @@ def test_resource(env, log):
 
     """
     def pem(env, name, resource, log):
-        __name__ = 'pem(%s)' % name
         req = resource.request()
         yield req
         assert resource.count == 1
@@ -70,10 +69,8 @@ def test_resource_slots(env, log):
         env.process(pem(env, str(i), resource, log))
     env.run()
 
-    assert log == [('0', 0), ('1', 0), ('2', 0),
-            ('3', 1), ('4', 1), ('5', 1),
-            ('6', 2), ('7', 2), ('8', 2),
-    ]
+    assert log == [('0', 0), ('1', 0), ('2', 0), ('3', 1), ('4', 1), ('5', 1),
+                   ('6', 2), ('7', 2), ('8', 2)]
 
 
 def test_resource_continue_after_interrupt(env):
@@ -239,10 +236,10 @@ def test_preemptive_resource(env, log):
                 log.append((env.now, id, (ir.cause.by, ir.cause.usage_since)))
 
     res = simpy.PreemptiveResource(env, capacity=2)
-    p0 = env.process(process(0, env, res, 0, 1, log))
-    p1 = env.process(process(1, env, res, 0, 1, log))
+    env.process(process(0, env, res, 0, 1, log))
+    env.process(process(1, env, res, 0, 1, log))
     p2 = env.process(process(2, env, res, 1, 0, log))
-    p3 = env.process(process(3, env, res, 2, 2, log))
+    env.process(process(3, env, res, 2, 2, log))
 
     env.run()
 
@@ -283,21 +280,15 @@ def test_mixed_preemption(env, log):
                 log.append((env.now, id, (ir.cause.by, ir.cause.usage_since)))
 
     res = simpy.PreemptiveResource(env, 2)
-    p0 = env.process(process(0, env, res, 0, 1, True, log))
-    p1 = env.process(process(1, env, res, 0, 1, True, log))
-    p2 = env.process(process(2, env, res, 1, 0, False, log))
+    env.process(process(0, env, res, 0, 1, True, log))
+    env.process(process(1, env, res, 0, 1, True, log))
+    env.process(process(2, env, res, 1, 0, False, log))
     p3 = env.process(process(3, env, res, 1, 0, True, log))
-    p4 = env.process(process(4, env, res, 2, 2, True, log))
+    env.process(process(4, env, res, 2, 2, True, log))
 
     env.run()
 
-    assert log == [
-        (1, 1, (p3, 0)),
-        (5, 0),
-        (6, 3),
-        (10, 2),
-        (11, 4),
-    ]
+    assert log == [(1, 1, (p3, 0)), (5, 0), (6, 3), (10, 2), (11, 4)]
 
 #
 # Tests for Container
@@ -344,8 +335,8 @@ def test_container_get_queued(env):
 
     container = simpy.Container(env, 1)
     p0 = env.process(proc(env, 0, container, 'get'))
-    p1 = env.process(proc(env, 1, container, 'put'))
-    p2 = env.process(proc(env, 1, container, 'put'))
+    env.process(proc(env, 1, container, 'put'))
+    env.process(proc(env, 1, container, 'put'))
     p3 = env.process(proc(env, 1, container, 'put'))
 
     env.run(until=1)
