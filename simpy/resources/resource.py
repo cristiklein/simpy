@@ -108,7 +108,7 @@ class SortedQueue(list):
     def append(self, item):
         """Append *item* to the queue and keep the queue sorted.
 
-        Raise a :class:`RuntimeError` if the queue is full.
+        Raise a :exc:`RuntimeError` if the queue is full.
 
         """
         if self.maxlen is not None and len(self) >= self.maxlen:
