@@ -121,7 +121,7 @@ These changes are causing the above example to now look like this:
             yield env.timeout(i)
 
     env = Environment()
-    env.start(pem(env, 7))
+    env.process(pem(env, 7))
     simulate(env, until=10)
 
 The following sections describe these changes in detail:
