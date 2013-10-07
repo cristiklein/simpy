@@ -108,10 +108,11 @@ Processes were started by passing the ``Process`` and the generator returned by
 the PEM to either the global ``activate()`` function or the corresponding
 ``Simulation`` method.
 
-A process in SimPy 3 can be any Python generator function---normal functions or
-instance methods. Hence, they are now just called process functions.  They
-usually require a reference to the :class:`~simpy.core.Environment` to interact
-with, but this is completely optional.
+A process in SimPy 3 can be defined by any Python generator function (no matter
+if it’s defined on module level or as an instance method). Hence, they are now
+just called process functions.  They usually require a reference to the
+:class:`~simpy.core.Environment` to interact with, but this is completely
+optional.
 
 Processes are can be started by creating a :class:`~simpy.events.Process`
 instance and passing the generator to it. The environment provides a shortcut
@@ -181,11 +182,12 @@ In SimPy 3, you directly yield :mod:`~simpy.events`. You can instantiate an
 event directly or use the shortcuts provided by
 :class:`~simpy.core.Environment`.
 
-Generally, whenever a process yields an event, this process is going to wait
-for that event. To motivate this understanding, some of the events were
-renamed. For example, the ``hold`` keyword meant to wait until some time has
-passed. In terms of events this means that a timeout has happened. Therefore
-``hold`` has been replaced by a :class:`~simpy.events.Timeout` event.
+Generally, whenever a process yields an event, this process is suspended and
+resumed once the event has been triggered. To motivate this understanding, some
+of the events were renamed. For example, the ``hold`` keyword meant to wait
+until some time has passed. In terms of events this means that a timeout has
+happened. Therefore ``hold`` has been replaced by
+a :class:`~simpy.events.Timeout` event.
 
 .. note::
 
