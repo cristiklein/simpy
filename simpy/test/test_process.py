@@ -16,7 +16,7 @@ def test_start_non_process(env):
     pytest.raises(ValueError, env.start, foo)
 
 
-def test_get_process_state(env):
+def test_get_state(env):
     """A process is alive until it's generator has not terminated."""
     def pem_a(env):
         yield env.timeout(3)
@@ -33,7 +33,7 @@ def test_get_process_state(env):
     env.run()
 
 
-def test_process_target(env):
+def test_target(env):
     def pem(env, event):
         yield event
 

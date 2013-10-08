@@ -6,7 +6,7 @@ Tests for ``simpy.events.Event``.
 import re
 
 
-def test_event_succeeds(env):
+def test_succeed(env):
     """Test for the Environment.event() helper function."""
     def child(env, event):
         value = yield event
@@ -23,7 +23,7 @@ def test_event_succeeds(env):
     env.run()
 
 
-def test_event_fails(env):
+def test_fail(env):
     """Test for the Environment.event() helper function."""
     def child(env, event):
         try:
@@ -60,7 +60,7 @@ def test_names(env):
     assert re.match(r'<Process\(pem\) object at 0x.*>', str(env.start(pem())))
 
 
-def test_event_value(env):
+def test_value(env):
     """After an event has been triggered, its value becomes accessible."""
     event = env.timeout(0, 'I am the value')
 
@@ -69,7 +69,7 @@ def test_event_value(env):
     assert event.value == 'I am the value'
 
 
-def test_unavailable_event_value(env):
+def test_unavailable_value(env):
     """If an event has not yet been triggered, its value is not availabe and
     trying to access it will result in a AttributeError."""
     event = env.event()
@@ -81,7 +81,7 @@ def test_unavailable_event_value(env):
         assert e.args[0].endswith('is not yet available')
 
 
-def test_triggered_event(env):
+def test_triggered(env):
     def pem(env, event):
         value = yield event
         env.exit(value)
