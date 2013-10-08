@@ -1,10 +1,50 @@
 """
-Tests for waiting for a process to finish.
+Tests for the ``simpy.events.Process``.
 
 """
+# Pytest gets the parameters "env" and "log" from the *conftest.py* file
 import pytest
 
 from simpy import Interrupt
+
+
+def test_start_non_process(env):
+    """Check that you cannot start a normal function."""
+    def foo():
+        pass
+
+    pytest.raises(ValueError, env.process, foo)
+
+
+def test_get_state(env):
+    """A process is alive until it's generator has not terminated."""
+    def pem_a(env):
+        yield env.timeout(3)
+
+    def pem_b(env, pem_a):
+        yield env.timeout(1)
+        assert pem_a.is_alive
+
+        yield env.timeout(3)
+        assert not pem_a.is_alive
+
+    proc_a = env.process(pem_a(env))
+    env.process(pem_b(env, proc_a))
+    env.run()
+
+
+def test_target(env):
+    def pem(env, event):
+        yield event
+
+    event = env.timeout(5)
+    proc = env.process(pem(env, event))
+
+    # Wait until "proc" is initialized and yielded the event
+    while env.peek() < 5:
+        env.step()
+    assert proc.target is event
+    proc.interrupt()
 
 
 def test_wait_for_proc(env):
