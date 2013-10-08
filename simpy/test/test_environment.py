@@ -6,8 +6,9 @@ General test for the the `simpy.core.Environment`.
 import pytest
 
 
-def test_stop_self(env, log):
-    """Process stops itself."""
+def test_event_queue_empty(env, log):
+    """The simulation should stop if there are no more events, that means, no
+    more active process."""
     def pem(env, log):
         while env.now < 2:
             log.append(env.now)
