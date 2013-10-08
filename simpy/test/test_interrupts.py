@@ -23,11 +23,11 @@ def test_interruption(env):
             assert interrupt.cause == 'interrupt!'
 
     def interruptor(env):
-        child_process = env.start(interruptee(env))
+        child_process = env.process(interruptee(env))
         yield env.timeout(5)
         child_process.interrupt('interrupt!')
 
-    env.start(interruptor(env))
+    env.process(interruptor(env))
     env.run()
 
 
@@ -47,9 +47,9 @@ def test_concurrent_interrupts(env, log):
         fox.interrupt(name)
         yield env.timeout(1)
 
-    fantastic_mr_fox = env.start(fox(env, log))
+    fantastic_mr_fox = env.process(fox(env, log))
     for name in ('boggis', 'bunce', 'beans'):
-        env.start(farmer(env, name, fantastic_mr_fox))
+        env.process(farmer(env, name, fantastic_mr_fox))
 
     env.run(20)
     assert log == [(0, 'boggis'), (0, 'bunce'), (0, 'beans')]
@@ -66,12 +66,12 @@ def test_init_interrupt(env):
             assert env.now == 0
 
     def root(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         child_proc.interrupt()
 
         yield env.timeout(1)
 
-    env.start(root(env))
+    env.process(root(env))
     env.run()
 
 
@@ -81,7 +81,7 @@ def test_interrupt_terminated_process(env):
         yield env.timeout(1)
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
 
         yield env.timeout(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
@@ -90,7 +90,7 @@ def test_interrupt_terminated_process(env):
 
         yield env.timeout(1)
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -108,14 +108,14 @@ def test_multiple_interrupts(env):
             env.exit(i.cause)
 
     def parent(env):
-        c = env.start(child(env))
+        c = env.process(child(env))
         yield env.timeout(0)
         c.interrupt(1)
         c.interrupt(2)
         result = yield c
         assert result == 1
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -125,7 +125,7 @@ def test_interrupt_self(env):
         pytest.raises(RuntimeError, env.active_process.interrupt)
         yield env.timeout(0)
 
-    env.start(pem(env))
+    env.process(pem(env))
     env.run()
 
 
@@ -133,7 +133,7 @@ def test_immediate_interrupt(env, log):
     """Test should be interruptable immediatly after a suspend."""
     def child(env, log):
         try:
-            yield env.suspend()
+            yield env.event()
         except simpy.Interrupt:
             log.append(env.now)
 
@@ -141,8 +141,8 @@ def test_immediate_interrupt(env, log):
         other.interrupt()
         yield env.exit()
 
-    c = env.start(child(env, log))
-    env.start(resumer(env, c))
+    c = env.process(child(env, log))
+    env.process(resumer(env, c))
     env.run()
 
     # Confirm that child has been interrupted immediately at timestep 0.
@@ -153,16 +153,16 @@ def test_interrupt_suspend(env):
     """A process should be interruptable during a suspend."""
     def child(env):
         try:
-            yield env.suspend()
+            yield env.event()
         except simpy.Interrupt:
             assert env.now == 5
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         yield env.timeout(5)
         child_proc.interrupt()
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -175,11 +175,11 @@ def test_interrupt_event(env):
             assert env.now == 5
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         yield env.timeout(5)
         child_proc.interrupt()
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -198,7 +198,7 @@ def test_concurrent_behaviour(env):
             proc_a.interrupt()
         yield env.exit()
 
-    proc_a = env.start(proc_a(env))
-    env.start(proc_b(env, proc_a))
+    proc_a = env.process(proc_a(env))
+    env.process(proc_b(env, proc_a))
 
     env.run()

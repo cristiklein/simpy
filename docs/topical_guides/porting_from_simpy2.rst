@@ -118,7 +118,6 @@ Processes are can be started by creating a :class:`~simpy.events.Process`
 instance and passing the generator to it. The environment provides a shortcut
 for this: :meth:`~simpy.core.Environment.process()`.
 
-
 **SimPy 2**
 
 .. code-block:: python

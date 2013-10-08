@@ -212,7 +212,7 @@ class Process(Event):
     of a process by simply yielding it from your process function.
 
     An instance of this class is returned by
-    :meth:`simpy.core.Environment.start()`.
+    :meth:`simpy.core.Environment.process()`.
 
     """
     def __init__(self, env, generator):
@@ -259,7 +259,7 @@ class Process(Event):
         """
         if self._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                    self)
+                               self)
 
         if self is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
@@ -420,8 +420,8 @@ class Condition(Event):
 
         """
         if self.env != event.env:
-            raise ValueError('It is not allowed to mix events from '
-                               'different environments')
+            raise ValueError('It is not allowed to mix events from different '
+                             'environments')
         if self.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % self)
         if event.callbacks is None:

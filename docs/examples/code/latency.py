@@ -38,7 +38,7 @@ class Cable(object):
         self.store.put(value)
 
     def put(self, value):
-        self.env.start(self.latency(value))
+        self.env.process(self.latency(value))
 
     def get(self):
         return self.store.get()
@@ -65,7 +65,7 @@ print('Event Latency')
 env = simpy.Environment()
 
 cable = Cable(env, 10)
-env.start(sender(env, cable))
-env.start(receiver(env, cable))
+env.process(sender(env, cable))
+env.process(receiver(env, cable))
 
 env.run(until=SIM_DURATION)

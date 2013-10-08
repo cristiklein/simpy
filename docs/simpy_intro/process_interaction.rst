@@ -5,7 +5,7 @@ Process Interaction
 .. currentmodule:: simpy.core
 
 The :class:`~simpy.events.Process` instance that is returned by
-:meth:`Environment.start()` can be utilized for process interactions. The two
+:meth:`Environment.process()` can be utilized for process interactions. The two
 most common examples for this are to wait for another process to finish and to
 interrupt another process while it is waiting for an event.
 
@@ -31,22 +31,22 @@ Therefore, we refactor our car to be a class with two process methods:
 The ``run`` process is automatically started when ``Car`` is instantiated.
 A new ``charge`` process is started every time the vehicle starts parking. By
 yielding the :class:`~simpy.events.Process` instance that
-:meth:`Environment.start()` returns, the ``run`` process starts waiting for it
-to finish::
+:meth:`Environment.process()` returns, the ``run`` process starts waiting for
+it to finish::
 
     >>> class Car(object):
     ...     def __init__(self, env):
     ...         self.env = env
     ...         # Start the run process everytime an instance is created.
-    ...         self.proc = env.start(self.run())
+    ...         self.proc = env.process(self.run())
     ...
     ...     def run(self):
     ...         while True:
     ...             print('Start parking and charging at %d' % env.now)
     ...             charge_duration = 5
-    ...             # We yield the process that start() returns
+    ...             # We yield the process that process() returns
     ...             # to wait for it to finish
-    ...             yield env.start(self.charge(charge_duration))
+    ...             yield env.process(self.charge(charge_duration))
     ...
     ...             # The charge process has finished and
     ...             # we can start driving again.
@@ -97,7 +97,7 @@ event or yielding a new event)::
     >>> class Car(object):
     ...     def __init__(self, env):
     ...         self.env = env
-    ...         self.action = env.start(self.run())
+    ...         self.action = env.process(self.run())
     ...
     ...     def run(self):
     ...         while True:
@@ -105,7 +105,7 @@ event or yielding a new event)::
     ...             charge_duration = 5
     ...             # We may get interrupted while charging the battery
     ...             try:
-    ...                 yield env.start(self.charge(charge_duration))
+    ...                 yield env.process(self.charge(charge_duration))
     ...             except simpy.Interrupt:
     ...                 # When we received an interrupt, we stop charing and
     ...                 # switch to the "driving" state
@@ -123,7 +123,7 @@ you'll notice that the car now starts driving at time ``3`` instead of ``5``::
 
     >>> env = simpy.Environment()
     >>> car = Car(env)
-    >>> env.start(driver(env, car))
+    >>> env.process(driver(env, car))
     <Process(driver) object at 0x...>
     >>> env.run(until=15)
     Start parking and charging at 0
