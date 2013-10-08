@@ -13,12 +13,12 @@ def test_wait_for_proc(env):
         yield env.timeout(5)
 
     def waiter(env, finisher):
-        proc = env.start(finisher(env))
+        proc = env.process(finisher(env))
         yield proc  # Waits until "proc" finishes
 
         assert env.now == 5
 
-    env.start(waiter(env, finisher))
+    env.process(waiter(env, finisher))
     env.run()
 
 
@@ -32,12 +32,12 @@ def test_exit(env):
         env.exit(env.now)
 
     def parent(env):
-        result1 = yield env.start(child(env))
-        result2 = yield env.start(child(env))
+        result1 = yield env.process(child(env))
+        result2 = yield env.process(child(env))
 
         assert [result1, result2] == [1, 2]
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -55,12 +55,12 @@ def test_return_value(env):
     child = locs['child']
 
     def parent(env):
-        result1 = yield env.start(child(env))
-        result2 = yield env.start(child(env))
+        result1 = yield env.process(child(env))
+        result2 = yield env.process(child(env))
 
         assert [result1, result2] == [1, 2]
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -74,10 +74,10 @@ def test_child_exception(env):
             env.exit(err)
 
     def parent(env):
-        result = yield env.start(child(env))
+        result = yield env.process(child(env))
         assert isinstance(result, Exception)
 
-    env.start(parent(env))
+    env.process(parent(env))
     env.run()
 
 
@@ -95,7 +95,7 @@ def test_interrupted_join(env):
         yield env.timeout(2)
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         try:
             yield child_proc
             pytest.fail('Did not receive an interrupt.')
@@ -107,8 +107,8 @@ def test_interrupted_join(env):
             yield env.timeout(5)
             assert env.now == 6
 
-    parent_proc = env.start(parent(env))
-    env.start(interruptor(env, parent_proc))
+    parent_proc = env.process(parent(env))
+    env.process(interruptor(env, parent_proc))
     env.run()
 
 
@@ -125,7 +125,7 @@ def test_interrupted_join_and_rejoin(env):
         yield env.timeout(2)
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         try:
             yield child_proc
             pytest.fail('Did not receive an interrupt.')
@@ -136,8 +136,8 @@ def test_interrupted_join_and_rejoin(env):
             yield child_proc
             assert env.now == 2
 
-    parent_proc = env.start(parent(env))
-    env.start(interruptor(env, parent_proc))
+    parent_proc = env.process(parent(env))
+    env.process(interruptor(env, parent_proc))
     env.run()
 
 
@@ -154,7 +154,7 @@ def test_unregister_after_interrupt(env):
         yield env.timeout(2)
 
     def parent(env):
-        child_proc = env.start(child(env))
+        child_proc = env.process(child(env))
         try:
             yield child_proc
             pytest.fail('Did not receive an interrupt.')
@@ -166,8 +166,8 @@ def test_unregister_after_interrupt(env):
         assert env.now == 3
         assert not child_proc.is_alive
 
-    parent_proc = env.start(parent(env))
-    env.start(interruptor(env, parent_proc))
+    parent_proc = env.process(parent(env))
+    env.process(interruptor(env, parent_proc))
     env.run()
 
 
@@ -182,8 +182,8 @@ def test_error_and_interrupted_join(env):
         yield  # Dummy yield
 
     def parent(env):
-        env.start(child_a(env, env.active_process))
-        b = env.start(child_b(env))
+        env.process(child_a(env, env.active_process))
+        b = env.process(child_b(env))
 
         try:
             yield b
@@ -194,5 +194,5 @@ def test_error_and_interrupted_join(env):
 
         yield env.timeout(0)
 
-    env.start(parent(env))
+    env.process(parent(env))
     pytest.raises(AttributeError, env.run)

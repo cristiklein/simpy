@@ -7,12 +7,12 @@ def test_operator_and(env):
         results = yield timeout[0] & timeout[1] & timeout[2]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
-                timeout[2]: 2,
+            timeout[0]: 0,
+            timeout[1]: 1,
+            timeout[2]: 2,
         }
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -22,10 +22,10 @@ def test_operator_or(env):
         results = yield timeout[0] | timeout[1] | timeout[2]
 
         assert results == {
-                timeout[0]: 0,
+            timeout[0]: 0,
         }
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -35,12 +35,12 @@ def test_operator_nested_and(env):
         results = yield (timeout[0] & timeout[2]) | timeout[1]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
+            timeout[0]: 0,
+            timeout[1]: 1,
         }
         assert env.now == 1
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -50,13 +50,13 @@ def test_operator_nested_or(env):
         results = yield (timeout[0] | timeout[1]) & timeout[2]
 
         assert results == {
-                timeout[0]: 0,
-                timeout[1]: 1,
-                timeout[2]: 2,
+            timeout[0]: 0,
+            timeout[1]: 1,
+            timeout[2]: 2,
         }
         assert env.now == 2
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -67,12 +67,12 @@ def test_nested_cond_with_error(env):
 
     def process(env):
         try:
-            yield env.start(explode(env)) & env.timeout(1)
+            yield env.process(explode(env)) & env.timeout(1)
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes!',)
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -83,12 +83,12 @@ def test_cond_with_error(env):
 
     def process(env):
         try:
-            yield env.start(explode(env, 0)) | env.timeout(1)
+            yield env.process(explode(env, 0)) | env.timeout(1)
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes, failed after 0!',)
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -99,12 +99,13 @@ def test_cond_with_nested_error(env):
 
     def process(env):
         try:
-            yield env.start(explode(env, 0)) & env.timeout(1) | env.timeout(1)
+            yield (env.process(explode(env, 0)) & env.timeout(1) |
+                   env.timeout(1))
             pytest.fail('The condition should have raised a ValueError')
         except ValueError as err:
             assert err.args == ('Onoes, failed after 0!',)
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -116,9 +117,9 @@ def test_cond_with_uncaught_error(env):
         raise ValueError('Onoes, failed after %d!' % delay)
 
     def process(env):
-        yield env.timeout(1) | env.start(explode(env, 2))
+        yield env.timeout(1) | env.process(explode(env, 2))
 
-    env.start(process(env))
+    env.process(process(env))
     try:
         env.run()
         assert False, 'There should have been an exception.'
@@ -138,7 +139,7 @@ def test_iand_with_and_cond(env):
         results = yield cond
         assert sorted(results.values()) == [0, 1, 2]
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -153,7 +154,7 @@ def test_iand_with_or_cond(env):
         results = yield cond
         assert sorted(results.values()) == [0, 1]
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -168,7 +169,7 @@ def test_ior_with_or_cond(env):
         results = yield cond
         assert sorted(results.values()) == [0]
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -183,7 +184,7 @@ def test_ior_with_and_cond(env):
         results = yield cond
         assert sorted(results.values()) == [0]
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -204,7 +205,7 @@ def test_immutable_results(env):
         yield env.timeout(2)
         assert results == {timeout[0]: 0}
 
-    env.start(process(env))
+    env.process(process(env))
     env.run()
 
 
@@ -221,8 +222,8 @@ def test_shared_and_condition(env):
         results = yield condition
         assert results == {timeout[0]: 0, timeout[1]: 1, timeout[2]: 2}
 
-    env.start(p1(env, c1))
-    env.start(p2(env, c2))
+    env.process(p1(env, c1))
+    env.process(p2(env, c2))
     env.run()
 
 
@@ -239,6 +240,6 @@ def test_shared_or_condition(env):
         results = yield condition
         assert results == {timeout[0]: 0}
 
-    env.start(p1(env, c1))
-    env.start(p2(env, c2))
+    env.process(p1(env, c1))
+    env.process(p2(env, c2))
     env.run()

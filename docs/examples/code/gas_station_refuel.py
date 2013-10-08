@@ -68,7 +68,7 @@ def gas_station_control(env, fuel_pump):
             # We need to call the tank truck now!
             print('Calling tank truck at %d' % env.now)
             # Wait for the tank truck to arrive and refuel the station
-            yield env.start(tank_truck(env, fuel_pump))
+            yield env.process(tank_truck(env, fuel_pump))
 
         yield env.timeout(10)  # Check every 10 seconds
 
@@ -86,7 +86,7 @@ def car_generator(env, gas_station, fuel_pump):
     """Generate new cars that arrive at the gas station."""
     for i in itertools.count():
         yield env.timeout(random.randint(*T_INTER))
-        env.start(car('Car %d' % i, env, gas_station, fuel_pump))
+        env.process(car('Car %d' % i, env, gas_station, fuel_pump))
 
 
 # Setup and start the simulation
@@ -97,8 +97,8 @@ random.seed(RANDOM_SEED)
 env = simpy.Environment()
 gas_station = simpy.Resource(env, 2)
 fuel_pump = simpy.Container(env, GAS_STATION_SIZE, init=GAS_STATION_SIZE)
-env.start(gas_station_control(env, fuel_pump))
-env.start(car_generator(env, gas_station, fuel_pump))
+env.process(gas_station_control(env, fuel_pump))
+env.process(car_generator(env, gas_station, fuel_pump))
 
 # Execute!
 env.run(until=SIM_TIME)

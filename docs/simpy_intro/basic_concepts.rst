@@ -69,7 +69,7 @@ it and see how it behaves::
 
     >>> import simpy
     >>> env = simpy.Environment()
-    >>> env.start(car(env))
+    >>> env.process(car(env))
     <Process(car) object at 0x...>
     >>> env.run(until=15)
     Start parking at 0
@@ -81,14 +81,14 @@ it and see how it behaves::
 The first thing we need to do is to create an instance of :class:`Environment`.
 This instance is passed into our *car* process function. Calling it creates
 a *process generator* that needs to be started and added to the environment via
-:meth:`Environment.start()`.
+:meth:`Environment.process()`.
 
 Note, that at this time, none of the code of our process function is being
 executed. It's execution is merely scheduled at the current simulation time.
 
-The :class:`~simpy.events.Process` returned by :meth:`~Environment.start()` can
-be used for process interactions (we will cover that in the next section, so we
-will ignore it for now).
+The :class:`~simpy.events.Process` returned by :meth:`~Environment.process()`
+can be used for process interactions (we will cover that in the next section,
+so we will ignore it for now).
 
 Finally, we start the simulation by calling meth:`Environment.simulate()` and
 passing the environment as well as an end time to it.
