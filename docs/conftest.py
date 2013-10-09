@@ -57,11 +57,8 @@ class ExampleItem(pytest.Item):
         with self.outfile.open() as f:
             expected = f.read()
 
-        env = dict(os.environ)
-        env['PYTHONPATH'] = '.'
-
         output = subprocess.check_output([sys.executable, str(self.pyfile)],
-                stderr=subprocess.STDOUT, universal_newlines=True, env=env)
+                stderr=subprocess.STDOUT, universal_newlines=True)
 
         if output != expected:
             # Hijack the ValueError exception to identify mismatching output.
