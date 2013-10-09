@@ -66,6 +66,8 @@ Other
 .. - :func:`test`: Run the test suite on the installed copy of Simpy.
 
 """
+from pkgutil import extend_path
+
 from simpy.core import Environment
 from simpy.events import Interrupt
 from simpy.resources.resource import (
@@ -74,6 +76,7 @@ from simpy.resources.container import Container
 from simpy.resources.store import Store, FilterStore
 
 
+__path__ = extend_path(__path__, __name__)
 __all__ = [
     'test',
     'Environment',
