@@ -11,7 +11,7 @@ def start_delayed(env, generator, delay):
     """Return a helper process that starts another process for *generator*
     after a certain *delay*.
 
-    :meth:`~simpy.core.Environment.start` starts a process at the current
+    :meth:`~simpy.core.Environment.process()` starts a process at the current
     simulation time. This helper allows you to start a process after a delay of
     *delay* simulation time units::
 
