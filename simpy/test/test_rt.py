@@ -5,10 +5,10 @@ Tests for Simpy's real-time behavior.
 import time
 try:
     # Python >= 3.3
-    from time import perf_counter
+    from time import monotonic
 except ImportError:
     # Python < 3.3
-    from time import time as perf_counter
+    from time import time as monotonic
 
 import pytest
 
@@ -34,9 +34,9 @@ def test_rt(log, factor):
     env.process(process(env, log, 0.01, 1))
     env.process(process(env, log, 0.02, 1))
 
-    start = perf_counter()
+    start = monotonic()
     env.run(2)
-    duration = perf_counter() - start
+    duration = monotonic() - start
 
     assert check_duration(duration, 2 * factor)
     assert log == [1, 1]
@@ -45,20 +45,20 @@ def test_rt(log, factor):
 def test_rt_multiple_call(log):
     """Test multiple calls to run()."""
     env = RealtimeEnvironment(factor=0.05)
-    start = perf_counter()
+    start = monotonic()
 
     env.process(process(env, log, 0.01, 2))
     env.process(process(env, log, 0.01, 3))
 
     env.run(5)
-    duration = perf_counter() - start
+    duration = monotonic() - start
 
     # assert almost_equal(duration, 0.2)
     assert check_duration(duration, 5 * 0.05)
     assert log == [2, 3, 4]
 
     env.run(12)
-    duration = perf_counter() - start
+    duration = monotonic() - start
 
     assert check_duration(duration, 12 * 0.05)
     assert log == [2, 3, 4, 6, 6, 8, 9, 10]
@@ -80,9 +80,9 @@ def test_rt_slow_sim_no_error(log):
     env = RealtimeEnvironment(factor=0.05, strict=False)
     env.process(process(env, log, 0.1, 1))
 
-    start = perf_counter()
+    start = monotonic()
     env.run(2)
-    duration = perf_counter() - start
+    duration = monotonic() - start
 
     assert check_duration(duration, 2 * 0.1)
     assert log == [1]
