@@ -89,10 +89,8 @@ def test():
     """Runs SimPy's test suite via `py.test <http://pytest.org/latest/>`_."""
     import os.path
     try:
-        import mock  # NOQA
         import pytest
     except ImportError:
-        print('You need pytest and mock to run the tests. '
-              'Try "pip install pytest mock".')
+        print('You need pytest to run the tests. Try "pip install pytest".')
     else:
         pytest.main([os.path.dirname(__file__)])
