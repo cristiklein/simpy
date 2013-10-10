@@ -1,16 +1,19 @@
 <h3>Download</h3>
 {% if 'a' in version %}
-<p>This documentation is for version <b>{{ version }}</b>, which is
-  not released yet.</p>
-<p>You can use it from the
-  <a href="http://bitbucket.org/simpy/simpy/">Mercurial repo</a> or look for
-  released versions in the <a href="http://pypi.python.org/pypi/SimPy">Python
+<p>This documentation is for version <b>{{ version }}</b>, which is not
+    released yet.</p>
+
+<p>You can use it from the <a
+    href="http://bitbucket.org/simpy/simpy/">Mercurial repo</a> or look for
+    released versions in the <a href="http://pypi.python.org/pypi/SimPy">Python
     Package Index</a>.</p>
 {% else %}
-<p>Current version: <b>{{ version }}</b></p>
-<p>Get SimPy from the <a href="http://pypi.python.org/pypi/SimPy">Python Package
-Index</a>, or install it with:</p>
+<p>Current version: <b>{{ release }}</b></p>
+<p>Get SimPy from the <a href="http://pypi.python.org/pypi/simpy">Python
+    Package Index</a>, or install it with:</p>
 <pre>pip install -U simpy</pre>
+<p>You can find the latest development version at <a
+    href="https://bitbucket.org/simpy/simpy">Bitbucket</a>.</p>
 {% endif %}
 
 <h3>News</h3>
