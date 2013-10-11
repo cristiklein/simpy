@@ -1,3 +1,6 @@
+Authors
+=======
+
 SimPy was originally created by Klaus G. Müller and Tony Vignaux in 2002.
 
 In 2008, Ontje Lünsdorf and Stefan Scherfke started to contribute to SimPy and
