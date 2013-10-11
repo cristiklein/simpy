@@ -55,15 +55,6 @@ Preparations
 
     $ hg ci -m 'Updated change log for the upcoming release.'
 
-#. Update the version number in :file:`simpy/__init__.py`, commit and create
-   a tag:
-
-   .. code-block:: bash
-
-    $ hg ci -m 'Bump version from a.b.c to x.y.z'
-    $ hg tag x.y.z
-    $ hg push ssh://hg@bitbucket.org/simpy/simpy
-
 #. Write a draft for the announcement mail with a list of changes,
    acknowledgements and installation instructions. Everyone in the team should
    agree with it.
@@ -148,6 +139,15 @@ Build and release
    .. code-block:: bash
 
     $ pip install -i https://testpypi.python.org/pypi simpy
+
+#. Update the version number in :file:`simpy/__init__.py`, commit and create
+   a tag:
+
+   .. code-block:: bash
+
+    $ hg ci -m 'Bump version from a.b.c to x.y.z'
+    $ hg tag x.y.z
+    $ hg push ssh://hg@bitbucket.org/simpy/simpy
 
 #. Finally upload the package to PyPI and test its installation one last time:
 
