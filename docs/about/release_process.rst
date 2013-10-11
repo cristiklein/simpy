@@ -71,7 +71,7 @@ Build and release
     $ python setup.py sdist
     $ python setup.py bdist_wheel
     $ ls dist/
-    SimPy-x.y.z-py2.py3-none-any.whl SimPy-x.y.z.tar.gz
+    simpy-a.b.c-py2.py3-none-any.whl simpy-a.b.c.tar.gz
 
    Try installing them:
 
@@ -80,11 +80,11 @@ Build and release
     $ rm -rf /tmp/simpy-sdist  # ensure clean state if ran repeatedly
     $ virtualenv /tmp/simpy-sdist
     $ /tmp/simpy-sdist/bin/pip install pytest
-    $ /tmp/simpy-sdist/bin/pip install --no-index dist/SimPy-x.y.z.tar.gz
+    $ /tmp/simpy-sdist/bin/pip install --no-index dist/simpy-a.b.c.tar.gz
     $ /tmp/simpy-sdist/bin/python
     >>> import simpy
     >>> simpy.__version__  # doctest: +SKIP
-    'x.y.z'
+    'a.b.c'
     >>> simpy.test()  # doctest: +SKIP
 
    and
@@ -98,7 +98,7 @@ Build and release
     $ /tmp/simpy-wheel/bin/python
     >>> import simpy  # doctest: +SKIP
     >>> simpy.__version__  # doctest: +SKIP
-    'x.y.z'
+    'a.b.c'
     >>> simpy.test()  # doctest: +SKIP
 
 #. Create or check your accounts for the `test server
@@ -132,7 +132,7 @@ Build and release
     $ python setup.py bdist_wheel upload -r test
 
 #. Check if the package is displayed correctly:
-   https://testpypi.python.org/pypi/SimPy
+   https://testpypi.python.org/pypi/simpy
 
 #. Test the installation again:
 
@@ -159,7 +159,7 @@ Build and release
     $ pip install simpy
 
 #. Check if the package is displayed correctly:
-   https://pypi.python.org/pypi/SimPy
+   https://pypi.python.org/pypi/simpy
 
 
 Post release
