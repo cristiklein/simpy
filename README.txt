@@ -16,8 +16,9 @@ and processes.
 Simulations can be performed “as fast as possible”, in real time (wall clock
 time) or by manually stepping through the events.
 
-SimPy is not suited for continuous simulation. And it is overkill for
-simulations with a fixed step size where your processes don’t interact with
+Though it is theoretically possible to do continuous simulations with SimPy, it
+has no features that help you with that. On the other hand, SimPy is overkill
+for simulations with a fixed step size where your processes don’t interact with
 each other or with shared resources — use a simple ``while`` loop in this case.
 
 The SimPy distribution contains tutorials, in-depth documentation, and a large
@@ -65,7 +66,7 @@ SimPy requires Python 2.7, 3.2, PyPy 2.0 or above.
 
 You can install SimPy easily via `pip <http://pypi.python.org/pypi/pip>`_::
 
-    $ pip install -U SimPy
+    $ pip install -U simpy
 
 You can also download and install SimPy manually::
 
@@ -75,6 +76,10 @@ You can also download and install SimPy manually::
 To run SimPy’s test suite on your installation, execute::
 
     $ python -c "import simpy; simpy.test()"
+
+Of course, you can keep working with SimPy 2::
+
+    $ pip install "simpy>=2.3,<3"
 
 
 Getting started

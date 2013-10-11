@@ -16,88 +16,131 @@ The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
 
-2013: Version 3.0
-=================
+3.0 – 2013-10-11
+================
 
-- Completely rewritten from scratch.
-- Greatly simplified API and code base.
-- Stronger focus on events. Processes yield events and thus start waiting for
-  them. An example for an event is a timeout, but even processes are now
-  events, too (you can wait until a process terminates).
-- Removed plotting and GUI capabilities. *Pyside* and *matplotlib* are much
+SimPy 3 has been completely rewritten from scratch. Our main goals were to
+simplify the API and code base as well as making SimPy more flexible and
+extensible. Some of the most important changes are:
+
+- Stronger focus on events. Processes yield event instances and are suspended
+  until the event is triggered. An example for an event is a *timeout*
+  (formerly known as *hold*), but even processes are now events, too (you can
+  wait until a process terminates).
+
+- Events can be combined with ``&`` (and) and ``|`` (or) to create
+  *condition events*.
+
+- Process can now be defined by any generator function. You don't have to
+  subclass ``Process`` anymore.
+
+- No more global simulation state. Every simulation stores its state in an
+  *environment* which is comparable to the old ``Simulation`` class.
+
+- Improved resource system with newly added resource types.
+
+- Removed plotting and GUI capabilities. `Pyside`__ and `matplotlib`__ are much
   better with this.
 
+- Greatly improved test suite. Its cleaner, and the tests are shorter and more
+  numerous.
 
-December 2011: Version 2.3
-==========================
+- Completely overhauled documentation.
 
-- Support for Python 3.x has been added
-- Examples and tutorials modified to run on Python 2.6 and up
-  including Python 3.
-- Examples can now be executed via py.test so we can make sure they do run.
-- The documentation has had some reorganisation. The index has had
-  work done on it. The Simple manual has been pulled out and is setup
-  as a separate manual.
+There is a `guide for porting from SimPy 2 to SimPy 3`__. If you want to stick
+to SimPy 2 for a while, change your requirements to ``'SimPy>=2.3,<3'``.
 
+All in all, SimPy has become a framework for asynchronous programming based on
+coroutines. It brings more than ten years of experience and scientific know-how
+in the field of event-discrete simulation to the world of asynchronous
+programming and should thus be a solid foundation for everything based on an
+event loop.
 
-September 2011: Version 2.2
-===========================
+You can find information about older versions on the `history page`__
 
-- The Unit tests have been rewritten.
-- The directory sturcture of the release has been simplified
-- The documentation has had some minor changes
-
-
-May 2010: Version 2.1.0
-=======================
-
-A major release of SimPy, with a new code base, a (small) number of
-additions to the API, and added documentation.
-
-Additions
-~~~~~~~~~
-
-- A function `step` has been added to the API. When called, it executes
-  the next scheduled event. (`step` is actually a method of Simulation.)
-- Another new function is `peek`. It returns the time of the next event.
-  By using `peek` and `step` together, one can easily write e.g. an
-  interactive program to step through a simulation event by event.
-- A simple interactive debugger ``stepping.py`` has been added. It allows
-  stepping through a simulation, with options to skip to a certain time,
-  skip to the next event of a given process, or viewing the event list.
-- Versions of the Bank tutorials (documents and programs) using the advanced
-  object-oriented API have been added.
-- A new document describes tools for gaining insight into and debugging SimPy
-  models.
-
-Changes
-~~~~~~~~~~
-
-- Major re-structuring of SimPy code, resulting in much less
-  SimPy code -- great for the maintainers.
-- Checks have been added which test whether entities belong to the
-  same `Simulation` instance.
-- The `Monitor` and `Tally` methods `timeAverage` and `timeVariance`
-  now calculate only with the observed time-series. No value is
-  assumed for the period prior to the first observation.
-- Changed class `Lister` so that circular references between
-  objects no longer lead to stack overflow and crash.
-
-Repairs
-~~~~~~~
-
-- Functions `allEventNotices` and `allEventTimes` are working again.
-- Error messages for methods in SimPy.Lib work again.
+__ http://qt-project.org/wiki/PySide
+__ http://matplotlib.org/
+__ https://simpy.readthedocs.org/en/latest/topical_guides/porting_from_simpy2.html
+__ https://simpy.readthedocs.org/en/latest/about/history.html
 
 
-April 2009: Release 2.0.1
-=========================
+2.3.1 – 2012-01-28
+==================
 
-A bug-fix release of SimPy 2.0
+- [NEW] More improvements on the documentation.
+- [FIX] Syntax error in tkconsole.py when installing on Py3.2.
+- [FIX] Added *mock* to the dep. list in SimPy.test().
 
 
-October 2008: Version 2.0
-=========================
+2.3 – 2011-12-24
+================
+
+- [NEW] Support for Python 3.2. Support for Python <= 2.5 has been dropped.
+- [NEW] SimPy.test() method to run the tests on the installed version of SimPy.
+- [NEW] Tutorials/examples were integrated into the test suite.
+- [CHANGE] Even more code clean-up (e.g., removed prints throughout the code,
+  removed if-main-blocks, ...).
+- [CHANGE] Many documentation improvements.
+
+
+2.2 – 2011-09-27
+================
+
+- [CHANGE] Restructured package layout to be conform to the `Hitchhiker’s Guide
+  to packaging <http://guide.python-distribute.org/>`_
+- [CHANGE] Tests have been ported to pytest.
+- [CHANGE] Documentation improvements and clean-ups.
+- [FIX] Fixed incorrect behavior of Store._put, thanks to Johannes Koomer for
+  the fix.
+
+
+2.1 – 2010-06-03
+================
+
+- [NEW] A function *step* has been added to the API. When called, it executes
+  the next scheduled event. (*step* is actually a method of *Simulation*.)
+- [NEW] Another new function is *peek*. It returns the time of the next event.
+  By using peek and step together, one can easily write e.g. an interactive
+  program to step through a simulation event by event.
+- [NEW] A simple interactive debugger ``stepping.py`` has been added. It allows
+  stepping through a simulation, with options to skip to a certain time, skip
+  to the next event of a given process, or viewing the event list.
+- [NEW] Versions of the Bank tutorials (documents and programs) using the
+  advanced- [NEW] object-oriented API have been added.
+- [NEW] A new document describes tools for gaining insight into and debugging
+  SimPy models.
+- [CHANGE] Major re-structuring of SimPy code, resulting in much less SimPy
+  code – great for the maintainers.
+- [CHANGE] Checks have been added which test whether entities belong to the
+  same Simulation instance.
+- [CHANGE] The Monitor and Tally methods timeAverage and timeVariance now
+  calculate only with the observed time-series. No value is assumed for the
+  period prior to the first observation.
+- [CHANGE] Changed class Lister so that circular references between objects no
+  longer lead to stack overflow and crash.
+- [FIX] Functions *allEventNotices* and *allEventTimes* are working again.
+- [FIX] Error messages for methods in SimPy.Lib work again.
+
+
+2.0.1 – 2009-04-06
+==================
+
+- [NEW] Tests for real time behavior (testRT_Behavior.py and
+  testRT_Behavior_OO.py in folder SimPy).
+- [FIX] Repaired a number of coding errors in several models in the SimPyModels
+  folder.
+- [FIX] Repaired SimulationRT.py bug introduced by recoding for the OO API.
+- [FIX] Repaired errors in sample programs in documents:
+
+  - Simulation with SimPy - In Depth Manual
+  - SimPy’s Object Oriented API Manual
+  - Simulation With Real Time Synchronization Manual
+  - SimPlot Manual
+  - Publication-quality Plot Production With Matplotlib Manual
+
+
+2.0.0 – 2009-01-26
+==================
 
 This is a major release with changes to the SimPy application programming
 interface (API) and the formatting of the documentation.
