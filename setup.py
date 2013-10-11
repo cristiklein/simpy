@@ -5,7 +5,7 @@ import simpy
 
 
 setup(
-    name='SimPy',
+    name='simpy',
     version=simpy.__version__,
     author='Ontje Lünsdorf, Stefan Scherfke',
     author_email='the_com at gmx.de; stefan at sofa-rockers.org',
