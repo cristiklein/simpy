@@ -85,7 +85,7 @@ __all__ = [
     'Container',
     'Store', 'FilterStore',
 ]
-__version__ = '3.0a1'
+__version__ = '3.0'
 
 
 def test():
