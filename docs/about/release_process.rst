@@ -161,6 +161,9 @@ Build and release
 #. Check if the package is displayed correctly:
    https://pypi.python.org/pypi/simpy
 
+#. Activate the `documentation build
+   <https://readthedocs.org/dashboard/simpy/versions/>`_ for the new version.
+
 
 Post release
 ============
