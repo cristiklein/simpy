@@ -145,7 +145,7 @@ class FilterStore(Store):
     """The type to be used for the
     :attr:`~simpy.resources.base.BaseResource.get_queue`."""
 
-    def __init__(self, env, capacity=1):
+    def __init__(self, env, capacity=float('inf')):
         super(FilterStore, self).__init__(env, capacity)
         self.get_queue.store = self
 

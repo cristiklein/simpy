@@ -348,6 +348,11 @@ def test_container_get_queued(env):
     assert [ev.proc for ev in container.get_queue] == []
 
 
+def test_initial_container_capacity(env):
+    container = simpy.Container(env)
+    assert container.capacity == float('inf')
+
+
 @pytest.mark.parametrize(('error', 'args'), [
     (None, [2, 1]),  # normal case
     (None, [1, 1]),  # init == capacity should be valid
@@ -393,8 +398,12 @@ def test_store(env):
     env.run()
 
 
-def test_initial_store_capacity(env):
-    store = simpy.Store(env)
+@pytest.mark.parametrize('Store', [
+    simpy.Store,
+    simpy.FilterStore,
+])
+def test_initial_store_capacity(env, Store):
+    store = Store(env)
     assert store.capacity == float('inf')
 
 
