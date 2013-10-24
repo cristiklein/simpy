@@ -1,6 +1,13 @@
 Changelog for SimPy
 ===================
 
+3.0.1 – 2013-10-24
+------------------
+
+- [FIX] Documentation and default parameters of ``Store`` didn't match. Its
+  default capacity is now ``inf``.
+
+
 3.0 – 2013-10-11
 ----------------
 
