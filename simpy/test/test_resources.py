@@ -393,6 +393,11 @@ def test_store(env):
     env.run()
 
 
+def test_initial_store_capacity(env):
+    store = simpy.Store(env)
+    assert store.capacity == float('inf')
+
+
 def test_store_capacity(env):
     simpy.Store(env, 1)
     pytest.raises(ValueError, simpy.Store, env, 0)

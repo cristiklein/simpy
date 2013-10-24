@@ -91,7 +91,7 @@ class Store(base.BaseResource):
     raised if the value is negative.
 
     """
-    def __init__(self, env, capacity=1):
+    def __init__(self, env, capacity=float('inf')):
         super(Store, self).__init__(env)
         if capacity <= 0:
             raise ValueError('"capacity" must be > 0.')
