@@ -16,6 +16,13 @@ The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
 
+3.0.2 – 2013-10-24
+==================
+
+- [FIX] The default capacity for ``Container`` and ``FilterStore`` is now also
+  ``inf``.
+
+
 3.0.1 – 2013-10-24
 ==================
 
