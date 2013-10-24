@@ -63,7 +63,7 @@ class Container(base.BaseResource):
     ``init > capacity``.
 
     """
-    def __init__(self, env, capacity, init=0):
+    def __init__(self, env, capacity=float('inf'), init=0):
         super(Container, self).__init__(env)
         if capacity <= 0:
             raise ValueError('"capacity" must be > 0.')
