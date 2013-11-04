@@ -10,9 +10,9 @@ setup(
     author='Ontje Lünsdorf, Stefan Scherfke',
     author_email='the_com at gmx.de; stefan at sofa-rockers.org',
     description='Event discrete, process based simulation for Python.',
-    long_description=(open('README.txt').read() + '\n\n' +
-                      open('CHANGES.txt').read() + '\n\n' +
-                      open('AUTHORS.txt').read()),
+    long_description='\n\n'.join(
+        open(f, 'rb').read().decode('utf-8')
+        for f in ['README.txt', 'CHANGES.txt', 'AUTHORS.txt']),
     url='https://simpy.rtfd.org',
     download_url='https://bitbucket.org/simpy/simpy/downloads',
     license='MIT License',
