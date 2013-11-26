@@ -1,8 +1,20 @@
-{% extends "layout.html" %}
-{% set title = 'Overview' %}
+{%- extends "layout.html" %}
+{%- set title = 'Overview' %}
 
-{% block body %}
-  <h1>Welcome</h1>
+{%- block body %}
+<div style="margin: 0 0 .5em 1em; float: right;">
+    <img src="_static/simpy-logo-small.png" style="width: 200px;">
+</div>
+
+<h1>Welcome to SimPy</h1>
+
+<p>Event discrete simulation for Python.</p>
+<p><a href="https://plus.google.com/101634625602509193865">News</a> | 
+   <a href="https://pypi.python.org/pypi/simpy">PyPI</a> | 
+   <a href="">Issues</a> |
+   <a href="https://bitbucket.org/simpy/simpy/">Bitbucket</a> |
+   <a href="https://lists.sourceforge.net/lists/listinfo/simpy-users">Users list</a> |
+   <a href="https://lists.sourceforge.net/lists/listinfo/simpy-developer">Dev list</a></p>
 
 <div style="margin: 0 0 .5em 1em; float: right;">
 <div class="highlight-python"><div class="highlight"><pre style="padding-right: 2em;"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">simpy</span>
@@ -91,4 +103,4 @@ mailing list</a>.</p>
         </td>
     </tr>
 </table>
-{% endblock %}
+{%- endblock %}
