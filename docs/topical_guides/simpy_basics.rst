@@ -9,9 +9,6 @@ processes, events and the environment? What can I do with them?
 How SimPy works
 ===============
 
-This guide describes the basic concepts of SimPy: How does it work? What are
-processes, events and the environment? What can I do with them?
-
 If you break SimPy down, it is just an asynchronous event dispatcher. You
 generate events and schedule them at a given simulation time. Events are sorted
 by priority, simulation time, and an increasing event id. An event also has
