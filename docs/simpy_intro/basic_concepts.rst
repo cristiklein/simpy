@@ -90,7 +90,7 @@ The :class:`~simpy.events.Process` returned by :meth:`~Environment.process()`
 can be used for process interactions (we will cover that in the next section,
 so we will ignore it for now).
 
-Finally, we start the simulation by calling meth:`Environment.simulate()` and
+Finally, we start the simulation by calling meth:`Environment.run()` and
 passing the environment as well as an end time to it.
 
 
