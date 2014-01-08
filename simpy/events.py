@@ -63,8 +63,7 @@ class Event(object):
         self.env = env
         """The :class:`~simpy.core.Environment` the event lives in."""
         self.callbacks = []
-        """List of functions that are called when the event is
-        processed."""
+        """List of functions that are called when the event is processed."""
         self._value = PENDING
 
     def __repr__(self):
