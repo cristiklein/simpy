@@ -3,4 +3,8 @@
 =====================================
 
 .. automodule:: simpy.events
-    :members:
+   :members:
+   :exclude-members: PENDING
+
+   .. autodata:: PENDING
+      :annotation: = object()
