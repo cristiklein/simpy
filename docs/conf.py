@@ -51,7 +51,7 @@ master_doc = 'contents'
 # General information about the project.
 authors = ['Team SimPy']
 project = u'SimPy'
-copyright = '2002-2012, ' + ', '.join(authors)
+copyright = '2002-2014, ' + ', '.join(authors)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

@@ -10,6 +10,7 @@ you are looking for.
 .. toctree::
 
    simpy_basics
+   environments
    porting_from_simpy2
 
 .. - Environment (state, scheduler, attributes, event shortcuts)
