@@ -52,16 +52,22 @@ class RealtimeEnvironment(Environment):
         if evt_time is Infinity:
             raise EmptySchedule()
 
-        sim_delta = evt_time - self.env_start
-        real_delta = time() - self.real_start
-        delay = sim_delta * self.factor - real_delta
+        real_time = self.real_start + (evt_time - self.env_start) * self.factor
 
-        if delay > 0:
-            sleep(delay)
-        elif self.strict and -delay > self.factor:
+        if self.strict and time() - real_time > self.factor:
             # Events scheduled for time *t* may take just up to *t+1*
             # for their computation, before an error is raised.
             raise RuntimeError(
-                'Simulation too slow for real time (%.3fs).' % -delay)
+                'Simulation too slow for real time (%.3fs).' % (
+                        time() - real_time))
+
+        # Sleep in a loop to fix inaccuracies of windows (see
+        # http://stackoverflow.com/a/15967564 for details) and to ignore
+        # interrupts.
+        while True:
+            delta = real_time - time()
+            if delta <= 0:
+                break
+            sleep(delta)
 
         return Environment.step(self)
