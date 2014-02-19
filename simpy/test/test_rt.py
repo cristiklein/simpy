@@ -71,7 +71,7 @@ def test_rt_slow_sim_default_behavior(log):
     env.process(process(env, log, 0.1, 1))
 
     err = pytest.raises(RuntimeError, env.run, 3)
-    assert 'Simulation too slow for real time (0.05' in err.value.args[0]
+    assert 'Simulation too slow for real time' in err.value.args[0]
     assert log == []
 
 
