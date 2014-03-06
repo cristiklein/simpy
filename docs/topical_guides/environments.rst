@@ -5,8 +5,8 @@ Environments
 .. currentmodule:: simpy.core
 
 A simulation environment manages the simulation time as well as the scheduling
-and processing of events.  It also provides means to step through or execute
-the simulation.
+and processing of events. It also provides means to step through or execute the
+simulation.
 
 The base class for all environments is :class:`~simpy.core.BaseEnvironment`.
 "Normal" simulations usually use its subclass
@@ -14,6 +14,8 @@ The base class for all environments is :class:`~simpy.core.BaseEnvironment`.
 :class:`~simpy.rt.RealtimeEnvironment` (more on that in
 :doc:`realtime_simulations`).
 
+
+.. _simulation-control:
 
 Simulation control
 ==================
@@ -80,7 +82,7 @@ The most important method here is :meth:`Environment.run()`:
 
 
 To step through the simulation event by event, the environment offers
-:meth:`~Environment.peek()` and :meth:`Environment.step()`.
+:meth:`~Environment.peek()` and :meth:`~Environment.step()`.
 
 ``peek()`` returns the time of the next scheduled event of *infinity*
 (``float('inf')``) of no more event is scheduled.
