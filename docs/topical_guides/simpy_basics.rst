@@ -86,7 +86,7 @@ Starting a process function involves two things:
 
 Finally, you can start SimPy's event loop. By default, it will run as long as
 there are events in the event list, but you can also let it stop earlier by
-providing an ``until`` argument (see :ref:`Starting the event loop`).
+providing an ``until`` argument (see :ref:`simulation-control`).
 
 The following guides describe the environment and its interactions with events
 and process functions in more detail.
