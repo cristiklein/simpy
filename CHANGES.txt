@@ -1,6 +1,16 @@
 Changelog for SimPy
 ===================
 
+3.0.3 – 2014-04-06
+------------------
+
+- [NEW] Guide to SimPy basics.
+- [NEW] Guide to SimPy Environments.
+- [FIX] Timing problems with real time simulation on Windows (issue #46).
+- [FIX] Installation problems on Windows due to Unicode errors (issue #41).
+- [FIX] Minor documentation issues.
+
+
 3.0.2 – 2013-10-24
 ------------------
 
