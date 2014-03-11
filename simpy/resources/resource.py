@@ -89,10 +89,11 @@ class PriorityRequest(Request):
         self.time = resource._env.now
         """The time at which the request was made."""
 
-        self.key = (self.priority, self.time)
+        self.key = (self.priority, self.time, not self.preempt)
         """Key for sorting events. Consists of the priority (lower value is
-        more important) and the time at witch the request was made (earlier
-        requests are more important)."""
+        more important), the time at witch the request was made (earlier
+        requests are more important) and finally the preemption flag (preempt
+        requests are more important). """
 
         super(PriorityRequest, self).__init__(resource)
 
