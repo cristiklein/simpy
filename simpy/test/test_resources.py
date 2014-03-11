@@ -132,6 +132,33 @@ def test_resource_release_after_interrupt(env):
     env.run()
 
 
+def test_resource_immediate_requests(env):
+    """A process must not acquire a resource if it releases it and immediately
+    requests it again while there are already other requesting processes."""
+    def child(env, res):
+        result = []
+        for i in range(3):
+            with res.request() as req:
+                yield req
+                result.append(env.now)
+                yield env.timeout(1)
+        env.exit(result)
+
+    def parent(env):
+        res = simpy.Resource(env, 1)
+        child_a = env.process(child(env, res))
+        child_b = env.process(child(env, res))
+
+        a_acquire_times = yield child_a
+        b_acquire_times = yield child_b
+
+        assert a_acquire_times == [0, 2, 4]
+        assert b_acquire_times == [1, 3, 5]
+
+    env.process(parent(env))
+    env.run()
+
+
 def test_resource_cm_exception(env, log):
     """Resource with context manager receives an exception."""
     def process(env, resource, log, raise_):

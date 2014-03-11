@@ -36,7 +36,7 @@ class Put(Event):
 
         resource.put_queue.append(self)
         self.callbacks.append(resource._trigger_get)
-        resource._do_put(self)
+        resource._trigger_put(None)
 
     def __enter__(self):
         return self
@@ -84,7 +84,7 @@ class Get(Event):
 
         resource.get_queue.append(self)
         self.callbacks.append(resource._trigger_put)
-        resource._do_get(self)
+        resource._trigger_get(None)
 
     def __enter__(self):
         return self
@@ -170,7 +170,8 @@ class BaseResource(object):
 
     def _trigger_put(self, get_event):
         """Trigger pending put events after a get event has been executed."""
-        self.get_queue.remove(get_event)
+        if get_event is not None:
+            self.get_queue.remove(get_event)
 
         for put_event in self.put_queue:
             if not put_event.triggered:
@@ -190,7 +191,8 @@ class BaseResource(object):
 
     def _trigger_get(self, put_event):
         """Trigger pending get events after a put event has been executed."""
-        self.put_queue.remove(put_event)
+        if put_event is not None:
+            self.put_queue.remove(put_event)
 
         for get_event in self.get_queue:
             if not get_event.triggered:
