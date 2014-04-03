@@ -140,7 +140,7 @@ class Event(object):
         """
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
-        if not isinstance(exception, Exception):
+        if not isinstance(exception, BaseException):
             raise ValueError('%s is not an exception.' % exception)
         self.ok = False
         self._value = exception
