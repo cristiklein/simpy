@@ -139,17 +139,17 @@ processes and chained:
     ...     def __init__(self, env):
     ...         self.env = env
     ...         self.class_ends = env.event()
-    ...         self.pupils = [env.process(self.pupil_proc()) for i in range(3)]
-    ...         self.bell = env.process(self.bell_proc())
+    ...         self.pupil_procs = [env.process(self.pupil()) for i in range(3)]
+    ...         self.bell_proc = env.process(self.bell())
     ...
-    ...     def bell_proc(self):
+    ...     def bell(self):
     ...         for i in range(2):
     ...             yield self.env.timeout(45)
     ...             self.class_ends.succeed()
     ...             self.class_ends = self.env.event()
     ...             print()
     ...
-    ...     def pupil_proc(self):
+    ...     def pupil(self):
     ...         for i in range(2):
     ...             print(' \o/', end='')
     ...             yield self.class_ends
@@ -196,10 +196,10 @@ process:
     ...
     >>> def parent(env):
     ...     ret = yield env.process(sub(env))
-    ...     assert ret == 23
+    ...     return ret
     ...
-    >>> parent_proc = env.process(parent(env))
-    >>> env.run()
+    >>> env.run(env.process(parent(env)))
+    23
 
 The example above will only work in Python >= 3.3. As a workaround for older
 Python versions, you can use ``env.exit(23)`` with the same effect.
@@ -228,10 +228,10 @@ The example from above, but with a delayed start of ``sub()``:
     ...     assert env.now - start == 3
     ...
     ...     ret = yield sub_proc
-    ...     assert ret == 23
+    ...     return ret
     ...
-    >>> parent_proc = env.process(parent(env))
-    >>> env.run()
+    >>> env.run(env.process(parent(env)))
+    23
 
 
 Waiting for for multiple events at once
