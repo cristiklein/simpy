@@ -124,7 +124,7 @@ to do things like ``yield Event(env).succeed()``.
 
 
 Example usages for ``Event``
-----------------------------
+============================
 
 The simple mechanics outlined above provide a great flexibility in the way
 events (even the basic :class:`Event`) can be used.
@@ -165,7 +165,7 @@ rings.
 
 
 Let time pass by: the ``Timeout``
----------------------------------
+=================================
 
 To actually let time pass in a simulation, there is the *timeout* event.
 A timeout has two parameters: a *delay* and an optional *value*:
@@ -179,7 +179,7 @@ supports comparison and addition.
 
 
 Processes are events, too
--------------------------
+=========================
 
 SimPy processes (as created by :class:`Process` or ``env.process()``) have the
 nice property of being events, too.
@@ -235,7 +235,7 @@ The example from above, but with a delayed start of ``sub()``:
 
 
 Waiting for for multiple events at once
----------------------------------------
+=======================================
 
 Sometimes, you want to wait for more than one event at the same time. For
 example, you may want to wait for a resource, but not for an unlimited amount
