@@ -25,6 +25,7 @@ This module also defines the :exc:`Interrupt` exception.
 
 """
 from inspect import isgenerator
+from collections import OrderedDict
 
 from simpy._compat import PY2
 
@@ -362,9 +363,9 @@ class Condition(Event):
     exception of the failing event.
 
     The ``evaluate`` function receives the list of target events and the
-    dictionary with all values currently available. If it returns
-    ``True``, the condition is scheduled. The :func:`Condition.all_events()`
-    and :func:`Condition.any_events()` functions are used to implement *and*
+    number of processed events in this list. If it returns ``True``, the
+    condition is scheduled. The :func:`Condition.all_events()` and
+    :func:`Condition.any_events()` functions are used to implement *and*
     (``&``) and *or* (``|``) for events.
 
     Conditions events can be nested.
@@ -373,9 +374,8 @@ class Condition(Event):
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
         self._evaluate = evaluate
-        self._interim_values = {}
         self._events = []
-        self._sub_conditions = []
+        self._count = 0
 
         for event in events:
             self._add_event(event)
@@ -385,8 +385,8 @@ class Condition(Event):
         self.callbacks.append(self._collect_values)
 
         # Immediately trigger the condition if it is already met.
-        if self._evaluate(self._events, self._interim_values):
-            self.succeed({})
+        if self._evaluate(self._events, self._count):
+            self.succeed(OrderedDict())
 
     def _desc(self):
         """Return a string *Condition(and_or_or, [events])*."""
@@ -396,18 +396,20 @@ class Condition(Event):
     def _get_values(self):
         """Recursively collect the current values of all nested conditions into
         a flat dictionary."""
-        values = dict(self._interim_values)
+        values = OrderedDict()
 
-        for condition in self._sub_conditions:
-            if condition in values:
-                del values[condition]
-            values.update(condition._get_values())
+        for event in self._events:
+            if isinstance(event, Condition):
+                values.update(event._get_values())
+            elif event.callbacks is None:
+                values[event] = event._value
 
         return values
 
     def _collect_values(self, event):
         """Update the final value of this condition."""
         if event.ok:
+            self._value = OrderedDict()
             self._value.update(self._get_values())
 
     def _add_event(self, event):
@@ -426,9 +428,6 @@ class Condition(Event):
         if event.callbacks is None:
             raise RuntimeError('Event %s has already been triggered' % event)
 
-        if isinstance(event, Condition):
-            self._sub_conditions.append(event)
-
         self._events.append(event)
         event.callbacks.append(self._check)
 
@@ -437,18 +436,19 @@ class Condition(Event):
     def _check(self, event):
         """Check if the condition was already met and schedule the *event* if
         so."""
-        self._interim_values[event] = event._value
+        if self._value is not PENDING:
+            return
 
-        if self._value is PENDING:
-            if not event.ok:
-                # Abort if the event has failed.
-                event.defused = True
-                self.fail(event._value)
-            elif self._evaluate(self._events, self._interim_values):
-                # The condition has been met. Schedule the event with an empty
-                # dictionary as value. The _collect_values callback will
-                # populate this dictionary once this condition gets processed.
-                self.succeed({})
+        self._count += 1
+
+        if not event.ok:
+            # Abort if the event has failed.
+            event.defused = True
+            self.fail(event._value)
+        elif self._evaluate(self._events, self._count):
+            # The condition has been met. The _collect_values callback will
+            # populate set the value once this condition gets processed.
+            self.succeed()
 
     def __iand__(self, other):
         if self._evaluate is not Condition.all_events:
@@ -465,16 +465,16 @@ class Condition(Event):
         return self._add_event(other)
 
     @staticmethod
-    def all_events(events, values):
+    def all_events(events, count):
         """A condition function that returns ``True`` if all *events* have
         been triggered."""
-        return len(events) == len(values)
+        return len(events) == count
 
     @staticmethod
-    def any_events(events, values):
+    def any_events(events, count):
         """A condition function that returns ``True`` if at least one of
         *events* has been triggered."""
-        return len(values) > 0 or len(events) == 0
+        return count > 0 or len(events) == 0
 
 
 class AllOf(Condition):

@@ -243,3 +243,16 @@ def test_shared_or_condition(env):
     env.process(p1(env, c1))
     env.process(p2(env, c2))
     env.run()
+
+
+def test_result_order(env):
+    """The order of a conditions result is based on the order in which the
+    events have been specified."""
+    timeouts = list(reversed([env.timeout(delay) for delay in range(3)]))
+
+    def p(env, timeouts):
+        results = yield env.all_of(timeouts)
+        assert list(results.keys()) == timeouts
+
+    env.process(p(env, timeouts))
+    env.run()
