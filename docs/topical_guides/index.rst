@@ -11,14 +11,12 @@ you are looking for.
 
    simpy_basics
    environments
+   events
    porting_from_simpy2
 
-.. - Environment (state, scheduler, attributes, event shortcuts)
-.. - Event types (event types, event values, shared events, condition events)
-.. - Process interaction (interrupt, passivate/reactivate, wait for proc)
+.. - Process interaction (interrupt, passivate/reactivate, wait for proc, subscribe_at)
 .. - resources (resource, container, store)
 .. - real-time simulations
 .. - monitoring
 .. - analyzing results (numpy, matploblib, ...)
 .. - integration with guis
-.. - utilitie functions (or rather describe them in "process interactions"?)
