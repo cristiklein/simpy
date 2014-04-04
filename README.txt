@@ -37,7 +37,9 @@ A Simple Example
 
 One of SimPy's main goals is to be easy to use. Here is an example for a simple
 SimPy simulation: a *clock* process that prints the current simulation time at
-each step::
+each step:
+
+.. code-block:: python
 
     >>> import simpy
     >>>
@@ -64,20 +66,28 @@ Installation
 
 SimPy requires Python 2.7, 3.2, PyPy 2.0 or above.
 
-You can install SimPy easily via `pip <http://pypi.python.org/pypi/pip>`_::
+You can install SimPy easily via `pip <http://pypi.python.org/pypi/pip>`_:
+
+.. code-block:: bash
 
     $ pip install -U simpy
 
-You can also download and install SimPy manually::
+You can also download and install SimPy manually:
+
+.. code-block:: bash
 
     $ cd where/you/put/simpy/
     $ python setup.py install
 
-To run SimPy’s test suite on your installation, execute::
+To run SimPy’s test suite on your installation, execute:
+
+.. code-block:: bash
 
     $ python -c "import simpy; simpy.test()"
 
-Of course, you can keep working with SimPy 2::
+Of course, you can keep working with SimPy 2:
+
+.. code-block:: bash
 
     $ pip install "simpy>=2.3,<3"
 
