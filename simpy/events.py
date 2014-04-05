@@ -384,9 +384,10 @@ class Condition(Event):
         # condition once it is being processed.
         self.callbacks.append(self._collect_values)
 
-        # Immediately trigger the condition if it is already met.
-        if self._evaluate(self._events, self._count):
-            self.succeed(OrderedDict())
+        if (self._value is PENDING and
+                self._evaluate(self._events, self._count)):
+            # Immediately trigger the condition if it is already met.
+            self.succeed()
 
     def _desc(self):
         """Return a string *Condition(and_or_or, [events])*."""
@@ -416,20 +417,21 @@ class Condition(Event):
         """Add another *event* to the condition.
 
         Raise a :exc:`ValueError` if *event* belongs to a different
-        environment. Raise a :exc:`RuntimeError` if either this condition or
-        *event* has already been triggered.
+        environment. Raise a :exc:`RuntimeError` if either this condition has
+        already been processed."""
 
-        """
         if self.env != event.env:
             raise ValueError('It is not allowed to mix events from different '
                              'environments')
         if self.callbacks is None:
-            raise RuntimeError('Event %s has already been triggered' % self)
-        if event.callbacks is None:
-            raise RuntimeError('Event %s has already been triggered' % event)
+            raise RuntimeError('%s has already been processed' % self)
 
         self._events.append(event)
-        event.callbacks.append(self._check)
+
+        if event.callbacks is None:
+            self._check(event)
+        else:
+            event.callbacks.append(self._check)
 
         return self
 

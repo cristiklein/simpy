@@ -196,17 +196,14 @@ def test_all_of_chaining_intermediate_results(env):
 
 
 def test_all_of_with_triggered_events(env):
-    """Only pending events may be added to a wait_for_all condition."""
+    """Processed events can be added to a condition. Confirm this with
+    all_of."""
     def parent(env):
-        event = env.timeout(1)
+        events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        try:
-            env.all_of([event])
-            assert False, 'Expected an exception'
-        except RuntimeError as e:
-            assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
-                            r'been triggered', e.args[0])
+        values = list((yield env.all_of(events)).values())
+        assert values == ['spam', 'eggs']
 
     env.process(parent(env))
     env.run()
@@ -268,17 +265,14 @@ def test_any_of_chaining(env):
 
 
 def test_any_of_with_triggered_events(env):
-    """Only pending events may be added to a any_of condition."""
+    """Processed events can be added to a condition. Confirm this with
+    all_of."""
     def parent(env):
-        event = env.timeout(1)
+        events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        try:
-            env.any_of([event])
-            assert False, 'Expected an exception'
-        except RuntimeError as e:
-            assert re.match(r'Event <Timeout\(1\) object at 0x.*> has already '
-                            r'been triggered', e.args[0])
+        values = list((yield env.any_of(events)).values())
+        assert values == ['spam', 'eggs']
 
     env.process(parent(env))
     env.run()
