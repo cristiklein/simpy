@@ -256,3 +256,17 @@ def test_result_order(env):
 
     env.process(p(env, timeouts))
     env.run()
+
+
+def test_nested_result_order(env):
+    """The order of a conditions result is based on the order in which the
+    events have been specified (even if nested)."""
+    timeouts = list(reversed([env.timeout(delay) for delay in range(3)]))
+    condition = (timeouts[0] | timeouts[1]) & timeouts[2]
+
+    def p(env, timeouts):
+        results = yield env.all_of(timeouts)
+        assert list(results.keys()) == timeouts
+
+    env.process(p(env, timeouts))
+    env.run()
