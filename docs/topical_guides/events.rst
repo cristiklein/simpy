@@ -239,8 +239,7 @@ Waiting for for multiple events at once
 
 Sometimes, you want to wait for more than one event at the same time. For
 example, you may want to wait for a resource, but not for an unlimited amount
-of time. Or you may want to wait until all of a number of events
-have happened.
+of time. Or you may want to wait until all a set of events has happened.
 
 SimPy therefore offers the :class:`AnyOf` and :class:`AllOf` events which both
 are a :class:`Condition` event.
@@ -255,7 +254,7 @@ of them is triggered or all of them:
     >>> a = AnyOf(env, events)  # Triggers if at least one of "events" is triggered.
     >>> b = AllOf(env, events)  # Triggers if all each of "events" is triggered.
 
-The value of a condition event is a dictionary with an entry for every
+The value of a condition event is an ordered dictionary with an entry for every
 triggered event. In the case of ``AllOf``, the size of that dictionary will
 always be the same as the length of the event list. The value dict of ``AnyOf``
 will have at least one entry. In both cases, the event instances are used as
@@ -281,4 +280,19 @@ operators ``&`` (and) and ``|`` (or):
     ...     assert all(e.triggered for e in [e1, e2, e3])
     ...
     >>> proc = env.process(test_condition(env))
+    >>> env.run()
+
+The order of condition results is identical to the order in which the condition
+events were specified. This allows the following idiom for conveniently
+fetching the values of multiple events specified in an *and* condition
+(including ``AllOf``):
+
+.. code-block:: python
+
+    >>> def fetch_values_of_multiple_events(env):
+    ...     t1, t2 = env.timeout(1, value='spam'), env.timeout(2, value='eggs')
+    ...     r1, r2 = (yield t1 & t2).values()
+    ...     assert r1 == 'spam' and r2 == 'eggs'
+    ...
+    >>> proc = env.process(fetch_values_of_multiple_events(env))
     >>> env.run()
