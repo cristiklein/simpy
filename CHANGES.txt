@@ -1,7 +1,22 @@
 Changelog for SimPy
 ===================
 
-3.0.3 – 2014-04-06
+3.0.4 – 2014-04-07
+------------------
+
+- [NEW] Verified, that SimPy works on Python 3.4.
+- [NEW] Guide to SimPy events
+- [CHANGE] The result dictionary for condition events (``AllOF`` / ``&`` and
+  ``AnyOf`` / ``|``) now is an *OrderedDict* sorted in the same way as the
+  original events list.
+- [CHANGE] Condition events now also except processed events.
+- [FIX] ``Resource.request()`` directly after ``Resource.release()`` no longer
+  successful. The process now has to wait as supposed to.
+- [FIX] ``Event.fail()`` now accept all exceptions derived from
+  ``BaseException`` instead of only ``Exception``.
+
+
+3.0.3 – 2014-03-06
 ------------------
 
 - [NEW] Guide to SimPy basics.
