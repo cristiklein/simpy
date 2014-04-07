@@ -76,7 +76,7 @@ when it yielded an event.
 However, you can add any callable object (function) to the list of callbacks
 as long as it accepts an event instance as its single parameter:
 
-.. code-block:: pycon
+.. code-block:: python
 
    >>> import simpy
    >>>
@@ -133,7 +133,7 @@ One example for this is that events can be shared. They can be created by a
 process or outside of the context of a process. They can be passed to other
 processes and chained:
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> class School:
     ...     def __init__(self, env):
@@ -188,7 +188,7 @@ That means, that a process can yield another process. It will then be resumed
 when the other process ends. The event's value will be the return value of that
 process:
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> def sub(env):
     ...     yield env.timeout(1)
@@ -214,7 +214,7 @@ process that uses a *timeout* before actually starting a process.
 
 The example from above, but with a delayed start of ``sub()``:
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> from simpy.util import start_delayed
     >>>
@@ -234,8 +234,10 @@ The example from above, but with a delayed start of ``sub()``:
     23
 
 
-Waiting for for multiple events at once
-=======================================
+.. _waiting_for_multiple_events_at_once:
+
+Waiting for multiple events at once
+===================================
 
 Sometimes, you want to wait for more than one event at the same time. For
 example, you may want to wait for a resource, but not for an unlimited amount
@@ -245,10 +247,10 @@ have happened.
 SimPy therefore offers the :class:`AnyOf` and :class:`AllOf` events which both
 are a :class:`Condition` event.
 
-Both take a list of events as an argument and are triggered if at least one
-of them is triggered or all of them:
+Both take a list of events as an argument and are triggered if at least one or
+all of them of them are triggered.
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> from simpy.events import AnyOf, AllOf, Event
     >>> events = [Event(env) for i in range(3)]
@@ -264,7 +266,7 @@ keys and the event values will be the values.
 As a shorthand for ``AllOf`` and ``AnyOf``, you can also use the logical
 operators ``&`` (and) and ``|`` (or):
 
-.. code-block:: pycon
+.. code-block:: python
 
     >>> def test_condition(env):
     ...     t1, t2 = env.timeout(1, value='spam'), env.timeout(2, value='eggs')
