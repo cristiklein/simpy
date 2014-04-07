@@ -7,14 +7,14 @@ Basic Concepts
 ==============
 
 SimPy is a discrete-event simulation library. The behavior of active components
-(like vehicles, customers or messages) is modeled by *processes*. All processes
-live in an *environment*. They interact with the environment and with each
-other via *events*.
+(like vehicles, customers or messages) is modeled with *processes*. All
+processes live in an *environment*. They interact with the environment and with
+each other via *events*.
 
 Processes are described by simple Python `generators
 <http://docs.python.org/3/reference/expressions.html#yieldexpr>`_. You can call
 them *process function* or *process method*, depending on whether it is
-a normal function or method of a class. During their life time, they create
+a normal function or method of a class. During their lifetime, they create
 events and ``yield`` them in order to wait for them to be triggered.
 
 When a process yields an event, the process gets *suspended*. SimPy *resumes*
@@ -50,7 +50,7 @@ So let's start::
     ...         yield env.timeout(trip_duration)
 
 Our *car* process requires a reference to an :class:`Environment` (``env``) in
-order to create new events. The *car*'s behaviour is described in an infinite
+order to create new events. The *car*'s behavior is described in an infinite
 loop. Remember, this function is a generator. Though it will never terminate,
 it will pass the control flow back to the simulation once a ``yield`` statement
 is reached. Once the yielded event is triggered ("it occurs"), the simulation
@@ -64,7 +64,7 @@ a :class:`~simpy.events.Timeout` event. This event describes the point in time
 the car is done *parking* (or *driving*, respectively). By yielding the event,
 it signals the simulation that it wants to wait for the event to occur.
 
-Now that the behaviour of our car has been modelled, lets create an instance of
+Now that the behavior of our car has been modeled, lets create an instance of
 it and see how it behaves::
 
     >>> import simpy
