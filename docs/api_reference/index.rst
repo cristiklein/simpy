@@ -8,15 +8,16 @@ components.
 
 
 .. toctree::
+   :maxdepth: 1
 
-    simpy
-    simpy.core
-    simpy.events
-    simpy.monitoring
-    simpy.resources
-    simpy.resources.base
-    simpy.resources.container
-    simpy.resources.resource
-    simpy.resources.store
-    simpy.rt
-    simpy.util
+   simpy
+   simpy.core
+   simpy.events
+   simpy.monitoring
+   simpy.resources
+   simpy.resources.base
+   simpy.resources.container
+   simpy.resources.resource
+   simpy.resources.store
+   simpy.rt
+   simpy.util
