@@ -12,9 +12,9 @@ you are looking for.
    simpy_basics
    environments
    events
+   process_interaction
    porting_from_simpy2
 
-.. - Process interaction (interrupt, passivate/reactivate, wait for proc, subscribe_at)
 .. - resources (resource, container, store)
 .. - real-time simulations
 .. - monitoring
