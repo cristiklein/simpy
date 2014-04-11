@@ -82,7 +82,7 @@ Starting a process function involves two things:
    :class:`~simpy.events.Initialize` event at the current simulation time which
    starts the execution of the process function. The process instance is also
    an event that is triggered when the process function returns. The
-   :doc:`guide to events <guide_to_events>` explains why this is handy.
+   :doc:`guide to events <events>` explains why this is handy.
 
 Finally, you can start SimPy's event loop. By default, it will run as long as
 there are events in the event list, but you can also let it stop earlier by
