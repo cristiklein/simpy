@@ -8,6 +8,7 @@ you have a basic understanding of SimPy's capabilities and that you know what
 you are looking for.
 
 .. toctree::
+   :maxdepth: 1
 
    simpy_basics
    environments

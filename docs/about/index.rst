@@ -7,7 +7,7 @@ was responsible for it? And what the heck were they tinking when they made it?
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    history
    acknowledgements
