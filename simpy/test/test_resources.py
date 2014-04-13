@@ -452,3 +452,34 @@ def test_filter_store(env):
 
     env.process(pem(env))
     env.run()
+
+
+def test_filter_store_get_after_mismatch(env):
+    """Regression test for issue #49.
+
+    Triggering get-events after a put in FilterStore wrongly breaks after the
+    first mismatch.
+
+    """
+    def putter(env, store):
+        # The order of putting 'spam' before 'eggs' is important here.
+        yield store.put('spam')
+        yield env.timeout(1)
+        yield store.put('eggs')
+
+    def getter(store):
+        # The order of requesting 'eggs' before 'spam' is important here.
+        eggs = store.get(lambda i: i == 'eggs')
+        spam = store.get(lambda i: i == 'spam')
+
+        ret = yield spam | eggs
+        assert spam in ret and eggs not in ret
+        assert env.now == 0
+
+        yield eggs
+        assert env.now == 1
+
+    store = simpy.FilterStore(env, capacity=2)
+    env.process(getter(store))
+    env.process(putter(env, store))
+    env.run()
