@@ -201,6 +201,43 @@ class Initialize(Event):
         env.schedule(self, URGENT)
 
 
+class Interruption(Event):
+    """Interrupts a process while waiting for another event."""
+    def __init__(self, process, cause):
+        # NOTE: The following initialization code is inlined from
+        # Event.__init__() for performance reasons.
+        self.env = process.env
+        self.callbacks = [self._interrupt]
+        self._value = Interrupt(cause)
+        self.ok = False
+        self.defused = True
+
+        if process._value is not PENDING:
+            raise RuntimeError('%s has terminated and cannot be interrupted.' %
+                    process)
+
+        if process is self.env.active_process:
+            raise RuntimeError('A process is not allowed to interrupt itself.')
+
+        self.process = process
+        self.env.schedule(self, URGENT)
+
+    def _interrupt(self, event):
+        # Ignore dead processes. Multiple concurrently scheduled interrupts
+        # cause this situation. If the process dies while handling the first
+        # one, the remaining interrupts must be discarded.
+        if self.process._value is not PENDING:
+            return
+
+        # If the current event (e.g. an interrupt) isn't the one the process
+        # expects, remove the process from the callbacks of the target event.
+        if self.process._target is not event:
+            if self.process._target is not None:
+                self.process._target.callbacks.remove(self.process._resume)
+
+        self.process._resume(self)
+
+
 class Process(Event):
     """A *Process* is a wrapper for the process *generator* (that is returned
     by a *process function*) during its execution.
@@ -252,26 +289,10 @@ class Process(Event):
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a *cause*.
 
-        A process cannot be interrupted if it already terminated. A process
-        can also not interrupt itself. Raise a :exc:`RuntimeError` in these
-        cases.
-
-        """
-        if self._value is not PENDING:
-            raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                               self)
-
-        if self is self.env.active_process:
-            raise RuntimeError('A process is not allowed to interrupt itself.')
-
-        # Create an event for this interrupt and schedule it as being urgent.
-        event = self.env.event()
-        event._value = Interrupt(cause)
-        event.ok = False
-        # Interrupts do not cause the simulation to crash.
-        event.defused = True
-        event.callbacks.append(self._resume)
-        self.env.schedule(event, URGENT)
+        A process cannot be interrupted if it already terminated. A process can
+        also not interrupt itself. Raise a :exc:`RuntimeError` in these
+        cases."""
+        Interruption(self, cause)
 
     def _resume(self, event):
         """Resume the execution of the process.
@@ -285,17 +306,6 @@ class Process(Event):
         that the process terminated.
 
         """
-        # Ignore dead processes. Multiple concurrently scheduled interrupts
-        # cause this situation. If the process dies while handling the first
-        # one, the remaining interrupts must be discarded.
-        if self._value is not PENDING:
-            return
-
-        # If the current target (e.g. an interrupt) isn't the one the process
-        # expects, remove it from the original events joiners list.
-        if self._target is not event:
-            self._target.callbacks.remove(self._resume)
-
         # Mark the current process as active.
         self.env._active_proc = self
 
