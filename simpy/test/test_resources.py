@@ -193,6 +193,30 @@ def test_resource_with_condition(env):
     env.run()
 
 
+def test_preemptive_resource(env):
+    """Processes with a higher priority may preempt requests of lower priority
+    processes. Note that higher priorities are indicated by a lower number
+    value."""
+
+    def proc_a(env, resource, prio):
+        try:
+            with resource.request(priority=prio) as req:
+                yield req
+                pytest.fail('Should have received an interrupt/preemption.')
+        except simpy.Interrupt:
+            pass
+
+    def proc_b(env, resource, prio):
+        with resource.request(priority=prio) as req:
+            yield req
+
+    resource = simpy.PreemptiveResource(env, 1)
+    env.process(proc_a(env, resource, 1))
+    env.process(proc_b(env, resource, 0))
+
+    env.run()
+
+
 def test_resource_with_priority_queue(env):
     def process(env, delay, resource, priority, res_time):
         yield env.timeout(delay)
