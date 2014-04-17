@@ -1,0 +1,15 @@
+syntax: glob
+
+*.egg-info/
+*.pyc
+*.swp
+*~
+.DS_Store
+.coverage
+.ropeproject/
+.tox/
+MANIFEST
+build/
+dist/
+docs/_build/
+htmlcov/
