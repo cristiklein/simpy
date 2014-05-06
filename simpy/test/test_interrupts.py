@@ -10,11 +10,8 @@ import simpy
 
 
 def test_interruption(env):
-    """With asynchronous interrupts, the victim expects an interrupt
-    while waiting for an event, but will process this even if no
-    interrupt occurred.
+    """Processes can be interrupted while waiting for other events."""
 
-    """
     def interruptee(env):
         try:
             yield env.timeout(10)
@@ -83,7 +80,7 @@ def test_concurrent_interrupts_and_events(env, log):
 
 
 def test_init_interrupt(env):
-    """An interrupt should always be executed after an INIT event at the
+    """An interrupt should always be executed after the Initialize event at the
     same time."""
     def child(env):
         try:
@@ -103,13 +100,15 @@ def test_init_interrupt(env):
 
 
 def test_interrupt_terminated_process(env):
-    """A process that has no event scheduled cannot be interrupted."""
+    """Dead processes cannot be interrupted."""
+
     def child(env):
         yield env.timeout(1)
 
     def parent(env):
         child_proc = env.process(child(env))
 
+        # Wait long enough so that child_proc terminates.
         yield env.timeout(2)
         ei = pytest.raises(RuntimeError, child_proc.interrupt)
         assert re.match(r'<Process\(child\) object at 0x.*> has terminated '
