@@ -201,6 +201,41 @@ class Initialize(Event):
         env.schedule(self, URGENT)
 
 
+class Interruption(Event):
+    """Interrupts a process while waiting for another event."""
+    def __init__(self, process, cause):
+        # NOTE: The following initialization code is inlined from
+        # Event.__init__() for performance reasons.
+        self.env = process.env
+        self.callbacks = [self._interrupt]
+        self._value = Interrupt(cause)
+        self.ok = False
+        self.defused = True
+
+        if process._value is not PENDING:
+            raise RuntimeError('%s has terminated and cannot be interrupted.' %
+                    process)
+
+        if process is self.env.active_process:
+            raise RuntimeError('A process is not allowed to interrupt itself.')
+
+        self.process = process
+        self.env.schedule(self, URGENT)
+
+    def _interrupt(self, event):
+        # Ignore dead processes. Multiple concurrently scheduled interrupts
+        # cause this situation. If the process dies while handling the first
+        # one, the remaining interrupts must be ignored.
+        if self.process._value is not PENDING:
+            return
+
+        # A process never expects an interrupt and is always waiting for a
+        # target event. Remove the process from the callbacks of the target.
+        self.process._target.callbacks.remove(self.process._resume)
+
+        self.process._resume(self)
+
+
 class Process(Event):
     """A *Process* is a wrapper for the process *generator* (that is returned
     by a *process function*) during its execution.
@@ -238,10 +273,8 @@ class Process(Event):
     def target(self):
         """The event that the process is currently waiting for.
 
-        May be ``None`` if the process was just started or interrupted and did
-        not yet yield a new event.
+        Returns ``None`` if the process is dead."""
 
-        """
         return self._target
 
     @property
@@ -252,26 +285,10 @@ class Process(Event):
     def interrupt(self, cause=None):
         """Interupt this process optionally providing a *cause*.
 
-        A process cannot be interrupted if it already terminated. A process
-        can also not interrupt itself. Raise a :exc:`RuntimeError` in these
-        cases.
-
-        """
-        if self._value is not PENDING:
-            raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                               self)
-
-        if self is self.env.active_process:
-            raise RuntimeError('A process is not allowed to interrupt itself.')
-
-        # Create an event for this interrupt and schedule it as being urgent.
-        event = self.env.event()
-        event._value = Interrupt(cause)
-        event.ok = False
-        # Interrupts do not cause the simulation to crash.
-        event.defused = True
-        event.callbacks.append(self._resume)
-        self.env.schedule(event, URGENT)
+        A process cannot be interrupted if it already terminated. A process can
+        also not interrupt itself. Raise a :exc:`RuntimeError` in these
+        cases."""
+        Interruption(self, cause)
 
     def _resume(self, event):
         """Resume the execution of the process.
@@ -285,17 +302,6 @@ class Process(Event):
         that the process terminated.
 
         """
-        # Ignore dead processes. Multiple concurrently scheduled interrupts
-        # cause this situation. If the process dies while handling the first
-        # one, the remaining interrupts must be discarded.
-        if self._value is not PENDING:
-            return
-
-        # If the current target (e.g. an interrupt) isn't the one the process
-        # expects, remove it from the original events joiners list.
-        if self._target is not event:
-            self._target.callbacks.remove(self._resume)
-
         # Mark the current process as active.
         self.env._active_proc = self
 
@@ -493,7 +499,7 @@ class AnyOf(Condition):
 
 
 class Interrupt(Exception):
-    """This exceptions is sent into a process if it was interrupted by another
+    """This exceptions is sent into a process if it is interrupted by another
     process (see :func:`Process.interrupt()`).
 
     *cause* may be none if no cause was explicitly passed to
@@ -504,11 +510,7 @@ class Interrupt(Exception):
     interrupt will always be thrown into the process first.
 
     If a process is interrupted multiple times at the same time, all interrupts
-    will be thrown into the process in the same order as they occurred.
-
-    """
-    def __init__(self, cause):
-        super(Interrupt, self).__init__(cause)
+    will be thrown into the process in the same order as they occurred."""
 
     def __str__(self):
         return '%s(%r)' % (self.__class__.__name__, self.cause)
