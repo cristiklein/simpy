@@ -193,6 +193,30 @@ def test_resource_with_condition(env):
     env.run()
 
 
+def test_preemptive_resource(env):
+    """Processes with a higher priority may preempt requests of lower priority
+    processes. Note that higher priorities are indicated by a lower number
+    value."""
+
+    def proc_a(env, resource, prio):
+        try:
+            with resource.request(priority=prio) as req:
+                yield req
+                pytest.fail('Should have received an interrupt/preemption.')
+        except simpy.Interrupt:
+            pass
+
+    def proc_b(env, resource, prio):
+        with resource.request(priority=prio) as req:
+            yield req
+
+    resource = simpy.PreemptiveResource(env, 1)
+    env.process(proc_a(env, resource, 1))
+    env.process(proc_b(env, resource, 0))
+
+    env.run()
+
+
 def test_resource_with_priority_queue(env):
     def process(env, delay, resource, priority, res_time):
         yield env.timeout(delay)
@@ -451,4 +475,35 @@ def test_filter_store(env):
         assert get_event.triggered
 
     env.process(pem(env))
+    env.run()
+
+
+def test_filter_store_get_after_mismatch(env):
+    """Regression test for issue #49.
+
+    Triggering get-events after a put in FilterStore wrongly breaks after the
+    first mismatch.
+
+    """
+    def putter(env, store):
+        # The order of putting 'spam' before 'eggs' is important here.
+        yield store.put('spam')
+        yield env.timeout(1)
+        yield store.put('eggs')
+
+    def getter(store):
+        # The order of requesting 'eggs' before 'spam' is important here.
+        eggs = store.get(lambda i: i == 'eggs')
+        spam = store.get(lambda i: i == 'spam')
+
+        ret = yield spam | eggs
+        assert spam in ret and eggs not in ret
+        assert env.now == 0
+
+        yield eggs
+        assert env.now == 1
+
+    store = simpy.FilterStore(env, capacity=2)
+    env.process(getter(store))
+    env.process(putter(env, store))
     env.run()
