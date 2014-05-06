@@ -186,13 +186,15 @@ immediately:
    Stop parking at 91
    Bat. ctrl. interrupted at 91 msg: Need to go!
 
-What ``process.interrupt()`` actually does is removing the process'
-``_resume()`` method from the callbacks of the event that it is currently
-waiting for. And it will schedule an event that will throw the ``Interrupt``
-exception into the interrupted process as soon as possible.
+What ``process.interrupt()`` actually does is scheduling an
+:class:`~simpy.events.Interruption` event for immediate execution. If this
+event is executed it will remove the victim process' ``_resume()`` method from
+the callbacks of the event that it is currently waiting for (see
+:attr:`~simpy.events.Process.target`). Following that it will throw the
+``Interrupt`` exception into the process.
 
-Since we don't to anything special to the event, the interrupted process can
-yield the same event again after catching the ``Interrupt`` – Imagine someone
-waiting for a shop to open. The person may get interrupted by a phone call.
-After finishing the call, he or she checks if the shop already opened and
-either enters or continues to wait.
+Since we don't to anything special to the original target event of the process,
+the interrupted process can yield the same event again after catching the
+``Interrupt`` – Imagine someone waiting for a shop to open. The person may get
+interrupted by a phone call.  After finishing the call, he or she checks if the
+shop already opened and either enters or continues to wait.
