@@ -21,10 +21,9 @@ simulation (``SimPy.Simulation``), a real-time simulation
 ``Simulation`` (or ``SimulationRT``), ``Process`` and some of the SimPy
 keywords (``hold`` or ``passivate``, for example) from that package.
 
-In SimPy 3, you usually need to import much less classes and modules (e.g., you
-don't need direct access to :class:`~simpy.events.Process` and the SimPy
-keywords anymore). In most use cases you will now only need to import
-:mod:`simpy`.
+In SimPy 3, you usually need to import much less classes and modules (for
+example, all keywords are gone). In most use cases you will now only need to
+import :mod:`simpy`.
 
 
 **SimPy 2**
@@ -50,10 +49,10 @@ class also had a ``simulate()`` method that executed a normal simulation,
 a real-time simulation or something else (depending on the particular class).
 
 There was a global ``Simulation`` instance that was automatically created when
-you imported SimPy. You could also instantiate it on your own to uses Simpy's
+you imported SimPy. You could also instantiate it on your own to uses SimPy's
 object-orient API. This led to some confusion and problems, because you had to
-pass the ``Simulation`` instance around when you were using the OO API but not
-if you were using the procedural API.
+pass the ``Simulation`` instance around when you were using the object-oriented
+API but not if you were using the procedural API.
 
 In SimPy 3, an :class:`~simpy.core.Environment` replaces ``Simulation`` and
 :class:`~simpy.rt.RealtimeEnvironment` replaces ``SimulationRT``. You always
@@ -98,19 +97,20 @@ Defining a Process
 ==================
 
 Processes had to inherit the ``Process`` base class in SimPy 2. Subclasses had
-to implement at least a so called *Process Execution Method (PEM)* and in
-most cases ``__init__()``. Each process needed to know the ``Simulation``
-instance it belonged to. This reference was passed implicitly in the procedural
-API and had to be passed explicitly in the object-oriented API. Apart from some
-internal problems, this made it quite cumbersome to define a simple process.
+to implement at least a so called *Process Execution Method (PEM)* (which is
+basically a generator function) and in most cases ``__init__()``. Each process
+needed to know the ``Simulation`` instance it belonged to. This reference was
+passed implicitly in the procedural API and had to be passed explicitly in the
+object-oriented API. Apart from some internal problems, this made it quite
+cumbersome to define a simple process.
 
-Processes were started by passing the ``Process`` and the generator returned by
-the PEM to either the global ``activate()`` function or the corresponding
-``Simulation`` method.
+Processes were started by passing the ``Process`` and a generator instance
+created by the generator function to either the global ``activate()`` function
+or the corresponding ``Simulation`` method.
 
-A process in SimPy 3 can be defined by any Python generator function (no matter
-if it’s defined on module level or as an instance method). Hence, they are now
-just called process functions.  They usually require a reference to the
+A process in SimPy 3 is a Python generator (no matter if it’s defined on module
+level or as an instance method) wrapped in a :class:`~simpy.events.Process`
+instance. The generator usually requires a reference to a
 :class:`~simpy.core.Environment` to interact with, but this is completely
 optional.
 
@@ -130,12 +130,13 @@ for this: :meth:`~simpy.core.Environment.process()`.
             super().__init__()
             self.another_param = another_param
 
-        def run(self):
+        def generator_function(self):
             """Implement the process' behavior."""
+            yield something
 
     initialize()
     proc = Process('Spam')
-    activate(proc, proc.run())
+    activate(proc, proc.generator_function())
 
 
 .. code-block:: python
@@ -148,12 +149,13 @@ for this: :meth:`~simpy.core.Environment.process()`.
             super().__init__(sim=sim)
             self.another_param = another_param
 
-        def run(self):
+        def generator_function(self):
             """Implement the process' behaviour."""
+            yield something
 
     sim = Simulation()
     proc = Process(sim, 'Spam')
-    sim.activate(proc, proc.run())
+    sim.activate(proc, proc.generator_function())
 
 
 **SimPy 3**
@@ -162,11 +164,12 @@ for this: :meth:`~simpy.core.Environment.process()`.
 
     import simpy
 
-    def my_process(env, another_param):
+    def generator_function(env, another_param):
         """Implement the process' behavior."""
+        yield something
 
     env = simpy.Environment()
-    proc = env.process(my_process(env, 'Spam'))
+    proc = env.process(generator_function(env, 'Spam'))
 
 
 SimPy Keywords (``hold`` etc.)
@@ -177,21 +180,21 @@ additional parameters (at least ``self``). These keywords had to be imported
 from ``SimPy.Simulation*`` if they were used. Internally, the keywords were
 mapped to a function that generated the according event.
 
-In SimPy 3, you directly yield :mod:`~simpy.events`. You can instantiate an
-event directly or use the shortcuts provided by
-:class:`~simpy.core.Environment`.
+In SimPy 3, you directly yield :mod:`~simpy.events` if you want to wait for an
+event to occur. You can instantiate an event directly or use the shortcuts
+provided by :class:`~simpy.core.Environment`.
 
-Generally, whenever a process yields an event, this process is suspended and
-resumed once the event has been triggered. To motivate this understanding, some
-of the events were renamed. For example, the ``hold`` keyword meant to wait
-until some time has passed. In terms of events this means that a timeout has
-happened. Therefore ``hold`` has been replaced by
-a :class:`~simpy.events.Timeout` event.
+Generally, whenever a process yields an event, the execution of the process is
+suspended and resumed once the event has been triggered. To motivate this
+understanding, some of the events were renamed. For example, the ``hold``
+keyword meant to wait until some time has passed. In terms of events this means
+that a timeout has happened. Therefore ``hold`` has been replaced by a
+:class:`~simpy.events.Timeout` event.
 
 .. note::
 
-    :class:`~simpy.events.Process` now inherits :class:`~simpy.events.Event`.
-    You can thus yield a process to wait until the process terminates.
+    :class:`~simpy.events.Process` is also an :class:`~simpy.events.Event`. If
+    you want to wait for a process to finish, simply yield it.
 
 
 **SimPy 2**
@@ -205,7 +208,6 @@ a :class:`~simpy.events.Timeout` event.
     yield waitevent, self, event
     yield waitevent, self, [event_a, event_b, event_c]
     yield queueevent, self, event_list
-    yield waituntil, self, cond_func
     yield get, self, level, amount
     yield put, self, level, amount
 
@@ -214,23 +216,43 @@ a :class:`~simpy.events.Timeout` event.
 
 .. code-block:: python
 
-    from simpy.util import wait_for_any, wait_for_all
-
     yield env.timeout(duration)        # hold: renamed
     yield env.event()                  # passivate: renamed
     yield resource.request()           # Request is now bound to class Resource
     resource.release()                 # Release no longer needs to be yielded
     yield event                        # waitevent: just yield the event
-    yield wait_for_any([event_a, event_b, event_c])  # waitevent
-    yield wait_for_all([event_a, event_b, event_c])  # This is new.
-    yield event_a | event_b            # Wait for either a or b. This is new.
-    yield event_a & event_b            # Wait for a and b. This is new.
-    # There is no direct equivalent for "queueevent"
-    yield env.process(cond_func(env))  # cond_func is now a process that
-                                       # terminates when the cond. is True
-                                       # (Yes, you can wait for processes now!)
+    yield env.all_of([event_a, event_b, event_c])  # waitvent
+    yield env.any_of([event_a, event_b, event_c])  # queuevent
     yield container.get(amount)        # Level is now called Container
     yield container.put(amount)
+
+    yield event_a | event_b            # Wait for either a or b. This is new.
+    yield event_a & event_b            # Wait for a and b. This is new.
+    yield env.process(calculation(env))  # Wait for the process calculation to
+                                         # to finish.
+
+
+Partially supported features
+----------------------------
+
+The following ``waituntil`` keyword is not completely supported anymore:
+
+.. code-block:: python
+
+    yield waituntil, self, cond_func
+
+SimPy 2 was evaluating ``cond_func`` after *every* event, which was
+computationally very expensive. One possible workaround is for example the
+following process, which evaluates ``cond_func`` periodically:
+
+.. code-block:: python
+
+    def waituntil(env, cond_func, delay=1):
+        while not cond_func():
+            yield env.timeout(delay)
+
+    # Usage:
+    yield waituntil(env, cond_func)
 
 
 Interrupts
@@ -240,7 +262,7 @@ In SimPy 2, ``interrupt()`` was a method of the interrupting process. The
 victim of the interrupt had to be passed as an argument.
 
 The victim was not directly notified of the interrupt but had to check if the
-``interrupted`` flag was set. It then had to reset the interrupt via
+``interrupted`` flag was set. Afterwards, it had to reset the interrupt via
 ``interruptReset()``. You could manually set the ``interruptCause`` attribute
 of the victim.
 
@@ -248,8 +270,8 @@ Explicitly checking for an interrupt is obviously error prone as it is too easy
 to be forgotten.
 
 In SimPy 3, you call :meth:`~simpy.events.Process.interrupt()` on the victim
-process. You can optionally pass a cause. An :exc:`~simpy.events.Interrupt` is
-then thrown into the victim process, which has to handle the interrupt via
+process. You can optionally supply a cause. An :exc:`~simpy.events.Interrupt`
+is then thrown into the victim process, which has to handle the interrupt via
 ``try: ... except Interrupt: ...``.
 
 
