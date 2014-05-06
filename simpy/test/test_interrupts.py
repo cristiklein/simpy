@@ -55,6 +55,33 @@ def test_concurrent_interrupts(env, log):
     assert log == [(0, 'boggis'), (0, 'bunce'), (0, 'beans')]
 
 
+def test_concurrent_interrupts_and_events(env, log):
+    """Interrupts interrupt a process while waiting for an event. Even if the
+    event has happened concurrently with the interrupt."""
+
+    def fox(env, coup, log):
+        while True:
+            try:
+                yield coup
+                log.append('coup completed at %d' % env.now)
+                env.exit()
+            except simpy.Interrupt as interrupt:
+                log.append('coup interrupted at %d' % env.now)
+
+    def master_plan(env, fox, coup):
+        yield env.timeout(1)
+        # Succeed and interrupt concurrently.
+        coup.succeed()
+        fox.interrupt()
+
+    coup = env.event()
+    fantastic_mr_fox = env.process(fox(env, coup, log))
+    env.process(master_plan(env, fantastic_mr_fox, coup))
+
+    env.run(5)
+    assert log == ['coup interrupted at 1', 'coup completed at 1']
+
+
 def test_init_interrupt(env):
     """An interrupt should always be executed after an INIT event at the
     same time."""

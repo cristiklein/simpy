@@ -40,41 +40,31 @@ class FilterStoreGet(StoreGet):
         super(FilterStoreGet, self).__init__(resource)
 
 
-class FilterQueue(list):
-    """The queue inherits :class:`list` and modifies :meth:`__getitem__()` and
-    :meth:`__bool__` to appears to only contain events for which the
-    *store*\ 's item queue contains proper
-    item.
-
-    """
+class FilterQueue(object):
+    """A queue that only lists those events for which there is an item in the
+    corresponding *store*."""
     def __init__(self):
-        super(FilterQueue, self).__init__()
+        self._q = []
         self.store = None
 
-    def __getitem__(self, key):
-        """Get the *key*\ th event from all events that have an item available
-        in the corresponding store's item queue.
+    def append(self, evt):
+        """Append *evt* to the queue."""
+        return self._q.append(evt)
+
+    def remove(self, evt):
+        """Remove *evt* from the queue.
+
+        Raise a :exc:`ValueError` if *evt* is not in the queue.
 
         """
-        filtered_events = [evt for evt in self
-                           if any(evt.filter(item)
-                                  for item in self.store.items)]
-        return filtered_events[key]
+        return self._q.remove(evt)
 
-    def __bool__(self):
-        """Return ``True`` if the queue contains an event for which an item is
-        available in the corresponding store's item queue.
-
-        """
-        for evt in self:
+    def __iter__(self):
+        for evt in self._q:
             for item in self.store.items:
                 if evt.filter(item):
-                    return True
-        return False
-
-    #: Provided for backwards compatability: :meth:`__bool__()` is only
-    #: used from Python 3 onwards.
-    __nonzero__ = __bool__
+                    # Only yield *evt* if there is an item for it.
+                    yield evt
 
 
 class Store(base.BaseResource):
