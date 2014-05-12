@@ -122,11 +122,8 @@ def test_child_exception(env):
 
 
 def test_interrupted_join(env):
-    """Tests that interrupts are raised while the victim is waiting for
-    another process. The victim should get unregistered from the other
-    process.
+    """Interrupts remove a process from the callbacks of its target."""
 
-    """
     def interruptor(env, process):
         yield env.timeout(1)
         process.interrupt()
@@ -175,36 +172,6 @@ def test_interrupted_join_and_rejoin(env):
 
             yield child_proc
             assert env.now == 2
-
-    parent_proc = env.process(parent(env))
-    env.process(interruptor(env, parent_proc))
-    env.run()
-
-
-def test_unregister_after_interrupt(env):
-    """If a process is interrupted while waiting for another one, it
-    should be unregistered from that process.
-
-    """
-    def interruptor(env, process):
-        yield env.timeout(1)
-        process.interrupt()
-
-    def child(env):
-        yield env.timeout(2)
-
-    def parent(env):
-        child_proc = env.process(child(env))
-        try:
-            yield child_proc
-            pytest.fail('Did not receive an interrupt.')
-        except Interrupt:
-            assert env.now == 1
-            assert child_proc.is_alive
-
-        yield env.timeout(2)
-        assert env.now == 3
-        assert not child_proc.is_alive
 
     parent_proc = env.process(parent(env))
     env.process(interruptor(env, parent_proc))
