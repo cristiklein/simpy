@@ -101,15 +101,6 @@ __ https://simpy.readthedocs.org/en/latest/simpy_intro/index.html
 __ https://simpy.readthedocs.org/en/latest/examples/index.html
 
 
-Ports
------
-
-An almost feature-complete reimplementation of SimPy in C# was written by
-Andreas Beham and is available at:
-
-http://github.com/abeham/SimSharp
-
-
 Documentation and Help
 ----------------------
 
@@ -132,3 +123,12 @@ __ https://bitbucket.org/simpy/simpy/src
 __ https://bitbucket.org/simpy/simpy/issues?status=new&status=open
 
 Enjoy simulation programming in SimPy!
+
+
+Ports
+-----
+
+An almost feature-complete reimplementation of SimPy in C# was written by
+Andreas Beham and is available at `github.com/abeham/SimSharp`__
+
+__ http://github.com/abeham/SimSharp
