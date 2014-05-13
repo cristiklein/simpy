@@ -6,12 +6,10 @@ Python. Its event dispatcher is based on Python’s `generators`__ and can also
 be used for asynchronous networking or to implement multi-agent systems (with
 both, simulated and real communication).
 
-Processes in SimPy are simple Python generator functions and are used to model
-active components like customers, vehicles or agents. SimPy also provides
-various types of shared *resources* to model limited capacity congestion points
-(like servers, checkout counters and tunnels). From version 3.1, it will also
-provide monitoring capabilities to aid in gathering statistics about resources
-and processes.
+Processes in SimPy are defined by Python generator functions and can, for
+example, be used to model active components like customers, vehicles or agents.
+SimPy also provides various types of shared *resources* to model limited
+capacity congestion points (like servers, checkout counters and tunnels).
 
 Simulations can be performed “as fast as possible”, in real time (wall clock
 time) or by manually stepping through the events.
@@ -19,7 +17,7 @@ time) or by manually stepping through the events.
 Though it is theoretically possible to do continuous simulations with SimPy, it
 has no features that help you with that. On the other hand, SimPy is overkill
 for simulations with a fixed step size where your processes don’t interact with
-each other or with shared resources — use a simple ``while`` loop in this case.
+each other or with shared resources.
 
 The SimPy distribution contains tutorials, in-depth documentation, and a large
 number of examples.
