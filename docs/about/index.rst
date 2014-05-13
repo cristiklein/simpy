@@ -11,6 +11,7 @@ was responsible for it? And what the heck were they tinking when they made it?
 
    history
    acknowledgements
+   ports
    defense_of_design
    release_process
    license
