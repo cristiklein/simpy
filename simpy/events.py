@@ -214,7 +214,7 @@ class Interruption(Event):
 
         if process._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                    process)
+                               process)
 
         if process is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')

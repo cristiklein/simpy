@@ -62,7 +62,7 @@ def test_concurrent_interrupts_and_events(env, log):
                 yield coup
                 log.append('coup completed at %d' % env.now)
                 env.exit()
-            except simpy.Interrupt as interrupt:
+            except simpy.Interrupt:
                 log.append('coup interrupted at %d' % env.now)
 
     def master_plan(env, fox, coup):

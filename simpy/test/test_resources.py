@@ -193,30 +193,6 @@ def test_resource_with_condition(env):
     env.run()
 
 
-def test_preemptive_resource(env):
-    """Processes with a higher priority may preempt requests of lower priority
-    processes. Note that higher priorities are indicated by a lower number
-    value."""
-
-    def proc_a(env, resource, prio):
-        try:
-            with resource.request(priority=prio) as req:
-                yield req
-                pytest.fail('Should have received an interrupt/preemption.')
-        except simpy.Interrupt:
-            pass
-
-    def proc_b(env, resource, prio):
-        with resource.request(priority=prio) as req:
-            yield req
-
-    resource = simpy.PreemptiveResource(env, 1)
-    env.process(proc_a(env, resource, 1))
-    env.process(proc_b(env, resource, 0))
-
-    env.run()
-
-
 def test_resource_with_priority_queue(env):
     def process(env, delay, resource, priority, res_time):
         yield env.timeout(delay)
@@ -273,28 +249,28 @@ def test_get_users(env):
 #
 # Tests for PreemptiveResource
 #
+def test_preemptive_resource(env):
+    """Processes with a higher priority may preempt requests of lower priority
+    processes. Note that higher priorities are indicated by a lower number
+    value."""
 
-
-def test_preemptive_resource(env, log):
-    def process(id, env, res, delay, prio, log):
-        yield env.timeout(delay)
-        with res.request(priority=prio) as req:
-            try:
+    def proc_a(env, resource, prio):
+        try:
+            with resource.request(priority=prio) as req:
                 yield req
-                yield env.timeout(5)
-                log.append((env.now, id))
-            except simpy.Interrupt as ir:
-                log.append((env.now, id, (ir.cause.by, ir.cause.usage_since)))
+                pytest.fail('Should have received an interrupt/preemption.')
+        except simpy.Interrupt:
+            pass
 
-    res = simpy.PreemptiveResource(env, capacity=2)
-    env.process(process(0, env, res, 0, 1, log))
-    env.process(process(1, env, res, 0, 1, log))
-    p2 = env.process(process(2, env, res, 1, 0, log))
-    env.process(process(3, env, res, 2, 2, log))
+    def proc_b(env, resource, prio):
+        with resource.request(priority=prio) as req:
+            yield req
+
+    resource = simpy.PreemptiveResource(env, 1)
+    env.process(proc_a(env, resource, 1))
+    env.process(proc_b(env, resource, 0))
 
     env.run()
-
-    assert log == [(1, 1, (p2, 0)), (5, 0), (6, 2), (10, 3)]
 
 
 def test_preemptive_resource_timeout_0(env):

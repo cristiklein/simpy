@@ -181,7 +181,7 @@ class Environment(BaseEnvironment):
     def schedule(self, event, priority=NORMAL, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
         heappush(self._queue,
-                (self._now + delay, priority, next(self._eid), event))
+                 (self._now + delay, priority, next(self._eid), event))
 
     def peek(self):
         """Get the time of the next scheduled event. Return :data:`Infinity`
