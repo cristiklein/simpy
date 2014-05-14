@@ -48,14 +48,6 @@ Resources
   can be filtered with a user-defined function.
 
 
-Monitoring
-----------
-
-.. currentmodule:: simpy.monitoring
-
-*[Not yet implemented]*
-
-
 Other
 -----
 
@@ -85,7 +77,7 @@ __all__ = [
     'Container',
     'Store', 'FilterStore',
 ]
-__version__ = '3.0.4'
+__version__ = '3.0.5'
 
 
 def test():
