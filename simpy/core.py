@@ -19,9 +19,7 @@ class BoundClass(object):
 
     The ``__get__()`` descriptor is basically identical to
     ``function.__get__()`` and binds the first argument of the ``cls`` to the
-    descriptor instance.
-
-    """
+    descriptor instance."""
     def __init__(self, cls):
         self.cls = cls
 
@@ -44,25 +42,23 @@ class BoundClass(object):
 
 
 class EmptySchedule(Exception):
-    """Thrown by the :class:`Environment` if there are no further events to be
+    """Thrown by an :class:`Environment` if there are no further events to be
     processed."""
     pass
 
 
 class BaseEnvironment(object):
-    """The abstract definition of an environment.
+    """Base class for event processing environments.
 
     An implementation must at least provide the means to access the current
     time of the environment (see :attr:`now`) and to schedule (see
-    :meth:`schedule()`) as well as execute (see :meth:`step()` and
-    :meth:`run()`) events.
+    :meth:`schedule()`) events as well as processing them (see :meth:`step()`.
 
     The class is meant to be subclassed for different execution environments.
     For example, SimPy defines a :class:`Environment` for simulations with
     a virtual time and and a :class:`~simpy.rt.RealtimeEnvironment` that
-    schedules and executes events in real (e.g., wallclock) time.
+    schedules and executes events in real (e.g., wallclock) time."""
 
-    """
     @property
     def now(self):
         """The current time of the environment."""
@@ -81,7 +77,7 @@ class BaseEnvironment(object):
         raise NotImplementedError(self)
 
     def step(self):
-        """Process the next event."""
+        """Processes the next event."""
         raise NotImplementedError(self)
 
     def run(self, until=None):
@@ -95,9 +91,7 @@ class BaseEnvironment(object):
           value.
 
         - If it can be converted to a number the method will continue stepping
-          until the environment's time reaches *until*.
-
-        """
+          until the environment's time reaches *until*."""
         if until is None:
             until = Event(self)
         elif not isinstance(until, Event):
@@ -131,20 +125,18 @@ class BaseEnvironment(object):
 
 
 class Environment(BaseEnvironment):
-    """Inherits :class:`BaseEnvironment` and implements a simulation
-    environment which simulates the passing of time by stepping from event to
-    event.
+    """Execution environment for an event-based simulation. The passing of time
+    is simulated by stepping from event to event.
 
-    You can provide an *initial_time* for the environment. By defaults, it
+    You can provide an *initial_time* for the environment. By default, it
     starts at ``0``.
 
     This class also provides aliases for common event types, for example
-    :attr:`process`, :attr:`timeout` and :attr:`event`.
+    :attr:`process`, :attr:`timeout` and :attr:`event`."""
 
-    """
     def __init__(self, initial_time=0):
         self._now = initial_time
-        self._queue = []  # Thelist of all currently scheduled events.
+        self._queue = []  # The list of all currently scheduled events.
         self._eid = count()  # Counter for event IDs
         self._active_proc = None
 
@@ -173,9 +165,7 @@ class Environment(BaseEnvironment):
 
         .. note::
 
-            From Python 3.3, you can use ``return value`` instead.
-
-        """
+            From Python 3.3, you can use ``return value`` instead."""
         raise StopIteration(value)
 
     def schedule(self, event, priority=NORMAL, delay=0):
@@ -194,9 +184,7 @@ class Environment(BaseEnvironment):
     def step(self):
         """Process the next event.
 
-        Raise an :exc:`EmptySchedule` if no further events are available.
-
-        """
+        Raise an :exc:`EmptySchedule` if no further events are available."""
         try:
             self._now, _, _, event = heappop(self._queue)
         except IndexError:
