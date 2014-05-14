@@ -123,6 +123,15 @@ class BaseEnvironment(object):
 
         return until.value
 
+    def exit(self, value=None):
+        """Convenience function provided for Python versions prior to 3.3. Stop
+        the current process, optionally providing a ``value``.
+
+        .. note::
+
+            From Python 3.3, you can use ``return value`` instead."""
+        raise StopIteration(value)
+
 
 class Environment(BaseEnvironment):
     """Execution environment for an event-based simulation. The passing of time
@@ -158,15 +167,6 @@ class Environment(BaseEnvironment):
     event = BoundClass(Event)
     all_of = BoundClass(AllOf)
     any_of = BoundClass(AnyOf)
-
-    def exit(self, value=None):
-        """Convenience function provided for Python versions prior to 3.3. Stop
-        the current process, optionally providing a ``value``.
-
-        .. note::
-
-            From Python 3.3, you can use ``return value`` instead."""
-        raise StopIteration(value)
 
     def schedule(self, event, priority=NORMAL, delay=0):
         """Schedule an *event* with a given *priority* and a *delay*."""
