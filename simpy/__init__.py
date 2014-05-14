@@ -3,81 +3,19 @@ The ``simpy`` module provides SimPy's end-user API. It aggregates Simpy's most
 important classes and methods. This is purely for your convenience. You can of
 course also access everything (and more!) via their actual submodules.
 
-
-Core classes and functions
---------------------------
-
-.. currentmodule:: simpy.core
-
-- :class:`Environment`: SimPy's central class. It contains
-  the simulation's state and lets the PEMs interact with it (i.e.,
-  schedule events).
-
-.. currentmodule:: simpy.events
-
-- :class:`Interrupt`: This exception is thrown into a process if it gets
-  interrupted by another one.
-
-
-Resources
----------
-
-.. currentmodule:: simpy.resources.resource
-
-- :class:`Resource`: Can be used by a limited number of processes at a
-  time (e.g., a gas station with a limited number of fuel pumps).
-
-- :class:`PriorityResource`: Like :class:`Resource`, but waiting
-  processes are sorted by priority.
-
-- :class:`PreemptiveResource`: Version of :class:`Resource` with
-  preemption.
-
-.. currentmodule:: simpy.resources.container
-
-- :class:`Container`: Models the production and consumption of a
-  homogeneous, undifferentiated bulk. It may either be continuous (like
-  water) or discrete (like apples).
-
-.. currentmodule:: simpy.resources.store
-
-- :class:`Store`: Allows the production and consumption of discrete
-  Python objects.
-
-- :class:`FilterStore`: Like :class:`Store`, but items taken out of it
-  can be filtered with a user-defined function.
-
-
-Other
------
-
-.. currentmodule:: simpy
-
-.. autofunction:: test
-
-.. - :func:`test`: Run the test suite on the installed copy of Simpy.
-
+{toc}
 """
+
+
 from pkgutil import extend_path
 
 from simpy.core import Environment
-from simpy.events import Interrupt
+from simpy.rt import RealtimeEnvironment
+from simpy.events import Event, Timeout, Process, AllOf, AnyOf, Interrupt
 from simpy.resources.resource import (
     Resource, PriorityResource, PreemptiveResource)
 from simpy.resources.container import Container
 from simpy.resources.store import Store, FilterStore
-
-
-__path__ = extend_path(__path__, __name__)
-__all__ = [
-    'test',
-    'Environment',
-    'Interrupt',
-    'Resource', 'PriorityResource', 'PreemptiveResource',
-    'Container',
-    'Store', 'FilterStore',
-]
-__version__ = '3.0.5'
 
 
 def test():
@@ -89,3 +27,40 @@ def test():
         print('You need pytest to run the tests. Try "pip install pytest".')
     else:
         pytest.main([os.path.dirname(__file__)])
+
+
+def compile_toc(entries, section_marker='='):
+    """Compiles a list of sections with objects into sphinx formatted
+    autosummary directives."""
+    toc = ''
+    for section, objs in entries:
+        toc += '\n\n%s\n%s\n\n' % (section, section_marker * len(section))
+        toc += '.. autosummary::\n\n'
+        for obj in objs:
+            toc += '    ~%s.%s\n' % (obj.__module__, obj.__name__)
+    return toc
+
+
+toc = (
+    ('Environments', (
+        Environment, RealtimeEnvironment,
+    )),
+    ('Events', (
+        Event, Timeout, Process, AllOf, AnyOf, Interrupt,
+    )),
+    ('Resources', (
+        Resource, PriorityResource, PreemptiveResource, Container, Store,
+        FilterStore,
+    )),
+    ('Miscellaneous', (
+        test,
+    )),
+)
+
+
+# Use the toc to keep the documentation and the implementation in sync.
+__doc__ = __doc__.format(toc=compile_toc(toc))
+__all__ = [obj.__name__ for section, objs in toc for obj in objs]
+
+__path__ = extend_path(__path__, __name__)
+__version__ = '3.0.4'
