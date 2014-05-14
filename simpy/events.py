@@ -1,29 +1,20 @@
 """
-This *events* module contains the various event type used by the SimPy core.
+This module contains the basic event types used in SimPy.
 
 The base class for all events is :class:`Event`. Though it can be directly
-used, there are several specialized subclasses of it:
+used, there are several specialized subclasses of it.
 
-- :class:`Timeout`: is scheduled with a certain delay and lets processes hold
-  their state for a certain amount of time.
+.. autosummary::
 
-- :class:`Initialize`: Initializes a new :class:`Process`.
-
-- :class:`Process`: Processes are also modeled as an event so other processes
-  can wait until another one finishes.
-
-- :class:`Condition`: Events can be concatenated with ``|`` an ``&`` to either
-  wait until one or both of the events are triggered.
-
-- :class:`AllOf`: Special case of :class:`Condition`; wait until a list of
-  events has been triggered.
-
-- :class:`AnyOf`: Special case of :class:`Condition`; wait until one of a list
-  of events has been triggered.
+    ~simpy.events.Event
+    ~simpy.events.Timeout
+    ~simpy.events.Process
+    ~simpy.events.AnyOf
+    ~simpy.events.AllOf
 
 This module also defines the :exc:`Interrupt` exception.
-
 """
+
 from inspect import isgenerator
 from collections import OrderedDict
 
@@ -43,23 +34,33 @@ NORMAL = 1
 
 
 class Event(object):
-    """Base class for all events.
+    """Event that may happen at some point in time.
 
-    Every event is bound to an environment *env* (see
-    :class:`~simpy.core.BaseEnvironment`) and has an optional *value*.
+    An event
 
-    An event has a list of :attr:`callbacks`. A callback can be any callable
-    that accepts a single argument which is the event instances the callback
-    belongs to. This list is not exclusively for SimPy internals---you can also
-    append custom callbacks. All callbacks are executed in the order that they
-    were added when the event is processed.
+    - might happen (not :attr:`triggered`),
+    - is going to happen (:attr:`triggered`) or
+    - has happened (:attr:`processed`).
+
+    Every event is bound to an environment *env* and is initially not
+    triggered. It gets scheduled for processing by the environment if they are
+    triggered by either :meth:`succeed`, :meth:`fail` or :meth:`trigger`. These
+    methods also set the *ok* flag and the *value* of the event.
+
+    An event has a list of :attr:`callbacks`. A callback can be any callable.
+    Once an event gets processed, all callbacks will be invoked with the event
+    as the single argument. Callbacks can check if the event was successful by
+    examining *ok* and examine the *value* it has produced.
+
+    Failed events are never silently ignored and will raise an exception upon
+    being processed. If a callback handles an exception, it must set *defused*
+    flag to ``True`` to prevent this.
 
     This class also implements ``__and__()`` (``&``) and ``__or__()`` (``|``).
     If you concatenate two events using one of these operators,
     a :class:`Condition` event is generated that lets you wait for both or one
-    of them.
+    of them."""
 
-    """
     def __init__(self, env):
         self.env = env
         """The :class:`~simpy.core.Environment` the event lives in."""
@@ -94,33 +95,27 @@ class Event(object):
 
         The value is available when the event has been triggered.
 
-        Raise a :exc:`AttributeError` if the value is not yet available.
-
-        """
+        Raise a :exc:`AttributeError` if the value is not yet available."""
         if self._value is PENDING:
             raise AttributeError('Value of %s is not yet available' % self)
         return self._value
 
     def trigger(self, event):
-        """Triggers the event with the state and value of the provided *event*.
+        """Trigger the event with the state and value of the provided *event*.
+        Returns the event instance.
 
-        This method can be used directly as a callback function.
-
-        """
+        This method can be used directly as a callback function trigger chain
+        reactions."""
         self.ok = event.ok
         self._value = event._value
         self.env.schedule(self)
 
     def succeed(self, value=None):
-        """Schedule the event and mark it as successful. Return the event
-        instance.
+        """Set the events value, mark it as successful and schedule it for
+        processing by the environment. Returns the event instance.
 
-        You can optionally pass an arbitrary ``value`` that will be sent into
-        processes waiting for that event.
-
-        Raise a :exc:`RuntimeError` if this event has already been scheduled.
-
-        """
+        Raises a :exc:`RuntimeError` if this event has already been
+        triggerd."""
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
 
@@ -130,15 +125,14 @@ class Event(object):
         return self
 
     def fail(self, exception):
-        """Schedule the event and mark it as failed. Return the event instance.
-
-        The ``exception`` will be thrown into processes waiting for that event.
+        """Set *exception* as the events value, mark it as successful and
+        schedule it for processing by the environment. Returns the event
+        instance.
 
         Raise a :exc:`ValueError` if ``exception`` is not an :exc:`Exception`.
 
-        Raise a :exc:`RuntimeError` if this event has already been scheduled.
-
-        """
+        Raise a :exc:`RuntimeError` if this event has already been
+        triggered."""
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
         if not isinstance(exception, BaseException):
@@ -149,23 +143,21 @@ class Event(object):
         return self
 
     def __and__(self, other):
-        """Return ``True`` if this event and *other* are triggered."""
+        """Return a :class:`~simpy.events.Condition` that will get triggered if
+        both if this event and *other* have been processed."""
         return Condition(self.env, Condition.all_events, [self, other])
 
     def __or__(self, other):
-        """Return ``True`` if this event or *other is triggered, or both."""
+        """Return a :class:`~simpy.events.Condition` that will get triggered if
+        either this event or *other* have been processed (or even both, if they
+        happend concurrently)."""
         return Condition(self.env, Condition.any_events, [self, other])
 
 
 class Timeout(Event):
-    """An :class:`Event` that is scheduled with a certain *delay* after its
-    creation.
+    """An :class:`~simpy.events.Event` that gets triggered after a *delay* has
+    passed."""
 
-    This event can be used by processes to wait (or hold their state) for
-    *delay* time steps. It is immediately scheduled at ``env.now + delay`` and
-    has thus (in contrast to :class:`Event`) no *success()* or *fail()* method.
-
-    """
     def __init__(self, env, delay, value=None):
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
@@ -187,6 +179,7 @@ class Timeout(Event):
 
 class Initialize(Event):
     """Initializes a process. Only used internally by :class:`Process`."""
+
     def __init__(self, env, process):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
@@ -202,7 +195,9 @@ class Initialize(Event):
 
 
 class Interruption(Event):
-    """Interrupts a process while waiting for another event."""
+    """Immediately schedules an :class:`Interrupt` exception with the given
+    *cause* to be thrown into *process*."""
+
     def __init__(self, process, cause):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
@@ -214,7 +209,7 @@ class Interruption(Event):
 
         if process._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                               process)
+                    process)
 
         if process is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
@@ -237,19 +232,13 @@ class Interruption(Event):
 
 
 class Process(Event):
-    """A *Process* is a wrapper for the process *generator* (that is returned
-    by a *process function*) during its execution.
+    """Processes the *generator* by resuming it with the value of every event
+    it will yield. The process is finally triggered with the return value of
+    the generator.
 
-    It also contains internal and external status information and is used for
-    process interaction, e.g., for interrupts.
+    Processes can be interrupted during their execution by
+    :meth:`interrupt`."""
 
-    ``Process`` inherits :class:`Event`. You can thus wait for the termination
-    of a process by simply yielding it from your process function.
-
-    An instance of this class is returned by
-    :meth:`simpy.core.Environment.process()`.
-
-    """
     def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
@@ -273,7 +262,8 @@ class Process(Event):
     def target(self):
         """The event that the process is currently waiting for.
 
-        Returns ``None`` if the process is dead."""
+        Returns ``None`` if the process is dead or it is currently being
+        interrupted."""
 
         return self._target
 
@@ -291,17 +281,10 @@ class Process(Event):
         Interruption(self, cause)
 
     def _resume(self, event):
-        """Resume the execution of the process.
+        """Resumes the execution of the process with the value of *event*. If
+        the process generator exits, the process itself will get triggered with
+        the return value or the exception of the generator."""
 
-        Send the result of the event the process was waiting for into the
-        process generator and retrieve a new event from it. Register this
-        method as callback for that event.
-
-        If the process generator exits or raises an exception, terminate this
-        process. Also schedule this process to notify all registered callbacks,
-        that the process terminated.
-
-        """
         # Mark the current process as active.
         self.env._active_proc = self
 
@@ -358,25 +341,24 @@ class Process(Event):
 
 
 class Condition(Event):
-    """A *Condition* :class:`Event` groups several *events* and is triggered if
-    a given condition (implemented by the *evaluate* function) becomes true.
+    """An event that gets triggered once the condition function *evaluate*
+    returns ``True`` on the given *events*.
 
-    The value of the condition is a dictionary that maps the input events to
-    their respective values. It only contains entries for those events that
-    occurred until the condition was met.
+    The value of the condition event is an ordered dictionary that maps the
+    input events to their respective values. It only contains entries for those
+    events that occurred before the condition is processed.
 
     If one of the events fails, the condition also fails and forwards the
     exception of the failing event.
 
-    The ``evaluate`` function receives the list of target events and the
-    number of processed events in this list. If it returns ``True``, the
-    condition is scheduled. The :func:`Condition.all_events()` and
+    The *evaluate* function receives the list of target events and the number
+    of processed events in this list. If it returns ``True``, the condition is
+    triggered. The :func:`Condition.all_events()` and
     :func:`Condition.any_events()` functions are used to implement *and*
     (``&``) and *or* (``|``) for events.
 
-    Conditions events can be nested.
+    Conditions events can be nested."""
 
-    """
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
         self._evaluate = evaluate
@@ -396,7 +378,7 @@ class Condition(Event):
             self.succeed()
 
     def _desc(self):
-        """Return a string *Condition(and_or_or, [events])*."""
+        """Return a string *Condition(evaluate, [events])*."""
         return '%s(%s, %s)' % (self.__class__.__name__,
                                self._evaluate.__name__, self._events)
 
@@ -474,43 +456,41 @@ class Condition(Event):
 
     @staticmethod
     def all_events(events, count):
-        """A condition function that returns ``True`` if all *events* have
+        """An evaluation function that returns ``True`` if all *events* have
         been triggered."""
         return len(events) == count
 
     @staticmethod
     def any_events(events, count):
-        """A condition function that returns ``True`` if at least one of
+        """An evaluation function that returns ``True`` if at least one of
         *events* has been triggered."""
         return count > 0 or len(events) == 0
 
 
 class AllOf(Condition):
-    """A :class:`Condition` event that waits for all *events*."""
+    """A :class:`~simpy.events.Condition` event that is triggered if all
+    *events* have been successfully triggered. Fails immediately if any of
+    *events* failed."""
     def __init__(self, env, events):
         super(AllOf, self).__init__(env, Condition.all_events, events)
 
 
 class AnyOf(Condition):
-    """A :class:`Condition` event that waits until the first of *events* is
-    triggered."""
+    """A :class:`~simpy.events.Condition` event that is triggered if any
+    *events* have been successfully triggered. Fails immediately if any of
+    *events* failed."""
     def __init__(self, env, events):
         super(AnyOf, self).__init__(env, Condition.any_events, events)
 
 
 class Interrupt(Exception):
-    """This exceptions is sent into a process if it is interrupted by another
-    process (see :func:`Process.interrupt()`).
+    """Exception thrown into a process if it is interrupted (see
+    :func:`~simpy.events.Process.interrupt()`).
 
-    *cause* may be none if no cause was explicitly passed to
-    :func:`Process.interrupt()`.
+    :attr:`cause` provides the reason for the interrupt, if any.
 
-    An interrupt has a higher priority as a normal event. Thus, if a process
-    has a normal event and an interrupt scheduled at the same time, the
-    interrupt will always be thrown into the process first.
-
-    If a process is interrupted multiple times at the same time, all interrupts
-    will be thrown into the process in the same order as they occurred."""
+    If a process is interrupted concurrently, all interrupts will be thrown
+    into the process in the same order as they occurred."""
 
     def __str__(self):
         return '%s(%r)' % (self.__class__.__name__, self.cause)
