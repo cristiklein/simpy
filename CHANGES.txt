@@ -1,6 +1,18 @@
 Changelog for SimPy
 ===================
 
+3.0.5 – 2014-05-14
+------------------
+
+- [CHANGE] Move interruption and all of the safety checks into a new event
+  (`pull request #30`__)
+- [FIX] ``FilterStore.get()`` now behaves correctly (`issue #49`__).
+- [FIX] Documentation improvements.
+
+__ https://bitbucket.org/simpy/simpy/pull-request/30
+__ https://bitbucket.org/simpy/simpy/issue/49
+
+
 3.0.4 – 2014-04-07
 ------------------
 
