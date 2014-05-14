@@ -15,6 +15,18 @@ Python's generators as they proved to work very well.
 The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
+3.0.5 – 2014-05-14
+==================
+
+- [CHANGE] Move interruption and all of the safety checks into a new event
+  (`pull request #30`__)
+- [FIX] ``FilterStore.get()`` now behaves correctly (`issue #49`__).
+- [FIX] Documentation improvements.
+
+__ https://bitbucket.org/simpy/simpy/pull-request/30
+__ https://bitbucket.org/simpy/simpy/issue/49
+
+
 3.0.4 – 2014-04-07
 ==================
 
