@@ -63,4 +63,4 @@ __doc__ = __doc__.format(toc=compile_toc(toc))
 __all__ = [obj.__name__ for section, objs in toc for obj in objs]
 
 __path__ = extend_path(__path__, __name__)
-__version__ = '3.0.4'
+__version__ = '3.0.5'
