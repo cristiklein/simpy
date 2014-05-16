@@ -1,34 +1,29 @@
 """
-This module contains the base classes for Simpy's resource system.
+Base classes of for Simpy's shared resource primitives.
 
-:class:`BaseResource` defines the abstract base resource. The request for
-putting something into or getting something out of a resource is modeled as an
-event that has to be yielded by the requesting process. :class:`Put` and
-:class:`Get` are the base event types for this.
-
+:class:`BaseResource` defines the abstract base resource. It supports get and
+put requests, which return :class:`Put` respectively :class:`Get` events. These
+events are triggered once the request has been completed.
 """
+
 from simpy.core import BoundClass
 from simpy.events import Event
 
 
 class Put(Event):
-    """The base class for all put events.
-
-    It receives the *resource* that created the event.
+    """Generic event for requesting to put something into the *resource*.
 
     This event (and all of its subclasses) can act as context manager and can
-    be used with the :keyword:`with` statement to automatically cancel a put
-    request if an exception or an :class:`simpy.events.Interrupt` occurs:
+    be used with the :keyword:`with` statement to automatically cancel the
+    request if an exception (like an :class:`simpy.events.Interrupt` for
+    example) occurs:
 
     .. code-block:: python
 
         with res.put(item) as request:
             yield request
-
-    It is not used directly by any resource, but rather sub-classed for each
-    type.
-
     """
+
     def __init__(self, resource):
         super(Put, self).__init__(resource._env)
         self.resource = resource
@@ -42,41 +37,36 @@ class Put(Event):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        # If the request has been interrupted, remove it from the queue:
+        self.cancel()
+
+    def cancel(self):
+        """Cancel this put request.
+
+        This method has to be called if the put request must be aborted, for
+        example if a process needs to handle an exception like an
+        :class:`~simpy.events.Interrupt`.
+
+        If the put request was created in a :keyword:`with` statement, this
+        method is called automatically.
+        """
         if not self.triggered:
             self.resource.put_queue.remove(self)
 
-    cancel = __exit__
-    """Cancel the current put request.
-
-    This method has to be called if a process received an
-    :class:`~simpy.events.Interrupt` or an exception while yielding this event
-    and is not going to yield this event again.
-
-    If the event was created in a :keyword:`with` statement, this method is
-    called automatically.
-
-    """
-
 
 class Get(Event):
-    """The base class for all get events.
-
-    It receives the *resource* that created the event.
+    """Generic event for requesting to get something from the *resource*.
 
     This event (and all of its subclasses) can act as context manager and can
-    be used with the :keyword:`with` statement to automatically cancel a get
-    request if an exception or an :class:`simpy.events.Interrupt` occurs:
+    be used with the :keyword:`with` statement to automatically cancel the
+    request if an exception (like an :class:`simpy.events.Interrupt` for
+    example) occurs:
 
     .. code-block:: python
 
-        with res.get() as request:
+        with res.put(item) as request:
             yield request
-
-    It is not used directly by any resource, but rather sub-classed for each
-    type.
-
     """
+
     def __init__(self, resource):
         super(Get, self).__init__(resource._env)
         self.resource = resource
@@ -90,81 +80,79 @@ class Get(Event):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
-        # If the request has been interrupted, remove it from the queue:
+        self.cancel()
+
+    def cancel(self):
+        """Cancel this get request.
+
+        This method has to be called if the get request must be aborted, for
+        example if a process needs to handle an exception like an
+        :class:`~simpy.events.Interrupt`.
+
+        If the get request was created in a :keyword:`with` statement, this
+        method is called automatically.
+        """
+
         if not self.triggered:
             self.resource.get_queue.remove(self)
 
-    cancel = __exit__
-    """Cancel the current get request.
-
-    This method has to be called if a process received an
-    :class:`~simpy.events.Interrupt` or an exception while yielding this event
-    and is not going to yield this event again.
-
-    If the event was created in a :keyword:`with` statement, this method is
-    called automatically.
-
-    """
-
 
 class BaseResource(object):
-    """This is the abstract base class for all SimPy resources.
-
-    All resources are bound to a specific :class:`~simpy.core.Environment`
-    *env*.
+    """Abstract base class for a shared resource.
 
     You can :meth:`put()` something into the resources or :meth:`get()`
-    something out of it. Both methods return an event that the requesting
-    process has to ``yield``.
+    something out of it. Both methods return an event that is triggered once
+    the operation is completed. If a :meth:`put()` request cannot complete
+    immediately (for example if the resource has reached a capacity limit) it
+    is enqueued in the :attr:`put_queue` for later processing. Likewise for
+    :meth:`get()` requests.
 
-    If a put or get operation can be performed immediately (because the
-    resource is not full (put) or not empty (get)), that event is triggered
-    immediately.
+    Subclasses can customize the resource by:
 
-    If a resources is too full or too empty to perform a put or get request,
-    the event is pushed to the *put_queue* or *get_queue*. An event is popped
-    from one of these queues and triggered as soon as the corresponding
-    operation is possible.
-
-    :meth:`put()` and :meth:`get()` only provide the user API and the general
-    framework and should not be overridden in subclasses. The actual behavior
-    for what happens when a put/get succeeds should rather be implemented in
-    :meth:`_do_put()` and :meth:`_do_get()`.
-
+    - providing different :attr:`PutQueue` and :attr:`GetQueue` types,
+    - providing :class:`Put` respectively :class:`Get` events,
+    - and implementing different request processing behaviour by
+      :meth:`_do_get()` and :meth:`_do_put()`.
     """
 
     PutQueue = list
-    """The type to be used for the :attr:`put_queue`. This can either be
-    a plain :class:`list` (default) or a subclass of it."""
+    """The type to be used for the :attr:`put_queue`. It is a plain
+    :class:`list` by default. The type must support iteration and provide
+    ``append()`` and ``remove()`` operations."""
 
     GetQueue = list
-    """The type to be used for the :attr:`get_queue`. This can either be
-    a plain :class:`list` (default) or a subclass of it."""
+    """The type to be used for the :attr:`get_queue`. It is a plain
+    :class:`list` by default. The type must support iteration and provide
+    ``append()`` and ``remove()`` operations."""
 
     def __init__(self, env):
         self._env = env
         self.put_queue = self.PutQueue()
-        """Queue/list of events waiting to get something out of the resource.
-        """
+        """Queue of pending put requests."""
         self.get_queue = self.GetQueue()
-        """Queue/list of events waiting to put something into the resource."""
+        """Queue of pending get requests."""
 
         # Bind event constructors as methods
         BoundClass.bind_early(self)
 
     put = BoundClass(Put)
-    """Create a new :class:`Put` event."""
+    """Request to put something into the resource and return a :class:`Put`
+    event, which gets triggered once the request succeeds.
+    """
 
     get = BoundClass(Get)
-    """Create a new :class:`Get` event."""
+    """Request to get something from the resource and return a :class:`Get`
+    event, which gets triggered once the request succeeds.
+    """
 
     def _do_put(self, event):
-        """Actually perform the *put* operation.
+        """Perform the *put* operation.
 
         This methods needs to be implemented by subclasses. It receives the
-        *put_event* that is created at each request and doesn't need to return
-        anything.
-
+        *put_event* that is created at each put request and needs to decide if
+        the request can be triggered or needs to enqueued. If the request can
+        be triggered, it must also check if pending get requests can be
+        triggered.
         """
         raise NotImplementedError(self)
 
@@ -180,12 +168,13 @@ class BaseResource(object):
                     break
 
     def _do_get(self, event):
-        """Actually perform the *get* operation.
+        """Perform the *get* operation.
 
         This methods needs to be implemented by subclasses. It receives the
-        *get_event* that is created at each request and doesn't need to return
-        anything.
-
+        *get_event* that is created at each get request and needs to decide if
+        the request can be triggered or needs to enqueued. If the request can
+        be triggered, it must also check if pending put requests can be
+        triggered.
         """
         raise NotImplementedError(self)
 
