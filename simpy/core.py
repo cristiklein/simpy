@@ -1,8 +1,7 @@
 """
-This module contains the implementation of SimPy's core classes. The most
-important ones are directly importable via :mod:`simpy`.
-
+Core components for event-discrete simulation environments.
 """
+
 import types
 from heapq import heappush, heappop
 from itertools import count
