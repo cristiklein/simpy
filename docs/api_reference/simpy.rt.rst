@@ -1,8 +1,6 @@
-======================================
-``simpy.rt`` --- Real-time simulations
-======================================
+=====================================
+``simpy.rt`` --- Real-time simulation
+=====================================
 
 .. automodule:: simpy.rt
-
-.. autoclass:: RealtimeEnvironment
    :members:

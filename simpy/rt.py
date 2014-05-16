@@ -1,5 +1,6 @@
-"""Provides an environment whose time passes according to the (scaled)
-real-time (aka *wallclock time*)."""
+"""Execution environment for events that synchronizes passing of time linearly
+with the real-time (aka *wallclock time*).
+"""
 
 try:
     # Python >= 3.3
@@ -12,19 +13,16 @@ from simpy.core import Environment, EmptySchedule, Infinity
 
 
 class RealtimeEnvironment(Environment):
-    """An :class:`~simpy.core.Environment` which uses the real (e.g. wallclock)
-    time.
+    """Execution environment for an event-based simulation which is linearly
+    synchronized with the real-time (e.g. wallclock time). A time step will
+    take *factor* seconds of real time (one second by default). A step from
+    ``0`` to ``3`` with a ``factor=0.5``, will take at least 1.5 seconds.
 
-    A time step will take *factor* seconds of real time (one second by
-    default); e.g., if you step from ``0`` until ``3`` with ``factor=0.5``, the
-    :meth:`simpy.core.BaseEnvironment.run()` call will take at least 1.5
-    seconds.
-
-    If the processing of the events for a time step takes too long,
-    a :exc:`RuntimeError` is raised in :meth:`step()`. You can disable this
-    behavior by setting *strict* to ``False``.
-
+    The :meth:`step()` method will raise a :exc:`RuntimeError` if a time step
+    took too long to compute. This behaviour can be disabled by setting
+    *strict* to ``False``.
     """
+
     def __init__(self, initial_time=0, factor=1.0, strict=True):
         Environment.__init__(self, initial_time)
 
@@ -38,15 +36,14 @@ class RealtimeEnvironment(Environment):
         events takes too long."""
 
     def step(self):
-        """Waits until enough real-time has passed for the next event to
-        happen.
+        """Process the next event after enough real-time has passed for the
+        event to happen.
 
-        The delay is scaled according to the real-time :attr:`factor`. If the
-        events of a time step are processed too slowly for the given
-        :attr:`factor` and if :attr:`strict` is enabled, a :exc:`RuntimeError`
-        is raised.
-
+        The delay is scaled according to the real-time :attr:`factor`. With
+        :attr:`strict` mode enabled, a :exc:`RuntimeError` will be raised, if
+        the event is processed too slowly.
         """
+
         evt_time = self.peek()
 
         if evt_time is Infinity:
