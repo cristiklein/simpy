@@ -14,9 +14,5 @@ components.
    simpy.core
    simpy.events
    simpy.resources
-   simpy.resources.base
-   simpy.resources.container
-   simpy.resources.resource
-   simpy.resources.store
    simpy.rt
    simpy.util
