@@ -1,48 +1,50 @@
 """
-This module contains all :class:`Store` like resources.
+Shared resources for storing a possibly unlimited amount of objects supporting
+requests for specific objects.
 
-Stores model the production and consumption of concrete objects. The object
-type is, by default, not restricted. A single Store can even contain multiple
-types of objects.
-
-Beside :class:`Store`, there is a :class:`FilterStore` that lets you use
-a custom function to filter the objects you get out of the store.
-
+The :class:`Store` operates in a FIFO (first-in, first-out) order. Objects are
+retrieved from the store in the order they were put in. The get requests of a
+:class:`FilterStore` can be customized by a filter to only retrieve objects
+matching a given criteria.
 """
+
 from simpy.core import BoundClass
 from simpy.resources import base
 
 
 class StorePut(base.Put):
-    """Put *item* into the store if possible or wait until it is."""
-    def __init__(self, resource, item):
+    """Request to put the *item* into the *store*. The request is triggered
+    once there space for the item in the store."""
+    def __init__(self, store, item):
         self.item = item
         """The item to put into the store."""
-        super(StorePut, self).__init__(resource)
+        super(StorePut, self).__init__(store)
 
 
 class StoreGet(base.Get):
-    """Get an item from the store or wait until one is available."""
+    """Request to get an *item* from the *store*. The request is triggered
+    once there is an item available in the store."""
     pass
 
 
 class FilterStoreGet(StoreGet):
-    """Get an item from the store for which *filter* returns ``True``.  This
-    event is triggered once such an event is available.
+    """Request to get an *item* from the *store* matching the *filter*. The
+    request is triggered once there is such an item available in the store.
 
-    The default *filter* function returns ``True`` for all items, and thus this
-    event exactly behaves like :class:`StoreGet`.
-
+    The default *filter* function returns ``True`` for all items, which makes
+    the request to behave exactly like :class:`StoreGet`.
     """
+
     def __init__(self, resource, filter=lambda item: True):
         self.filter = filter
-        """The filter function to use."""
+        """The filter function to filter items in the store."""
         super(FilterStoreGet, self).__init__(resource)
 
 
 class FilterQueue(object):
     """A queue that only lists those events for which there is an item in the
-    corresponding *store*."""
+    *store*."""
+
     def __init__(self):
         self._q = []
         self.store = None
@@ -52,11 +54,7 @@ class FilterQueue(object):
         return self._q.append(evt)
 
     def remove(self, evt):
-        """Remove *evt* from the queue.
-
-        Raise a :exc:`ValueError` if *evt* is not in the queue.
-
-        """
+        """Remove *evt* from the queue."""
         return self._q.remove(evt)
 
     def __iter__(self):
@@ -68,26 +66,21 @@ class FilterQueue(object):
 
 
 class Store(base.BaseResource):
-    """Models the production and consumption of concrete Python objects.
-
-    Items put into the store can be of any type.  By default, they are put and
-    retrieved from the store in a first-in first-out order.
+    """Resource with *capacity* slots for storing arbitrary objects. By
+    default, the *capacity* is unlimited and objects are put and retrieved from
+    the store in a first-in first-out order.
 
     The *env* parameter is the :class:`~simpy.core.Environment` instance the
     container is bound to.
-
-    The *capacity* defines the size of the Store and must be a positive number
-    (> 0). By default, a Store is of unlimited size. A :exc:`ValueError` is
-    raised if the value is negative.
-
     """
+
     def __init__(self, env, capacity=float('inf')):
         super(Store, self).__init__(env)
         if capacity <= 0:
             raise ValueError('"capacity" must be > 0.')
         self._capacity = capacity
         self.items = []
-        """List of the items within the store."""
+        """List of the items available in the store."""
 
     @property
     def capacity(self):
@@ -95,10 +88,10 @@ class Store(base.BaseResource):
         return self._capacity
 
     put = BoundClass(StorePut)
-    """Create a new :class:`StorePut` event."""
+    """Request a to put *item* into the store."""
 
     get = BoundClass(StoreGet)
-    """Create a new :class:`StoreGet` event."""
+    """Request a to get an *item* out of the store."""
 
     def _do_put(self, event):
         if len(self.items) < self._capacity:
@@ -111,36 +104,39 @@ class Store(base.BaseResource):
 
 
 class FilterStore(Store):
-    """The *FilterStore* subclasses :class:`Store` and allows you to only get
-    items that match a user-defined criteria.
+    """Resource with *capacity* slots for storing arbitrary objects supporting
+    filtered get requests. Like the :class:`Store`, the *capacity* is unlimited
+    by default and objects are put and retrieved from the store in a first-in
+    first-out order.
 
-    This criteria is defined via a filter function that is passed to
-    :meth:`get()`. :meth:`get()` only considers items for which this function
-    returns ``True``.
+    Get requests can be customized with a filter function to only trigger for
+    items for which said filter function returns ``True``.
 
     .. note::
 
-        In contrast to :class:`Store`, processes trying to get an item from
-        :class:`FilterStore` won't necessarily be processed in the same order
-        that they made the request.
+        In contrast to :class:`Store`, get requests of a :class:`FilterStore`
+        won't necessarily be triggered in the same order they were issued.
 
         *Example:* The store is empty. *Process 1* tries to get an item of type
         *a*, *Process 2* an item of type *b*. Another process puts one item of
         type *b* into the store. Though *Process 2* made his request after
         *Process 1*, it will receive that new item because *Process 1* doesn't
         want it.
-
     """
+
     GetQueue = FilterQueue
-    """The type to be used for the
-    :attr:`~simpy.resources.base.BaseResource.get_queue`."""
+    """Type of the put queue. See
+    :attr:`~simpy.resources.base.BaseResource.put_queue` for details."""
 
     def __init__(self, env, capacity=float('inf')):
         super(FilterStore, self).__init__(env, capacity)
         self.get_queue.store = self
 
+    put = BoundClass(StorePut)
+    """Request a to put *item* into the store."""
+
     get = BoundClass(FilterStoreGet)
-    """Create a new :class:`FilterStoreGet` event."""
+    """Request a to get an *item* matching the *filter* out of the store."""
 
     def _do_get(self, event):
         for item in self.items:
