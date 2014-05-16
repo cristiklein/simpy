@@ -45,8 +45,8 @@ class ContainerGet(base.Get):
 
 class Container(base.BaseResource):
     """Resource containing up to *capacity* of matter, supporting requests to
-    :meth:`put` or :meth:`get` matter into/from the container. It may either be
-    continuous (like water) or discrete (like apples).
+    put or get matter into/from the container. It may either be continuous
+    (like water) or discrete (like apples).
 
     The *env* parameter is the :class:`~simpy.core.Environment` instance the
     container is bound to.
