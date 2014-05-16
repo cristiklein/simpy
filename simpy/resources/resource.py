@@ -26,6 +26,9 @@ from simpy.resources import base
 
 
 class Preempted(object):
+    """Cause of preemption interrupts containing information about the
+    preemption."""
+
     def __init__(self, by, usage_since):
         self.by = by
         """The preempting :class:`simpy.events.Process`."""
