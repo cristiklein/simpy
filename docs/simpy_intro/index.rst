@@ -17,5 +17,3 @@ simulations.
    process_interaction
    shared_resources
    how_to_proceed
-
-..     monitoring
