@@ -18,17 +18,7 @@ from simpy.resources.resource import (
     Resource, PriorityResource, PreemptiveResource)
 from simpy.resources.container import Container
 from simpy.resources.store import Store, FilterStore
-
-
-def test():
-    """Runs SimPy's test suite via `py.test <http://pytest.org/latest/>`_."""
-    import os.path
-    try:
-        import pytest
-    except ImportError:
-        print('You need pytest to run the tests. Try "pip install pytest".')
-    else:
-        pytest.main([os.path.dirname(__file__)])
+from simpy.util import test
 
 
 def compile_toc(entries, section_marker='='):
