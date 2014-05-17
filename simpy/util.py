@@ -1,9 +1,10 @@
 """
-This modules contains various utility functions:
+A collection of utility functions:
 
-- :func:`start_delayed()`: Start a process with a given delay.
-- :func:`subscribe_at()`: Receive an interrupt if an event occurs.
-
+.. autosummary::
+    start_delayed
+    subscribe_at
+    test
 """
 
 
@@ -61,3 +62,16 @@ def subscribe_at(event):
         env.process(signaller(event, subscriber))
     else:
         raise RuntimeError('%s has already terminated.' % event)
+
+
+def test():
+    """Runs SimPy's test suite via `py.test <http://pytest.org/latest/>`_."""
+    import os.path
+    try:
+        import pytest
+    except ImportError:
+        print('You need pytest to run the tests. Try "pip install pytest".')
+    else:
+        pytest.main([os.path.dirname(__file__)])
+
+
