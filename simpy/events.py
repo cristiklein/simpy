@@ -34,23 +34,24 @@ NORMAL = 1
 
 
 class Event(object):
-    """Event that may happen at some point in time.
+    """An event that may happen at some point in time.
 
     An event
 
-    - might happen (not :attr:`triggered`),
+    - may happen (not :attr:`triggered`),
     - is going to happen (:attr:`triggered`) or
     - has happened (:attr:`processed`).
 
     Every event is bound to an environment *env* and is initially not
-    triggered. It gets scheduled for processing by the environment if they are
-    triggered by either :meth:`succeed`, :meth:`fail` or :meth:`trigger`. These
-    methods also set the *ok* flag and the *value* of the event.
+    triggered. Events are scheduled for processing by the environment after
+    they are triggered by either :meth:`succeed`, :meth:`fail` or
+    :meth:`trigger`. These methods also set the *ok* flag and the *value* of
+    the event.
 
     An event has a list of :attr:`callbacks`. A callback can be any callable.
     Once an event gets processed, all callbacks will be invoked with the event
     as the single argument. Callbacks can check if the event was successful by
-    examining *ok* and examine the *value* it has produced.
+    examining *ok* and do further processing with the *value* it has produced.
 
     Failed events are never silently ignored and will raise an exception upon
     being processed. If a callback handles an exception, it must set *defused*
@@ -59,7 +60,8 @@ class Event(object):
     This class also implements ``__and__()`` (``&``) and ``__or__()`` (``|``).
     If you concatenate two events using one of these operators,
     a :class:`Condition` event is generated that lets you wait for both or one
-    of them."""
+    of them.
+    """
 
     def __init__(self, env):
         self.env = env
@@ -111,7 +113,7 @@ class Event(object):
         self.env.schedule(self)
 
     def succeed(self, value=None):
-        """Set the events value, mark it as successful and schedule it for
+        """Set the event's value, mark it as successful and schedule it for
         processing by the environment. Returns the event instance.
 
         Raises a :exc:`RuntimeError` if this event has already been
