@@ -111,8 +111,8 @@ class BaseResource(object):
 
     - providing different :attr:`PutQueue` and :attr:`GetQueue` types,
     - providing :class:`Put` respectively :class:`Get` events,
-    - and implementing different request processing behaviour by
-      :meth:`_do_get()` and :meth:`_do_put()`.
+    - and implementing the request processing behaviour through the methods
+      ``_do_get()`` and ``_do_put()``.
     """
 
     PutQueue = list

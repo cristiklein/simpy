@@ -138,7 +138,7 @@ class Resource(base.BaseResource):
         using the resource."""
         self.queue = self.put_queue
         """Queue of pending :class:`Request` events. Alias of
-        :attr:`put_queue`.
+        :attr:`~simpy.resources.base.BaseResource.put_queue`.
         """
 
     @property
