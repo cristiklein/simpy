@@ -1,7 +1,9 @@
 """
-The ``simpy`` module provides SimPy's end-user API. It aggregates Simpy's most
-important classes and methods. This is purely for your convenience. You can of
-course also access everything (and more!) via their actual submodules.
+The ``simpy`` module aggregates SimPy's most used components into a single
+namespace. This is purely for convenience. You can of course also access
+everything (and more!) via their actual submodules.
+
+The following tables list all of the available components in this module.
 
 {toc}
 """
