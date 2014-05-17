@@ -14,9 +14,9 @@ from simpy.core import Environment, EmptySchedule, Infinity
 
 class RealtimeEnvironment(Environment):
     """Execution environment for an event-based simulation which is linearly
-    synchronized with the real-time (e.g. wallclock time). A time step will
-    take *factor* seconds of real time (one second by default). A step from
-    ``0`` to ``3`` with a ``factor=0.5``, will take at least 1.5 seconds.
+    synchronized with the real-time (also known as wallclock time). A time step
+    will take *factor* seconds of real time (one second by default). A step
+    from ``0`` to ``3`` with a ``factor=0.5``, will take at least 1.5 seconds.
 
     The :meth:`step()` method will raise a :exc:`RuntimeError` if a time step
     took too long to compute. This behaviour can be disabled by setting
