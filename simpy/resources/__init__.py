@@ -1,7 +1,6 @@
 """
-SimPy supports three primitives to share and synchronize the use of resources
-between processes:
-
+SimPy implements three types of resources that can be used to synchronize
+processes or to model congestion points:
 
 .. autosummary::
 
@@ -9,7 +8,7 @@ between processes:
     ~simpy.resources.container
     ~simpy.resources.store
 
-All of these modules are derived from the base classes in the
-:mod:`~simpy.resources.base`. The classes in this module is also meant to
-support the implementation of custom resource primitives.
+They are derived from the base classes defined in the
+:mod:`~simpy.resources.base` module. These classes are also meant to support
+the implementation of custom resource types.
 """

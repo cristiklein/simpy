@@ -3,9 +3,9 @@ Shared resources for storing a possibly unlimited amount of objects supporting
 requests for specific objects.
 
 The :class:`Store` operates in a FIFO (first-in, first-out) order. Objects are
-retrieved from the store in the order they were put in. The get requests of a
+retrieved from the store in the order they were put in. The *get* requests of a
 :class:`FilterStore` can be customized by a filter to only retrieve objects
-matching a given criteria.
+matching a given criterion.
 """
 
 from simpy.core import BoundClass
@@ -13,8 +13,8 @@ from simpy.resources import base
 
 
 class StorePut(base.Put):
-    """Request to put the *item* into the *store*. The request is triggered
-    once there space for the item in the store."""
+    """Request to put *item* into the *store*. The request is triggered once
+    there is space for the item in the store."""
     def __init__(self, store, item):
         self.item = item
         """The item to put into the store."""
@@ -31,8 +31,10 @@ class FilterStoreGet(StoreGet):
     """Request to get an *item* from the *store* matching the *filter*. The
     request is triggered once there is such an item available in the store.
 
-    The default *filter* function returns ``True`` for all items, which makes
-    the request to behave exactly like :class:`StoreGet`.
+    *filter* is a function receiving one item. It should return ``True`` for
+    items matching the filter criterion. The default function returns ``True``
+    for all items, which makes the request to behave exactly like
+    :class:`StoreGet`.
     """
 
     def __init__(self, resource, filter=lambda item: True):
@@ -88,10 +90,10 @@ class Store(base.BaseResource):
         return self._capacity
 
     put = BoundClass(StorePut)
-    """Request a to put *item* into the store."""
+    """Request to put *item* into the store."""
 
     get = BoundClass(StoreGet)
-    """Request a to get an *item* out of the store."""
+    """Request to get an *item* out of the store."""
 
     def _do_put(self, event):
         if len(self.items) < self._capacity:
@@ -136,7 +138,8 @@ class FilterStore(Store):
     """Request a to put *item* into the store."""
 
     get = BoundClass(FilterStoreGet)
-    """Request a to get an *item* matching the *filter* out of the store."""
+    """Request a to get an *item*, for which *filter* returns ``True``, out of
+    the store."""
 
     def _do_get(self, event):
         for item in self.items:

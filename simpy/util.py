@@ -3,7 +3,6 @@ A collection of utility functions:
 
 .. autosummary::
     start_delayed
-    subscribe_at
     test
 """
 

@@ -1,5 +1,5 @@
 """
-Shared resources with constrained usage supporting priorities and preemption.
+Shared resources supporting priorities and preemption.
 
 These resources can be used to limit the number of processes using them
 concurrently. A process needs to *request* the usage right to a resource. Once
@@ -8,6 +8,13 @@ can be modelled as a resource with a limited amount of fuel-pumps. Vehicles
 arrive at the gas station and request to use a fuel-pump. If all fuel-pumps are
 in use, the vehicle needs to wait until one of the users has finished refueling
 and releases its fuel-pump.
+
+These resources can be used by a limited number of processes at a time.
+Processes *request* these resources to become a user and have to *release* them
+once they are done. For example, a gas station with a limited number of fuel
+pumps can be modeled with a `Resource`. Arriving vehicles request a fuel-pump.
+Once one is available they refuel. When they are done, the release the
+fuel-pump and leave the gas station.
 
 Requesting a resource is modelled as "putting a process' token into the
 resources" and releasing a resources correspondingly as "getting a process'
@@ -26,8 +33,8 @@ from simpy.resources import base
 
 
 class Preempted(object):
-    """Cause of preemption interrupts containing information about the
-    preemption."""
+    """Cause of an preemption :class:`~simpy.events.Interrupt` containing
+    information about the preemption."""
 
     def __init__(self, by, usage_since):
         self.by = by
@@ -39,7 +46,7 @@ class Preempted(object):
 
 class Request(base.Put):
     """Request usage of the *resource*. The event is triggered once access is
-    granted.
+    granted. Subclass of :class:`simpy.resources.base.Put`.
 
     If the maximum capacity of users has not yet been reached, the request is
     triggered immediately. If the maximum capacity has been
@@ -57,7 +64,8 @@ class Request(base.Put):
 
 class Release(base.Get):
     """Releases the usage of *resource* granted by *request*. This event is
-    triggered immediately.
+    triggered immediately. Subclass of :class:`simpy.resources.base.Get`.
+
     """
 
     def __init__(self, resource, request):
@@ -84,7 +92,7 @@ class PriorityRequest(Request):
 
         self.preempt = preempt
         """Indicates whether the request should preempt a resource user or not
-        (this flag is not taken into account by :class:`PriorityResource`)."""
+        (:class:`PriorityResource` ignores this flag)."""
 
         self.time = resource._env.now
         """The time at which the request was made."""
@@ -171,11 +179,11 @@ class Resource(base.BaseResource):
 
 
 class PriorityResource(Resource):
-    """Resource with *capacity* of usage slots that can be requested with a
-    priority.
+    """A :class:`~simpy.resources.resource.Resource` supporting prioritized
+    requests.
 
     Pending requests in the :attr:`~Resource.queue` are sorted in ascending
-    order by their *priority* (e.g. low values are more important).
+    order by their *priority* (that means lower values are more important).
     """
 
     PutQueue = SortedQueue
@@ -196,12 +204,11 @@ class PriorityResource(Resource):
 
 
 class PreemptiveResource(PriorityResource):
-    """Resource with *capacity* of usage slots that supports preemptable and
-    prioritizable requests.
+    """A :class:`~simpy.resources.resource.PriorityResource` with preemption.
 
-    If a less important request is preempted, the process of that request will
-    receive an :class:`~simpy.events.Interrupt` with a :class:`Preempted`
-    instance as cause.
+    If a request is preempted, the process of that request will receive an
+    :class:`~simpy.events.Interrupt` with a :class:`Preempted` instance as
+    cause.
     """
 
     def _do_put(self, event):

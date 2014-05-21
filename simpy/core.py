@@ -82,14 +82,14 @@ class BaseEnvironment(object):
     def run(self, until=None):
         """Executes :meth:`step()` until the given criterion *until* is met.
 
-        - If it is ``None`` (which is the default) this method will return if
+        - If it is ``None`` (which is the default), this method will return when
           there are no further events to be processed.
 
-        - If it is an :class:`~simpy.events.Event` the method will continue
+        - If it is an :class:`~simpy.events.Event`, the method will continue
           stepping until this event has been triggered and will return its
           value.
 
-        - If it can be converted to a number the method will continue stepping
+        - If it is a number, the method will continue stepping
           until the environment's time reaches *until*."""
         if until is None:
             until = Event(self)
@@ -123,12 +123,13 @@ class BaseEnvironment(object):
         return until.value
 
     def exit(self, value=None):
-        """Convenience function provided for Python versions prior to 3.3. Stop
-        the current process, optionally providing a ``value``.
+        """Stop the current process, optionally providing a ``value``.
 
-        .. note::
+        This is a convenience function provided for Python versions prior to
+        3.3. From Python 3.3, you can instead use ``return value`` in
+        a process.
 
-            From Python 3.3, you can use ``return value`` instead."""
+        """
         raise StopIteration(value)
 
 
@@ -173,8 +174,8 @@ class Environment(BaseEnvironment):
                  (self._now + delay, priority, next(self._eid), event))
 
     def peek(self):
-        """Get the time of the next scheduled event. Return :data:`Infinity`
-        if there is no further event."""
+        """Get the time of the next scheduled event. Return
+        :data:`~simpy.core.Infinity` if there is no further event."""
         try:
             return self._queue[0][0]
         except IndexError:

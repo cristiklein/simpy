@@ -1,6 +1,6 @@
 """
 Resource for sharing homogeneous matter between processes, either continuous
-(water) or discrete (apples).
+(like water) or discrete (like apples).
 
 A :class:`Container` can be used to model the fuel tank of a gasoline station.
 Tankers increase and refuelled cars decrease the amount of gas in the station's
@@ -29,31 +29,31 @@ class ContainerPut(base.Put):
 
 class ContainerGet(base.Get):
     """Request to get *amount* of matter from the *container*. The request will
-    be triggered once there is enough matter availabe in the *container*.
+    be triggered once there is enough matter available in the *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
     """
 
-    def __init__(self, resource, amount):
+    def __init__(self, container, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
         self.amount = amount
         """The amount of matter to be taken out of the container."""
 
-        super(ContainerGet, self).__init__(resource)
+        super(ContainerGet, self).__init__(container)
 
 
 class Container(base.BaseResource):
-    """Resource containing up to *capacity* of matter, supporting requests to
-    put or get matter into/from the container. It may either be continuous
-    (like water) or discrete (like apples).
+    """Resource containing up to *capacity* of matter which may either be
+    continuous (like water) or discrete (like apples). It supports requests to
+    put or get matter into/from the container.
 
     The *env* parameter is the :class:`~simpy.core.Environment` instance the
     container is bound to.
 
     The *capacity* defines the size of the container. By default, a container
     is of unlimited size. The initial amount of matter is specified by *init*
-    and defautls to ``0``.
+    and defaults to ``0``.
 
     Raise a :exc:`ValueError` if ``capacity <= 0``, ``init < 0`` or
     ``init > capacity``.
