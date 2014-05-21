@@ -5,3 +5,4 @@
 
 .. automodule:: simpy.util
    :members:
+   :exclude-members: subscribe_at

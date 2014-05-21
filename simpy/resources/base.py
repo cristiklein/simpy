@@ -1,9 +1,9 @@
 """
-Base classes of for Simpy's shared resource primitives.
+Base classes of for Simpy's shared resource types.
 
-:class:`BaseResource` defines the abstract base resource. It supports get and
-put requests, which return :class:`Put` respectively :class:`Get` events. These
-events are triggered once the request has been completed.
+:class:`BaseResource` defines the abstract base resource. It supports *get* and
+*put* requests, which return :class:`Put` and :class:`Get` events respectively.
+These events are triggered once the request has been completed.
 """
 
 from simpy.core import BoundClass
@@ -128,9 +128,9 @@ class BaseResource(object):
     def __init__(self, env):
         self._env = env
         self.put_queue = self.PutQueue()
-        """Queue of pending put requests."""
+        """Queue of pending *put* requests."""
         self.get_queue = self.GetQueue()
-        """Queue of pending get requests."""
+        """Queue of pending *get* requests."""
 
         # Bind event constructors as methods
         BoundClass.bind_early(self)
@@ -150,8 +150,8 @@ class BaseResource(object):
 
         This methods needs to be implemented by subclasses. It receives the
         *put_event* that is created at each put request and needs to decide if
-        the request can be triggered or needs to enqueued. If the request can
-        be triggered, it must also check if pending get requests can be
+        the request can be triggered or needs to be enqueued. If the request
+        can be triggered, it must also check if pending get requests can now be
         triggered.
         """
         raise NotImplementedError(self)
@@ -172,8 +172,8 @@ class BaseResource(object):
 
         This methods needs to be implemented by subclasses. It receives the
         *get_event* that is created at each get request and needs to decide if
-        the request can be triggered or needs to enqueued. If the request can
-        be triggered, it must also check if pending put requests can be
+        the request can be triggered or needs to be enqueued. If the request
+        can be triggered, it must also check if pending put requests can now be
         triggered.
         """
         raise NotImplementedError(self)

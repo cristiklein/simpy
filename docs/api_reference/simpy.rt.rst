@@ -3,4 +3,4 @@
 =====================================
 
 .. automodule:: simpy.rt
-   :members:
+   :inherited-members:

@@ -38,9 +38,9 @@ class Event(object):
 
     An event
 
-    - may happen (not :attr:`triggered`),
-    - is going to happen (:attr:`triggered`) or
-    - has happened (:attr:`processed`).
+    - may happen (:attr:`triggered` is ``False``),
+    - is going to happen (:attr:`triggered` is ``True``) or
+    - has happened (:attr:`processed` is ``True``).
 
     Every event is bound to an environment *env* and is initially not
     triggered. Events are scheduled for processing by the environment after
@@ -104,7 +104,7 @@ class Event(object):
 
     def trigger(self, event):
         """Trigger the event with the state and value of the provided *event*.
-        Returns the event instance.
+        Return *self* (this event instance).
 
         This method can be used directly as a callback function trigger chain
         reactions."""
@@ -116,7 +116,7 @@ class Event(object):
         """Set the event's value, mark it as successful and schedule it for
         processing by the environment. Returns the event instance.
 
-        Raises a :exc:`RuntimeError` if this event has already been
+        Raise a :exc:`RuntimeError` if this event has already been
         triggerd."""
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
@@ -127,11 +127,11 @@ class Event(object):
         return self
 
     def fail(self, exception):
-        """Set *exception* as the events value, mark it as successful and
+        """Set *exception* as the events value, mark it as failed and
         schedule it for processing by the environment. Returns the event
         instance.
 
-        Raise a :exc:`ValueError` if ``exception`` is not an :exc:`Exception`.
+        Raise a :exc:`ValueError` if *exception* is not an :exc:`Exception`.
 
         Raise a :exc:`RuntimeError` if this event has already been
         triggered."""
@@ -145,20 +145,23 @@ class Event(object):
         return self
 
     def __and__(self, other):
-        """Return a :class:`~simpy.events.Condition` that will get triggered if
-        both if this event and *other* have been processed."""
+        """Return a :class:`~simpy.events.Condition` that will be triggered if
+        both, this event and *other*, have been processed."""
         return Condition(self.env, Condition.all_events, [self, other])
 
     def __or__(self, other):
-        """Return a :class:`~simpy.events.Condition` that will get triggered if
+        """Return a :class:`~simpy.events.Condition` that will be triggered if
         either this event or *other* have been processed (or even both, if they
-        happend concurrently)."""
+        happened concurrently)."""
         return Condition(self.env, Condition.any_events, [self, other])
 
 
 class Timeout(Event):
-    """An :class:`~simpy.events.Event` that gets triggered after a *delay* has
-    passed."""
+    """A :class:`~simpy.events.Event` that gets triggered after a *delay* has
+    passed.
+
+    This event is automatically triggered when it is created.
+    """
 
     def __init__(self, env, delay, value=None):
         if delay < 0:
@@ -180,7 +183,10 @@ class Timeout(Event):
 
 
 class Initialize(Event):
-    """Initializes a process. Only used internally by :class:`Process`."""
+    """Initializes a process. Only used internally by :class:`Process`.
+
+    This event is automatically triggered when it is created.
+    """
 
     def __init__(self, env, process):
         # NOTE: The following initialization code is inlined from
@@ -198,7 +204,10 @@ class Initialize(Event):
 
 class Interruption(Event):
     """Immediately schedules an :class:`Interrupt` exception with the given
-    *cause* to be thrown into *process*."""
+    *cause* to be thrown into *process*.
+
+    This event is automatically triggered when it is created.
+    """
 
     def __init__(self, process, cause):
         # NOTE: The following initialization code is inlined from
@@ -344,7 +353,7 @@ class Process(Event):
 
 class Condition(Event):
     """An event that gets triggered once the condition function *evaluate*
-    returns ``True`` on the given *events*.
+    returns ``True`` on the given list of *events*.
 
     The value of the condition event is an ordered dictionary that maps the
     input events to their respective values. It only contains entries for those
@@ -354,12 +363,12 @@ class Condition(Event):
     exception of the failing event.
 
     The *evaluate* function receives the list of target events and the number
-    of processed events in this list. If it returns ``True``, the condition is
-    triggered. The :func:`Condition.all_events()` and
-    :func:`Condition.any_events()` functions are used to implement *and*
-    (``&``) and *or* (``|``) for events.
+    of processed events in this list: ``evaluate(events, processed_count)``. If
+    it returns ``True``, the condition is triggered. The
+    :func:`Condition.all_events()` and :func:`Condition.any_events()` functions
+    are used to implement *and* (``&``) and *or* (``|``) for events.
 
-    Conditions events can be nested."""
+    Condition events can be nested."""
 
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
@@ -470,17 +479,17 @@ class Condition(Event):
 
 
 class AllOf(Condition):
-    """A :class:`~simpy.events.Condition` event that is triggered if all
-    *events* have been successfully triggered. Fails immediately if any of
-    *events* failed."""
+    """A :class:`~simpy.events.Condition` event that is triggered if all of
+    a list of *events* have been successfully triggered. Fails immediately if
+    any of *events* failed."""
     def __init__(self, env, events):
         super(AllOf, self).__init__(env, Condition.all_events, events)
 
 
 class AnyOf(Condition):
-    """A :class:`~simpy.events.Condition` event that is triggered if any
-    *events* have been successfully triggered. Fails immediately if any of
-    *events* failed."""
+    """A :class:`~simpy.events.Condition` event that is triggered if any of
+    a list of *events* has been successfully triggered. Fails immediately if
+    any of *events* failed."""
     def __init__(self, env, events):
         super(AnyOf, self).__init__(env, Condition.any_events, events)
 
