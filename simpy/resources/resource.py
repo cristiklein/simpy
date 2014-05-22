@@ -26,16 +26,17 @@ or not.
 Besides :class:`Resource`, there is a :class:`PriorityResource`, where
 processes can define a request priority, and a :class:`PreemptiveResource`
 whose resource users can be preempted by requests with a higher priority.
-"""
 
+"""
 from simpy.core import BoundClass
 from simpy.resources import base
 
 
 class Preempted(object):
     """Cause of an preemption :class:`~simpy.events.Interrupt` containing
-    information about the preemption."""
+    information about the preemption.
 
+    """
     def __init__(self, by, usage_since):
         self.by = by
         """The preempting :class:`simpy.events.Process`."""
@@ -55,8 +56,8 @@ class Request(base.Put):
 
     The request is automatically released when the request was created within
     a :keyword:`with` statement.
-    """
 
+    """
     def __exit__(self, exc_type, value, traceback):
         super(Request, self).__exit__(exc_type, value, traceback)
         self.resource.release(self)
@@ -67,7 +68,6 @@ class Release(base.Get):
     triggered immediately. Subclass of :class:`simpy.resources.base.Get`.
 
     """
-
     def __init__(self, resource, request):
         self.request = request
         """The request (:class:`Request`) that is to be released."""
@@ -83,8 +83,8 @@ class PriorityRequest(Request):
     This event type inherits :class:`Request` and adds some additional
     attributes needed by :class:`PriorityResource` and
     :class:`PreemptiveResource`
-    """
 
+    """
     def __init__(self, resource, priority=0, preempt=True):
         self.priority = priority
         """The priority of this request. A smaller number means higher
@@ -101,14 +101,16 @@ class PriorityRequest(Request):
         """Key for sorting events. Consists of the priority (lower value is
         more important), the time at which the request was made (earlier
         requests are more important) and finally the preemption flag (preempt
-        requests are more important). """
+        requests are more important)."""
 
         super(PriorityRequest, self).__init__(resource)
 
 
 class SortedQueue(list):
     """Queue for sorting events by their :attr:`~PriorityRequest.key`
-    attribute."""
+    attribute.
+
+    """
     def __init__(self, maxlen=None):
         super(SortedQueue, self).__init__()
         self.maxlen = maxlen
@@ -118,8 +120,8 @@ class SortedQueue(list):
         """Sort *item* into the queue.
 
         Raise a :exc:`RuntimeError` if the queue is full.
-        """
 
+        """
         if self.maxlen is not None and len(self) >= self.maxlen:
             raise RuntimeError('Cannot append event. Queue is full.')
 
@@ -136,8 +138,8 @@ class Resource(base.BaseResource):
 
     The *env* parameter is the :class:`~simpy.core.Environment` instance the
     resource is bound to.
-    """
 
+    """
     def __init__(self, env, capacity=1):
         super(Resource, self).__init__(env)
         self._capacity = capacity
@@ -184,8 +186,8 @@ class PriorityResource(Resource):
 
     Pending requests in the :attr:`~Resource.queue` are sorted in ascending
     order by their *priority* (that means lower values are more important).
-    """
 
+    """
     PutQueue = SortedQueue
     """Type of the put queue. See
     :attr:`~simpy.resources.base.BaseResource.put_queue` for details."""
@@ -209,8 +211,8 @@ class PreemptiveResource(PriorityResource):
     If a request is preempted, the process of that request will receive an
     :class:`~simpy.events.Interrupt` with a :class:`Preempted` instance as
     cause.
-    """
 
+    """
     def _do_put(self, event):
         if len(self.users) >= self.capacity and event.preempt:
             # Check if we can preempt another process

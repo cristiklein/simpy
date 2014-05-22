@@ -5,8 +5,8 @@ Resource for sharing homogeneous matter between processes, either continuous
 A :class:`Container` can be used to model the fuel tank of a gasoline station.
 Tankers increase and refuelled cars decrease the amount of gas in the station's
 fuel tanks.
-"""
 
+"""
 from simpy.core import BoundClass
 from simpy.resources import base
 
@@ -16,8 +16,8 @@ class ContainerPut(base.Put):
     be triggered once there is enough space in the *container* available.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
-    """
 
+    """
     def __init__(self, container, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
@@ -32,8 +32,8 @@ class ContainerGet(base.Get):
     be triggered once there is enough matter available in the *container*.
 
     Raise a :exc:`ValueError` if ``amount <= 0``.
-    """
 
+    """
     def __init__(self, container, amount):
         if amount <= 0:
             raise ValueError('amount(=%s) must be > 0.' % amount)
@@ -57,8 +57,8 @@ class Container(base.BaseResource):
 
     Raise a :exc:`ValueError` if ``capacity <= 0``, ``init < 0`` or
     ``init > capacity``.
-    """
 
+    """
     def __init__(self, env, capacity=float('inf'), init=0):
         super(Container, self).__init__(env)
         if capacity <= 0:
@@ -79,7 +79,6 @@ class Container(base.BaseResource):
     @property
     def level(self):
         """The current amount of the matter in the container."""
-
         return self._level
 
     put = BoundClass(ContainerPut)

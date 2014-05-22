@@ -1,7 +1,7 @@
 """Execution environment for events that synchronizes passing of time
 with the real-time (aka *wallclock time*).
-"""
 
+"""
 try:
     # Python >= 3.3
     from time import monotonic as time, sleep
@@ -22,8 +22,8 @@ class RealtimeEnvironment(Environment):
     The :meth:`step()` method will raise a :exc:`RuntimeError` if a time step
     took too long to compute. This behaviour can be disabled by setting
     *strict* to ``False``.
-    """
 
+    """
     def __init__(self, initial_time=0, factor=1.0, strict=True):
         Environment.__init__(self, initial_time)
 
@@ -43,8 +43,8 @@ class RealtimeEnvironment(Environment):
         The delay is scaled according to the real-time :attr:`factor`. With
         :attr:`strict` mode enabled, a :exc:`RuntimeError` will be raised, if
         the event is processed too slowly.
-        """
 
+        """
         evt_time = self.peek()
 
         if evt_time is Infinity:

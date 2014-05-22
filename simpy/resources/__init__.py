@@ -11,4 +11,5 @@ processes or to model congestion points:
 They are derived from the base classes defined in the
 :mod:`~simpy.resources.base` module. These classes are also meant to support
 the implementation of custom resource types.
+
 """

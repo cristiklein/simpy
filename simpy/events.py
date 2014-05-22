@@ -13,8 +13,8 @@ used, there are several specialized subclasses of it.
     ~simpy.events.AllOf
 
 This module also defines the :exc:`Interrupt` exception.
-"""
 
+"""
 from inspect import isgenerator
 from collections import OrderedDict
 
@@ -61,8 +61,8 @@ class Event(object):
     If you concatenate two events using one of these operators,
     a :class:`Condition` event is generated that lets you wait for both or one
     of them.
-    """
 
+    """
     def __init__(self, env):
         self.env = env
         """The :class:`~simpy.core.Environment` the event lives in."""
@@ -97,7 +97,9 @@ class Event(object):
 
         The value is available when the event has been triggered.
 
-        Raise a :exc:`AttributeError` if the value is not yet available."""
+        Raise a :exc:`AttributeError` if the value is not yet available.
+
+        """
         if self._value is PENDING:
             raise AttributeError('Value of %s is not yet available' % self)
         return self._value
@@ -107,7 +109,9 @@ class Event(object):
         Return *self* (this event instance).
 
         This method can be used directly as a callback function trigger chain
-        reactions."""
+        reactions.
+
+        """
         self.ok = event.ok
         self._value = event._value
         self.env.schedule(self)
@@ -116,8 +120,9 @@ class Event(object):
         """Set the event's value, mark it as successful and schedule it for
         processing by the environment. Returns the event instance.
 
-        Raise a :exc:`RuntimeError` if this event has already been
-        triggerd."""
+        Raise a :exc:`RuntimeError` if this event has already been triggerd.
+
+        """
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
 
@@ -127,14 +132,14 @@ class Event(object):
         return self
 
     def fail(self, exception):
-        """Set *exception* as the events value, mark it as failed and
-        schedule it for processing by the environment. Returns the event
-        instance.
+        """Set *exception* as the events value, mark it as failed and schedule
+        it for processing by the environment. Returns the event instance.
 
         Raise a :exc:`ValueError` if *exception* is not an :exc:`Exception`.
 
-        Raise a :exc:`RuntimeError` if this event has already been
-        triggered."""
+        Raise a :exc:`RuntimeError` if this event has already been triggered.
+
+        """
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
         if not isinstance(exception, BaseException):
@@ -161,8 +166,8 @@ class Timeout(Event):
     passed.
 
     This event is automatically triggered when it is created.
-    """
 
+    """
     def __init__(self, env, delay, value=None):
         if delay < 0:
             raise ValueError('Negative delay %s' % delay)
@@ -186,8 +191,8 @@ class Initialize(Event):
     """Initializes a process. Only used internally by :class:`Process`.
 
     This event is automatically triggered when it is created.
-    """
 
+    """
     def __init__(self, env, process):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
@@ -207,8 +212,8 @@ class Interruption(Event):
     *cause* to be thrown into *process*.
 
     This event is automatically triggered when it is created.
-    """
 
+    """
     def __init__(self, process, cause):
         # NOTE: The following initialization code is inlined from
         # Event.__init__() for performance reasons.
@@ -220,7 +225,7 @@ class Interruption(Event):
 
         if process._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
-                    process)
+                               process)
 
         if process is self.env.active_process:
             raise RuntimeError('A process is not allowed to interrupt itself.')
@@ -248,8 +253,9 @@ class Process(Event):
     the generator.
 
     Processes can be interrupted during their execution by
-    :meth:`interrupt`."""
+    :meth:`interrupt`.
 
+    """
     def __init__(self, env, generator):
         if not isgenerator(generator):
             raise ValueError('%s is not a generator.' % generator)
@@ -274,8 +280,9 @@ class Process(Event):
         """The event that the process is currently waiting for.
 
         Returns ``None`` if the process is dead or it is currently being
-        interrupted."""
+        interrupted.
 
+        """
         return self._target
 
     @property
@@ -288,14 +295,15 @@ class Process(Event):
 
         A process cannot be interrupted if it already terminated. A process can
         also not interrupt itself. Raise a :exc:`RuntimeError` in these
-        cases."""
+        cases.
+
+        """
         Interruption(self, cause)
 
     def _resume(self, event):
         """Resumes the execution of the process with the value of *event*. If
         the process generator exits, the process itself will get triggered with
         the return value or the exception of the generator."""
-
         # Mark the current process as active.
         self.env._active_proc = self
 
@@ -368,8 +376,9 @@ class Condition(Event):
     :func:`Condition.all_events()` and :func:`Condition.any_events()` functions
     are used to implement *and* (``&``) and *or* (``|``) for events.
 
-    Condition events can be nested."""
+    Condition events can be nested.
 
+    """
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
         self._evaluate = evaluate
@@ -417,8 +426,9 @@ class Condition(Event):
 
         Raise a :exc:`ValueError` if *event* belongs to a different
         environment. Raise a :exc:`RuntimeError` if either this condition has
-        already been processed."""
+        already been processed.
 
+        """
         if self.env != event.env:
             raise ValueError('It is not allowed to mix events from different '
                              'environments')
@@ -481,7 +491,9 @@ class Condition(Event):
 class AllOf(Condition):
     """A :class:`~simpy.events.Condition` event that is triggered if all of
     a list of *events* have been successfully triggered. Fails immediately if
-    any of *events* failed."""
+    any of *events* failed.
+
+    """
     def __init__(self, env, events):
         super(AllOf, self).__init__(env, Condition.all_events, events)
 
@@ -489,7 +501,9 @@ class AllOf(Condition):
 class AnyOf(Condition):
     """A :class:`~simpy.events.Condition` event that is triggered if any of
     a list of *events* has been successfully triggered. Fails immediately if
-    any of *events* failed."""
+    any of *events* failed.
+
+    """
     def __init__(self, env, events):
         super(AnyOf, self).__init__(env, Condition.any_events, events)
 
@@ -501,8 +515,10 @@ class Interrupt(Exception):
     :attr:`cause` provides the reason for the interrupt, if any.
 
     If a process is interrupted concurrently, all interrupts will be thrown
-    into the process in the same order as they occurred."""
+    into the process in the same order as they occurred.
 
+
+    """
     def __str__(self):
         return '%s(%r)' % (self.__class__.__name__, self.cause)
 

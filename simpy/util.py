@@ -2,8 +2,9 @@
 A collection of utility functions:
 
 .. autosummary::
-    start_delayed
-    test
+   start_delayed
+   test
+
 """
 
 
@@ -72,5 +73,3 @@ def test():
         print('You need pytest to run the tests. Try "pip install pytest".')
     else:
         pytest.main([os.path.dirname(__file__)])
-
-

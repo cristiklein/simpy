@@ -1,7 +1,7 @@
 """
 Core components for event-discrete simulation environments.
-"""
 
+"""
 import types
 from heapq import heappush, heappop
 from itertools import count
@@ -18,7 +18,9 @@ class BoundClass(object):
 
     The ``__get__()`` descriptor is basically identical to
     ``function.__get__()`` and binds the first argument of the ``cls`` to the
-    descriptor instance."""
+    descriptor instance.
+
+    """
     def __init__(self, cls):
         self.cls = cls
 
@@ -30,9 +32,7 @@ class BoundClass(object):
     @staticmethod
     def bind_early(instance):
         """Bind all :class:`BoundClass` attributes of the *instance's* class
-        to the instance itself to increase performance.
-
-        """
+        to the instance itself to increase performance."""
         cls = type(instance)
         for name, obj in cls.__dict__.items():
             if type(obj) is BoundClass:
@@ -56,8 +56,9 @@ class BaseEnvironment(object):
     The class is meant to be subclassed for different execution environments.
     For example, SimPy defines a :class:`Environment` for simulations with
     a virtual time and and a :class:`~simpy.rt.RealtimeEnvironment` that
-    schedules and executes events in real (e.g., wallclock) time."""
+    schedules and executes events in real (e.g., wallclock) time.
 
+    """
     @property
     def now(self):
         """The current time of the environment."""
@@ -72,7 +73,9 @@ class BaseEnvironment(object):
         """Schedule an *event* with a given *priority* and a *delay*.
 
         There are two default priority values, :data:`~simpy.events.URGENT` and
-        :data:`~simpy.events.NORMAL`."""
+        :data:`~simpy.events.NORMAL`.
+
+        """
         raise NotImplementedError(self)
 
     def step(self):
@@ -82,15 +85,17 @@ class BaseEnvironment(object):
     def run(self, until=None):
         """Executes :meth:`step()` until the given criterion *until* is met.
 
-        - If it is ``None`` (which is the default), this method will return when
-          there are no further events to be processed.
+        - If it is ``None`` (which is the default), this method will return
+          when there are no further events to be processed.
 
         - If it is an :class:`~simpy.events.Event`, the method will continue
           stepping until this event has been triggered and will return its
           value.
 
         - If it is a number, the method will continue stepping
-          until the environment's time reaches *until*."""
+          until the environment's time reaches *until*.
+
+        """
         if until is None:
             until = Event(self)
         elif not isinstance(until, Event):
@@ -141,8 +146,9 @@ class Environment(BaseEnvironment):
     starts at ``0``.
 
     This class also provides aliases for common event types, for example
-    :attr:`process`, :attr:`timeout` and :attr:`event`."""
+    :attr:`process`, :attr:`timeout` and :attr:`event`.
 
+    """
     def __init__(self, initial_time=0):
         self._now = initial_time
         self._queue = []  # The list of all currently scheduled events.
@@ -184,7 +190,9 @@ class Environment(BaseEnvironment):
     def step(self):
         """Process the next event.
 
-        Raise an :exc:`EmptySchedule` if no further events are available."""
+        Raise an :exc:`EmptySchedule` if no further events are available.
+
+        """
         try:
             self._now, _, _, event = heappop(self._queue)
         except IndexError:

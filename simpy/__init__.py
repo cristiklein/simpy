@@ -6,9 +6,8 @@ everything (and more!) via their actual submodules.
 The following tables list all of the available components in this module.
 
 {toc}
+
 """
-
-
 from pkgutil import extend_path
 
 from simpy.core import Environment
@@ -48,7 +47,6 @@ toc = (
         test,
     )),
 )
-
 
 # Use the toc to keep the documentation and the implementation in sync.
 __doc__ = __doc__.format(toc=compile_toc(toc))
