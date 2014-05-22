@@ -6,15 +6,17 @@ The :class:`Store` operates in a FIFO (first-in, first-out) order. Objects are
 retrieved from the store in the order they were put in. The *get* requests of a
 :class:`FilterStore` can be customized by a filter to only retrieve objects
 matching a given criterion.
-"""
 
+"""
 from simpy.core import BoundClass
 from simpy.resources import base
 
 
 class StorePut(base.Put):
     """Request to put *item* into the *store*. The request is triggered once
-    there is space for the item in the store."""
+    there is space for the item in the store.
+
+    """
     def __init__(self, store, item):
         self.item = item
         """The item to put into the store."""
@@ -23,7 +25,9 @@ class StorePut(base.Put):
 
 class StoreGet(base.Get):
     """Request to get an *item* from the *store*. The request is triggered
-    once there is an item available in the store."""
+    once there is an item available in the store.
+
+    """
     pass
 
 
@@ -35,8 +39,8 @@ class FilterStoreGet(StoreGet):
     items matching the filter criterion. The default function returns ``True``
     for all items, which makes the request to behave exactly like
     :class:`StoreGet`.
-    """
 
+    """
     def __init__(self, resource, filter=lambda item: True):
         self.filter = filter
         """The filter function to filter items in the store."""
@@ -45,8 +49,9 @@ class FilterStoreGet(StoreGet):
 
 class FilterQueue(object):
     """A queue that only lists those events for which there is an item in the
-    *store*."""
+    *store*.
 
+    """
     def __init__(self):
         self._q = []
         self.store = None
@@ -74,8 +79,8 @@ class Store(base.BaseResource):
 
     The *env* parameter is the :class:`~simpy.core.Environment` instance the
     container is bound to.
-    """
 
+    """
     def __init__(self, env, capacity=float('inf')):
         super(Store, self).__init__(env)
         if capacity <= 0:
@@ -124,8 +129,8 @@ class FilterStore(Store):
         type *b* into the store. Though *Process 2* made his request after
         *Process 1*, it will receive that new item because *Process 1* doesn't
         want it.
-    """
 
+    """
     GetQueue = FilterQueue
     """Type of the put queue. See
     :attr:`~simpy.resources.base.BaseResource.put_queue` for details."""

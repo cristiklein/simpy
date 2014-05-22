@@ -4,8 +4,8 @@ Base classes of for Simpy's shared resource types.
 :class:`BaseResource` defines the abstract base resource. It supports *get* and
 *put* requests, which return :class:`Put` and :class:`Get` events respectively.
 These events are triggered once the request has been completed.
-"""
 
+"""
 from simpy.core import BoundClass
 from simpy.events import Event
 
@@ -22,8 +22,8 @@ class Put(Event):
 
         with res.put(item) as request:
             yield request
-    """
 
+    """
     def __init__(self, resource):
         super(Put, self).__init__(resource._env)
         self.resource = resource
@@ -48,6 +48,7 @@ class Put(Event):
 
         If the put request was created in a :keyword:`with` statement, this
         method is called automatically.
+
         """
         if not self.triggered:
             self.resource.put_queue.remove(self)
@@ -65,8 +66,8 @@ class Get(Event):
 
         with res.put(item) as request:
             yield request
-    """
 
+    """
     def __init__(self, resource):
         super(Get, self).__init__(resource._env)
         self.resource = resource
@@ -91,8 +92,8 @@ class Get(Event):
 
         If the get request was created in a :keyword:`with` statement, this
         method is called automatically.
-        """
 
+        """
         if not self.triggered:
             self.resource.get_queue.remove(self)
 
@@ -113,8 +114,8 @@ class BaseResource(object):
     - providing :class:`Put` respectively :class:`Get` events,
     - and implementing the request processing behaviour through the methods
       ``_do_get()`` and ``_do_put()``.
-    """
 
+    """
     PutQueue = list
     """The type to be used for the :attr:`put_queue`. It is a plain
     :class:`list` by default. The type must support iteration and provide
@@ -137,13 +138,11 @@ class BaseResource(object):
 
     put = BoundClass(Put)
     """Request to put something into the resource and return a :class:`Put`
-    event, which gets triggered once the request succeeds.
-    """
+    event, which gets triggered once the request succeeds."""
 
     get = BoundClass(Get)
     """Request to get something from the resource and return a :class:`Get`
-    event, which gets triggered once the request succeeds.
-    """
+    event, which gets triggered once the request succeeds."""
 
     def _do_put(self, event):
         """Perform the *put* operation.
@@ -153,6 +152,7 @@ class BaseResource(object):
         the request can be triggered or needs to be enqueued. If the request
         can be triggered, it must also check if pending get requests can now be
         triggered.
+
         """
         raise NotImplementedError(self)
 
@@ -175,6 +175,7 @@ class BaseResource(object):
         the request can be triggered or needs to be enqueued. If the request
         can be triggered, it must also check if pending put requests can now be
         triggered.
+
         """
         raise NotImplementedError(self)
 
