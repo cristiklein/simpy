@@ -380,20 +380,26 @@ class Condition(Event):
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
         self._evaluate = evaluate
-        self._events = []
+        self._events = events
         self._count = 0
 
+        # Check if events belong to the same environment.
         for event in events:
-            self._add_event(event)
+            if self.env != event.env:
+                raise ValueError('It is not allowed to mix events from '
+                        'different environments')
+
+        # Check if the condition is met for each processed event. Attach
+        # _check() as a callback otherwise.
+        for event in events:
+            if event.callbacks is None:
+                self._check(event)
+            else:
+                event.callbacks.append(self._check)
 
         # Register a callback which will update the value of this
         # condition once it is being processed.
         self.callbacks.append(self._collect_values)
-
-        if (self._value is PENDING and
-                self._evaluate(self._events, self._count)):
-            # Immediately trigger the condition if it is already met.
-            self.succeed()
 
     def _desc(self):
         """Return a string *Condition(and_or_or, [events])*."""
@@ -419,28 +425,6 @@ class Condition(Event):
             self._value = OrderedDict()
             self._value.update(self._get_values())
 
-    def _add_event(self, event):
-        """Add another *event* to the condition.
-
-        Raise a :exc:`ValueError` if *event* belongs to a different
-        environment. Raise a :exc:`RuntimeError` if either this condition has
-        already been processed."""
-
-        if self.env != event.env:
-            raise ValueError('It is not allowed to mix events from different '
-                             'environments')
-        if self.callbacks is None:
-            raise RuntimeError('%s has already been processed' % self)
-
-        self._events.append(event)
-
-        if event.callbacks is None:
-            self._check(event)
-        else:
-            event.callbacks.append(self._check)
-
-        return self
-
     def _check(self, event):
         """Check if the condition was already met and schedule the *event* if
         so."""
@@ -457,20 +441,6 @@ class Condition(Event):
             # The condition has been met. The _collect_values callback will
             # populate set the value once this condition gets processed.
             self.succeed()
-
-    def __iand__(self, other):
-        if self._evaluate is not Condition.all_events:
-            # Use self.__and__
-            return NotImplemented
-
-        return self._add_event(other)
-
-    def __ior__(self, other):
-        if self._evaluate is not Condition.any_events:
-            # Use self.__or__
-            return NotImplemented
-
-        return self._add_event(other)
 
     @staticmethod
     def all_events(events, count):
