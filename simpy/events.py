@@ -108,8 +108,8 @@ class Event(object):
         """Trigger the event with the state and value of the provided *event*.
         Return *self* (this event instance).
 
-        This method can be used directly as a callback function trigger chain
-        reactions.
+        This method can be used directly as a callback function to trigger
+        chain reactions.
 
         """
         self.ok = event.ok
@@ -248,12 +248,24 @@ class Interruption(Event):
 
 
 class Process(Event):
-    """Processes the *generator* by resuming it with the value of every event
-    it will yield. The process is finally triggered with the return value of
-    the generator.
+    """Process an event yielding generator.
 
-    Processes can be interrupted during their execution by
-    :meth:`interrupt`.
+    A generator (also known as a coroutine) can suspend its execution by
+    yielding an event. ``Process`` will take care of resuming the generator
+    with the value of that event once it has happened. The exception of failed
+    events is thrown into the generator.
+
+    ``Process`` itself is an event, too. It is triggered, once the generator
+    returns or raises an exception. The value of the process is the return
+    value of the generator or the exception, respectively.
+
+    .. note::
+
+       Python version prior to 3.3 do not support return statements in
+       generators. You can use :meth:~simpy.core.Environment.exit() as
+       a workaround.
+
+    Processes can be interrupted during their execution by :meth:`interrupt`.
 
     """
     def __init__(self, env, generator):
