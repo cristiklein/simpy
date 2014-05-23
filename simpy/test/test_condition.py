@@ -16,6 +16,19 @@ def test_operator_and(env):
     env.run()
 
 
+def test_operator_and_blocked(env):
+    def process(env):
+        timeout = env.timeout(1)
+        event = env.event()
+        yield env.timeout(1)
+
+        condition = timeout & event
+        assert not condition.triggered
+
+    env.process(process(env))
+    env.run()
+
+
 def test_operator_or(env):
     def process(env):
         timeout = [env.timeout(delay, value=delay) for delay in range(3)]
@@ -134,7 +147,7 @@ def test_iand_with_and_cond(env):
         orig = cond
 
         cond &= env.timeout(0, value=0)
-        assert cond is orig
+        assert cond is not orig
 
         results = yield cond
         assert sorted(results.values()) == [0, 1, 2]
@@ -164,7 +177,7 @@ def test_ior_with_or_cond(env):
         orig = cond
 
         cond |= env.timeout(0, value=0)
-        assert cond is orig
+        assert cond is not orig
 
         results = yield cond
         assert sorted(results.values()) == [0]
