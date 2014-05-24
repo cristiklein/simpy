@@ -126,8 +126,9 @@ class BaseResource(object):
     :class:`list` by default. The type must support iteration and provide
     ``append()`` and ``remove()`` operations."""
 
-    def __init__(self, env):
+    def __init__(self, env, capacity):
         self._env = env
+        self._capacity = capacity
         self.put_queue = self.PutQueue()
         """Queue of pending *put* requests."""
         self.get_queue = self.GetQueue()
@@ -135,6 +136,11 @@ class BaseResource(object):
 
         # Bind event constructors as methods
         BoundClass.bind_early(self)
+
+    @property
+    def capacity(self):
+        """Maximum capacity of the resource."""
+        return self._capacity
 
     put = BoundClass(Put)
     """Request to put something into the resource and return a :class:`Put`
