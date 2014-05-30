@@ -5,6 +5,7 @@ Tests for the utility functions from :mod:`simpy.util`.
 import pytest
 
 from simpy import Interrupt
+from simpy.events import ConditionValue
 from simpy.util import start_delayed, subscribe_at
 
 
@@ -167,7 +168,7 @@ def test_all_of_chaining(env):
         condition_A &= condition_B
 
         results = yield condition_A
-        assert list(results.values()) == [0, 1, 0, 1]
+        assert results.values() == [0, 1, 0, 1]
 
     env.process(parent(env))
     env.run()
@@ -184,10 +185,12 @@ def test_all_of_chaining_intermediate_results(env):
         yield env.timeout(0)
 
         condition = condition_A & condition_B
-        assert sorted(condition._get_values().values()) == [0, 0]
+        result = ConditionValue()
+        condition._populate_value(result)
+        assert result.values() == [0, 0]
 
         results = yield condition
-        assert sorted(results.values()) == [0, 0, 1, 1]
+        assert results.values() == [0, 1, 0, 1]
 
     env.process(parent(env))
     env.run()
@@ -200,7 +203,7 @@ def test_all_of_with_triggered_events(env):
         events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        values = list((yield env.all_of(events)).values())
+        values = (yield env.all_of(events)).values()
         assert values == ['spam', 'eggs']
 
     env.process(parent(env))
@@ -256,7 +259,7 @@ def test_any_of_chaining(env):
         condition_A |= condition_B
 
         results = yield condition_A
-        assert sorted(results.values()) == ['b']
+        assert results.values() == ['b']
 
     env.process(parent(env))
     env.run()
@@ -269,7 +272,7 @@ def test_any_of_with_triggered_events(env):
         events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        values = list((yield env.any_of(events)).values())
+        values = (yield env.any_of(events)).values()
         assert values == ['spam', 'eggs']
 
     env.process(parent(env))

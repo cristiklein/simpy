@@ -371,13 +371,53 @@ class Process(Event):
         self.env._active_proc = None
 
 
+class ConditionValue(object):
+    """Result of a :class:`~simpy.events.Condition`. It supports convenient
+    dict-like access to the triggered events and their values. The events are
+    ordered by their occurences in the condition."""
+
+    def __init__(self):
+        self.events = []
+
+    def __getitem__(self, key):
+        if key not in self.events:
+            raise KeyError(str(key))
+
+        return key._value
+
+    def __contains__(self, key):
+        return key in self.events
+
+    def __eq__(self, other):
+        if type(other) is ConditionValue:
+            return self.events == other.events
+
+        return self.todict() == other
+
+    def __repr__(self):
+        return '<ConditionValue %s>' % self.todict()
+
+    def keys(self):
+        return self.events
+
+    def values(self):
+        return [event._value for event in self.events]
+
+    def items(self):
+        return [(event, event._value) for event in self.events]
+
+    def todict(self):
+        return dict((event, event._value) for event in self.events)
+
+
 class Condition(Event):
     """An event that gets triggered once the condition function *evaluate*
     returns ``True`` on the given list of *events*.
 
-    The value of the condition event is an ordered dictionary that maps the
-    input events to their respective values. It only contains entries for those
-    events that occurred before the condition is processed.
+    The value of the condition event is an instance of :class:`ConditionValue`
+    which allows convenient access to the input events and their values. The
+    :class:`ConditionValue` will only contain entries for those events that
+    occurred before the condition is processed.
 
     If one of the events fails, the condition also fails and forwards the
     exception of the failing event.
@@ -411,33 +451,30 @@ class Condition(Event):
             else:
                 event.callbacks.append(self._check)
 
-        # Register a callback which will update the value of this
-        # condition once it is being processed.
-        self.callbacks.append(self._collect_values)
+        # Register a callback which will build the value of this condition
+        # after it has been triggered.
+        self.callbacks.append(self._build_value)
 
     def _desc(self):
         """Return a string *Condition(evaluate, [events])*."""
         return '%s(%s, %s)' % (self.__class__.__name__,
                                self._evaluate.__name__, self._events)
 
-    def _get_values(self):
-        """Recursively collect the current values of all nested conditions into
-        a flat dictionary."""
-        values = OrderedDict()
+    def _populate_value(self, value):
+        """Populate the *value* by recursively visiting all nested
+        conditions."""
 
         for event in self._events:
             if isinstance(event, Condition):
-                values.update(event._get_values())
+                event._populate_value(value)
             elif event.callbacks is None:
-                values[event] = event._value
+                value.events.append(event)
 
-        return values
-
-    def _collect_values(self, event):
-        """Update the final value of this condition."""
+    def _build_value(self, event):
+        """Build the value of this condition."""
         if event.ok:
-            self._value = OrderedDict()
-            self._value.update(self._get_values())
+            self._value = ConditionValue()
+            self._populate_value(self._value)
 
     def _check(self, event):
         """Check if the condition was already met and schedule the *event* if
