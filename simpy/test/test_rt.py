@@ -71,7 +71,7 @@ def test_rt_slow_sim_default_behavior(log):
     env.process(process(env, log, 0.1, 1))
 
     err = pytest.raises(RuntimeError, env.run, 3)
-    assert 'Simulation too slow for real time' in err.value.args[0]
+    assert 'Simulation too slow for real time' in str(err.value)
     assert log == []
 
 
@@ -92,5 +92,14 @@ def test_rt_illegal_until():
     """Test illegal value for *until*."""
     env = RealtimeEnvironment()
     err = pytest.raises(ValueError, env.run, -1)
-    assert err.value.args[0] == ('until(=-1.0) should be > the current '
-                                 'simulation time.')
+    assert str(err.value) == ('until(=-1.0) should be > the current '
+                              'simulation time.')
+
+
+def test_rt_sync(log):
+    """Test resetting the internal wall-clock reference time."""
+    env = RealtimeEnvironment(factor=0.05)
+    env.process(process(env, log, 0.01))
+    time.sleep(0.06)  # Simulate massiv workload :-)
+    env.sync()
+    env.run(3)

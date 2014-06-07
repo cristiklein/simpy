@@ -36,6 +36,16 @@ class RealtimeEnvironment(Environment):
         :exc:`RuntimeError` if this is set to ``True`` and the processing of
         events takes too long."""
 
+    def sync(self):
+        """Synchronize the internal time with the current wall-clock time.
+
+        This can be useful to prevent :meth:`step()` from raising an error if
+        a lot of time passes between creating the RealtimeEnvironment and
+        calling :meth:`run()` or :meth:`step()`.
+
+        """
+        self.real_start = time()
+
     def step(self):
         """Process the next event after enough real-time has passed for the
         event to happen.
