@@ -20,7 +20,7 @@ enter the car-wash and wait for the washing process to finish. Or an airport
 simulation where passengers have to wait until a security check finishes.
 
 Lets assume that the car from our last example magically became an electric
-vehicle. Electric vehicles usually take a lot of time charing their batteries
+vehicle. Electric vehicles usually take a lot of time charging their batteries
 after a trip. They have to wait until their battery is charged before they can
 start driving again.
 
