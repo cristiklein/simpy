@@ -398,13 +398,13 @@ class ConditionValue(object):
         return '<ConditionValue %s>' % self.todict()
 
     def keys(self):
-        return self.events
+        return (event for event in self.events)
 
     def values(self):
-        return [event._value for event in self.events]
+        return (event._value for event in self.events)
 
     def items(self):
-        return [(event, event._value) for event in self.events]
+        return ((event, event._value) for event in self.events)
 
     def todict(self):
         return dict((event, event._value) for event in self.events)

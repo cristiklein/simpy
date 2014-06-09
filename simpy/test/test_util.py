@@ -168,7 +168,7 @@ def test_all_of_chaining(env):
         condition_A &= condition_B
 
         results = yield condition_A
-        assert results.values() == [0, 1, 0, 1]
+        assert list(results.values()) == [0, 1, 0, 1]
 
     env.process(parent(env))
     env.run()
@@ -187,10 +187,10 @@ def test_all_of_chaining_intermediate_results(env):
         condition = condition_A & condition_B
         result = ConditionValue()
         condition._populate_value(result)
-        assert result.values() == [0, 0]
+        assert list(result.values()) == [0, 0]
 
         results = yield condition
-        assert results.values() == [0, 1, 0, 1]
+        assert list(results.values()) == [0, 1, 0, 1]
 
     env.process(parent(env))
     env.run()
@@ -203,7 +203,7 @@ def test_all_of_with_triggered_events(env):
         events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        values = (yield env.all_of(events)).values()
+        values = list((yield env.all_of(events)).values())
         assert values == ['spam', 'eggs']
 
     env.process(parent(env))
@@ -259,7 +259,7 @@ def test_any_of_chaining(env):
         condition_A |= condition_B
 
         results = yield condition_A
-        assert results.values() == ['b']
+        assert list(results.values()) == ['b']
 
     env.process(parent(env))
     env.run()
@@ -272,7 +272,7 @@ def test_any_of_with_triggered_events(env):
         events = [env.timeout(0, value='spam'), env.timeout(1, value='eggs')]
         yield env.timeout(2)
 
-        values = (yield env.any_of(events)).values()
+        values = list((yield env.any_of(events)).values())
         assert values == ['spam', 'eggs']
 
     env.process(parent(env))
