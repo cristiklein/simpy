@@ -5,6 +5,7 @@ Tests for the utility functions from :mod:`simpy.util`.
 import pytest
 
 from simpy import Interrupt
+from simpy.events import ConditionValue
 from simpy.util import start_delayed, subscribe_at
 
 
@@ -184,10 +185,12 @@ def test_all_of_chaining_intermediate_results(env):
         yield env.timeout(0)
 
         condition = condition_A & condition_B
-        assert sorted(condition._get_values().values()) == [0, 0]
+        result = ConditionValue()
+        condition._populate_value(result)
+        assert list(result.values()) == [0, 0]
 
         results = yield condition
-        assert sorted(results.values()) == [0, 0, 1, 1]
+        assert list(results.values()) == [0, 1, 0, 1]
 
     env.process(parent(env))
     env.run()
@@ -256,7 +259,7 @@ def test_any_of_chaining(env):
         condition_A |= condition_B
 
         results = yield condition_A
-        assert sorted(results.values()) == ['b']
+        assert list(results.values()) == ['b']
 
     env.process(parent(env))
     env.run()

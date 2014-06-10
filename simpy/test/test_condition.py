@@ -150,7 +150,7 @@ def test_iand_with_and_cond(env):
         assert cond is not orig
 
         results = yield cond
-        assert sorted(results.values()) == [0, 1, 2]
+        assert list(results.values()) == [1, 2, 0]
 
     env.process(process(env))
     env.run()
@@ -165,7 +165,7 @@ def test_iand_with_or_cond(env):
         assert cond is not orig
 
         results = yield cond
-        assert sorted(results.values()) == [0, 1]
+        assert list(results.values()) == [1, 0]
 
     env.process(process(env))
     env.run()
@@ -180,7 +180,7 @@ def test_ior_with_or_cond(env):
         assert cond is not orig
 
         results = yield cond
-        assert sorted(results.values()) == [0]
+        assert list(results.values()) == [0]
 
     env.process(process(env))
     env.run()
@@ -195,7 +195,7 @@ def test_ior_with_and_cond(env):
         assert cond is not orig
 
         results = yield cond
-        assert sorted(results.values()) == [0]
+        assert list(results.values()) == [0]
 
     env.process(process(env))
     env.run()
