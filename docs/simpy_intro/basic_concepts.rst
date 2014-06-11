@@ -84,7 +84,7 @@ a *process generator* that needs to be started and added to the environment via
 :meth:`Environment.process()`.
 
 Note, that at this time, none of the code of our process function is being
-executed. It's execution is merely scheduled at the current simulation time.
+executed. Its execution is merely scheduled at the current simulation time.
 
 The :class:`~simpy.events.Process` returned by :meth:`~Environment.process()`
 can be used for process interactions (we will cover that in the next section,
