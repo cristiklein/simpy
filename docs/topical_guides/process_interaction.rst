@@ -2,7 +2,7 @@
 Process Interaction
 ===================
 
-Event discrete simulation is only made interesting by interactions between
+Discrete event simulation is only made interesting by interactions between
 processes.
 
 So this guide is about:
