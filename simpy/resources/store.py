@@ -82,17 +82,13 @@ class Store(base.BaseResource):
 
     """
     def __init__(self, env, capacity=float('inf')):
-        super(Store, self).__init__(env)
         if capacity <= 0:
             raise ValueError('"capacity" must be > 0.')
-        self._capacity = capacity
+
+        super(Store, self).__init__(env, capacity)
+
         self.items = []
         """List of the items available in the store."""
-
-    @property
-    def capacity(self):
-        """The maximum capacity of the store."""
-        return self._capacity
 
     put = BoundClass(StorePut)
     """Request to put *item* into the store."""

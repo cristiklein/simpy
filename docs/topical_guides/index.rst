@@ -14,9 +14,9 @@ you are looking for.
    environments
    events
    process_interaction
+   resources
    porting_from_simpy2
 
-.. - resources (resource, container, store)
 .. - real-time simulations
 .. - monitoring
 .. - analyzing results (numpy, matploblib, ...)
