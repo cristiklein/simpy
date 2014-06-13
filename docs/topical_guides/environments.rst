@@ -12,7 +12,7 @@ The base class for all environments is :class:`~simpy.core.BaseEnvironment`.
 "Normal" simulations usually use its subclass
 :class:`~simpy.core.Environment`. For real-time simulations, SimPy provides a
 :class:`~simpy.rt.RealtimeEnvironment` (more on that in
-:doc:`realtime_simulations`).
+:doc:`real-time-simulations`).
 
 
 .. _simulation-control:

@@ -36,5 +36,8 @@
       :inherited-members:
       :exclude-members: all_events, any_events
 
+   .. autoclass:: ConditionValue
+      :members:
+
    .. autoclass:: Interrupt
       :members:
