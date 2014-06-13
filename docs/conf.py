@@ -51,8 +51,8 @@ master_doc = 'contents'
 
 # General information about the project.
 authors = ['Team SimPy']
-project = u'SimPy'
-copyright = '2002-2014, ' + ', '.join(authors)
+project = 'SimPy'
+copyright = u'2002–2014, ' + ', '.join(authors)
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -196,7 +196,7 @@ htmlhelp_basename = 'SimPydoc'
 # Grouping the document tree into LaTeX files. List of tuples (source start
 # file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'SimPy.tex', u'SimPy Documentation', ', '.join(authors), 'manual'),
+  ('index', 'SimPy.tex', 'SimPy Documentation', ', '.join(authors), 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -228,7 +228,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    ('index', 'simpy', u'SimPy Documentation', [', '.join(authors)], 1),
+    ('index', 'simpy', 'SimPy Documentation', [', '.join(authors)], 1),
 ]
 
 
