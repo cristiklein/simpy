@@ -26,7 +26,7 @@ hierarchy of events built into SimPy::
 
 This is the set of basic events. Events are extensible and resources, for
 example, define additional events. In this guide, we'll focus on the events in
-the :mod:`simpy.events` module. The :ref:`guide to resources <resources>`
+the :mod:`simpy.events` module. The :doc:`guide to resources <resources>`
 describes the various resource events.
 
 

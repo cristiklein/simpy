@@ -263,7 +263,7 @@ its priority, though.
 
 The implementation of *PreemptiveResource* values priorities higher than
 preemption. That means preempt request are not allowed to cheat and jump over
-a higher priorized request. The following example shows that preemptive low
+a higher prioritized request. The following example shows that preemptive low
 priority requests cannot queue-jump over high priority requests:
 
 .. code-block:: python
@@ -450,9 +450,9 @@ As with the other resource types, you can get a store's capacity via the
 currently available in the store. The put and get queues can be accessed via
 the ``put_queue`` and ``get_queue`` attributes.
 
-`FilterStore` can, for example, be used to model machine shops where machines
+*FilterStore* can, for example, be used to model machine shops where machines
 have varying attributes. This can be useful if the homogeneous slots of
-a ``Resource`` are not what you need:
+a *Resource* are not what you need:
 
 .. code-block:: python
 
@@ -464,7 +464,7 @@ a ``Resource`` are not what you need:
    >>>
    >>> env = simpy.Environment()
    >>> machine_shop = simpy.FilterStore(env, capacity=2)
-   >>> machine_shop.items = [m1, m2]  # Prepopulate the machine shop
+   >>> machine_shop.items = [m1, m2]  # Pre-populate the machine shop
    >>>
    >>> def user(name, env, ms, size):
    ...     machine = yield ms.get(lambda machine: machine.size == size)
