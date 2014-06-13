@@ -141,8 +141,11 @@ class Resource(base.BaseResource):
 
     """
     def __init__(self, env, capacity=1):
-        super(Resource, self).__init__(env)
-        self._capacity = capacity
+        if capacity <= 0:
+            raise ValueError('"capacity" must be > 0.')
+
+        super(Resource, self).__init__(env, capacity)
+
         self.users = []
         """List of :class:`Request` events for the processes that are currently
         using the resource."""
@@ -150,11 +153,6 @@ class Resource(base.BaseResource):
         """Queue of pending :class:`Request` events. Alias of
         :attr:`~simpy.resources.base.BaseResource.put_queue`.
         """
-
-    @property
-    def capacity(self):
-        """Maximum capacity of the resource."""
-        return self._capacity
 
     @property
     def count(self):
@@ -214,11 +212,14 @@ class PreemptiveResource(PriorityResource):
 
     """
     def _do_put(self, event):
+        # print(event.preempt, event, self.users)
         if len(self.users) >= self.capacity and event.preempt:
             # Check if we can preempt another process
             preempt = sorted(self.users, key=lambda e: e.key)[-1]
-
+            # print(preempt, event)
+            # print(preempt.key, event.key)
             if preempt.key > event.key:
+                # print('onoes')
                 self.users.remove(preempt)
                 preempt.proc.interrupt(Preempted(by=event.proc,
                                                  usage_since=preempt.time))
