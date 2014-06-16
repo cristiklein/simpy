@@ -86,8 +86,8 @@ simulation will automatically stop when there are no more events left::
     Car 2 leaving the bcs at 10
     Car 3 leaving the bcs at 12
 
-Note that the first to cars can start charging immediately after they arrive at
-the BCS, while cars 2 an 3 have to wait.
+Note that the first two cars can start charging immediately after they arrive
+at the BCS, while cars 2 an 3 have to wait.
 
 
 What's Next
