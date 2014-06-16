@@ -1,5 +1,5 @@
 """
-Carwasch example.
+Carwash example.
 
 Covers:
 
@@ -45,7 +45,7 @@ class Carwash(object):
         """The washing processes. It takes a ``car`` processes and tries
         to clean it."""
         yield self.env.timeout(WASHTIME)
-        print("Carwashed removed %d%% of %s's dirt." %
+        print("Carwash removed %d%% of %s's dirt." %
               (random.randint(50, 99), car))
 
 
