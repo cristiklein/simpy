@@ -1,5 +1,5 @@
 """Execution environment for events that synchronizes passing of time
-with the real-time (aka *wallclock time*).
+with the real-time (aka *wall-clock time*).
 
 """
 try:
@@ -14,9 +14,10 @@ from simpy.core import Environment, EmptySchedule, Infinity
 
 class RealtimeEnvironment(Environment):
     """Execution environment for an event-based simulation which is
-    synchronized with the real-time (also known as wallclock time). A time step
-    will take *factor* seconds of real time (one second by default). A step
-    from ``0`` to ``3`` with a ``factor=0.5`` will, for example, take at least
+    synchronized with the real-time (also known as wall-clock time). A time
+    step will take *factor* seconds of real time (one second by default).
+    A step from ``0`` to ``3`` with a ``factor=0.5`` will, for example, take at
+    least
     1.5 seconds.
 
     The :meth:`step()` method will raise a :exc:`RuntimeError` if a time step
