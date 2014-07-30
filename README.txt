@@ -15,8 +15,8 @@ Simulations can be performed “as fast as possible”, in real time (wall clock
 time) or by manually stepping through the events.
 
 Though it is theoretically possible to do continuous simulations with SimPy, it
-has no features that help you with that. On the other hand, SimPy is overkill
-for simulations with a fixed step size where your processes don’t interact with
+has no features that help you with that. Also, SimPy is not really required for
+simulations with a fixed step size and where your processes don’t interact with
 each other or with shared resources.
 
 The SimPy distribution contains tutorials, in-depth documentation, and a large
@@ -26,8 +26,13 @@ SimPy is released under the MIT License. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
 Please post a message to the `SimPy-Users mailing list`__.
 
+There is an introductory talk for SimPy that explains its concepts and
+provides some examples: `watch the video`__ or `get the slides`__.
+
 __ http://docs.python.org/3/glossary.html#term-generator
 __ http://lists.sourceforge.net/lists/listinfo/simpy-users
+__ https://www.youtube.com/watch?v=Bk91DoAEcjY
+__ http://stefan.sofa-rockers.org/downloads/simpy-ep14.pdf
 
 
 A Simple Example
