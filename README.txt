@@ -26,8 +26,8 @@ SimPy is released under the MIT License. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
 Please post a message to the `SimPy-Users mailing list`__.
 
-There is an introductory talk for SimPy that explains its concepts and
-provides some examples: `watch the video`__ or `get the slides`__.
+There is an introductory talk that explains SimPy’s concepts and provides some
+examples: `watch the video`__ or `get the slides`__.
 
 __ http://docs.python.org/3/glossary.html#term-generator
 __ http://lists.sourceforge.net/lists/listinfo/simpy-users
