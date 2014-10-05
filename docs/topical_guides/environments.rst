@@ -21,19 +21,19 @@ Simulation control
 ==================
 
 SimPy is very flexible in terms of simulation execution. You can run your
-simulation until there is no more event, until a certain simulation time is
+simulation until there are no more events, until a certain simulation time is
 reached, or until a certain event is triggered. You can also step through the
 simulation event by event. Furthermore, you can mix these things as you like.
 
 For example, you could run your simulation until an interesting event occurs.
 You could then step through the simulation event by event for a while; and
-finally run the simulation until there is no more event left and your processes
-all have terminated.
+finally run the simulation until there are no more events left and your processes
+have all terminated.
 
 The most important method here is :meth:`Environment.run()`:
 
 - If you call it without any argument (``env.run()``), it steps through the
-  simulation until there is no more event left.
+  simulation until there are no more events left.
 
   .. warning::
 
@@ -41,7 +41,7 @@ The most important method here is :meth:`Environment.run()`:
      method will never terminate (unless you kill your script by e.g., pressing
      :kbd:`Ctrl-C`).
 
-- In most cases it is more advisable to stop your simulation when it reaches
+- In most cases it is advisable to stop your simulation when it reaches
   a certain simulation time. Therefore, you can pass the desired time via the
   *until* parameter, e.g.: ``env.run(until=10)``.
 
@@ -121,7 +121,7 @@ The property :attr:`Environment.active_process` is comparable to
 is being executed. It becomes *inactive* (or suspended) when it yields an
 event.
 
-Thus, it makes only sense to access this property from within a process
+Thus, it only makes sense to access this property from within a process
 function or a function that is called by your process function::
 
    >>> def subfunc(env):
