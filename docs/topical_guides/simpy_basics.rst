@@ -25,7 +25,7 @@ yield instances of :class:`~simpy.events.Event`.
 The environment stores these events in its event list and keeps track of the
 current simulation time.
 
-If a process function yields and event, SimPy adds the process to the event's
+If a process function yields an event, SimPy adds the process to the event's
 callbacks and suspends the process until the event is triggered and processed.
 When a process waiting for an event is resumed, it will also receive the
 event's value.
