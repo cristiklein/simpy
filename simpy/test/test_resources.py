@@ -483,3 +483,59 @@ def test_filter_store_get_after_mismatch(env):
     env.process(getter(store))
     env.process(putter(env, store))
     env.run()
+
+
+def test_filter_calls_best_case(env):
+    """The filter function is called every item in the store until a match is
+    found. In the best case the first item already matches."""
+
+    log = []
+    def log_filter(item):
+        log.append('check %s' % item)
+        return True
+
+    store = simpy.FilterStore(env)
+    store.items = [1, 2, 3]
+
+    def getter(store):
+        log.append('get %s' % (yield store.get(log_filter)))
+        log.append('get %s' % (yield store.get(log_filter)))
+        log.append('get %s' % (yield store.get(log_filter)))
+
+    env.process(getter(store))
+    env.run()
+
+    assert log == ['check 1', 'get 1', 'check 2', 'get 2', 'check 3', 'get 3']
+
+
+def test_filter_calls_worst_case(env):
+    """In the worst case the filter function is being called for items multiple
+    times."""
+
+    log = []
+    store = simpy.FilterStore(env)
+
+    def putter(store):
+        for i in range(4):
+            log.append('put %s' % i)
+            yield store.put(i)
+
+    def log_filter(item):
+        log.append('check %s' % item)
+        return item >= 3
+
+    def getter(store):
+        log.append('get %s' % (yield store.get(log_filter)))
+
+    env.process(getter(store))
+    env.process(putter(store))
+    env.run()
+
+    # The filter function is repeatedly called for every item in the store
+    # until a match is found.
+    assert log == [
+            'put 0', 'check 0',
+            'put 1', 'check 0', 'check 1',
+            'put 2', 'check 0', 'check 1', 'check 2',
+            'put 3', 'check 0', 'check 1', 'check 2', 'check 3', 'get 3',
+    ]

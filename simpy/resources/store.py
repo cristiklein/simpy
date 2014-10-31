@@ -47,31 +47,6 @@ class FilterStoreGet(StoreGet):
         super(FilterStoreGet, self).__init__(resource)
 
 
-class FilterQueue(object):
-    """A queue that only lists those events for which there is an item in the
-    *store*.
-
-    """
-    def __init__(self):
-        self._q = []
-        self.store = None
-
-    def append(self, evt):
-        """Append *evt* to the queue."""
-        return self._q.append(evt)
-
-    def remove(self, evt):
-        """Remove *evt* from the queue."""
-        return self._q.remove(evt)
-
-    def __iter__(self):
-        for evt in self._q:
-            for item in self.store.items:
-                if evt.filter(item):
-                    # Only yield *evt* if there is an item for it.
-                    yield evt
-
-
 class Store(base.BaseResource):
     """Resource with *capacity* slots for storing arbitrary objects. By
     default, the *capacity* is unlimited and objects are put and retrieved from
@@ -127,13 +102,6 @@ class FilterStore(Store):
         want it.
 
     """
-    GetQueue = FilterQueue
-    """Type of the put queue. See
-    :attr:`~simpy.resources.base.BaseResource.put_queue` for details."""
-
-    def __init__(self, env, capacity=float('inf')):
-        super(FilterStore, self).__init__(env, capacity)
-        self.get_queue.store = self
 
     put = BoundClass(StorePut)
     """Request a to put *item* into the store."""
@@ -148,3 +116,4 @@ class FilterStore(Store):
                 self.items.remove(item)
                 event.succeed(item)
                 break
+        return True
