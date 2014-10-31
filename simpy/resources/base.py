@@ -153,45 +153,59 @@ class BaseResource(object):
     def _do_put(self, event):
         """Perform the *put* operation.
 
-        This methods needs to be implemented by subclasses. It receives the
-        *put_event* that is created at each put request and needs to decide if
-        the request can be triggered or needs to be enqueued. If the request
-        can be triggered, it must also check if pending get requests can now be
-        triggered.
+        This method needs to be implemented by subclasses. If the conditions
+        for the put *event* are met, the method must trigger the event (e.g.
+        call :meth:`Event.succeed()` with an apropriate value).
 
+        This method is called by :meth:`_trigger_put` for every event in the
+        :attr:`put_queue`, as long as the return value does not evaluate
+        ``False``.
         """
         raise NotImplementedError(self)
 
     def _trigger_put(self, get_event):
-        """Trigger pending put events after a get event has been executed."""
+        """This method is called once a new put event has been created or a get
+        event has been processed.
+
+        The method iterates over all put events in the :attr:`put_queue` and
+        calls :meth:`_do_put` to check if the conditions for the event are met.
+        If :meth:`_do_put` returns ``False``, the iteration is stopped early.
+        """
+
         if get_event is not None:
             self.get_queue.remove(get_event)
 
         for put_event in self.put_queue:
-            if not put_event.triggered:
-                self._do_put(put_event)
-                if not put_event.triggered:
-                    break
+            if not put_event.triggered and not self._do_put(put_event):
+                break
 
     def _do_get(self, event):
         """Perform the *get* operation.
 
-        This methods needs to be implemented by subclasses. It receives the
-        *get_event* that is created at each get request and needs to decide if
-        the request can be triggered or needs to be enqueued. If the request
-        can be triggered, it must also check if pending put requests can now be
-        triggered.
+        This method needs to be implemented by subclasses. If the conditions
+        for the get *event* are met, the method must trigger the event (e.g.
+        call :meth:`Event.succeed()` with an apropriate value).
 
+        This method is called by :meth:`_trigger_get` for every event in the
+        :attr:`get_queue`, as long as the return value does not evaluate
+        ``False``.
         """
         raise NotImplementedError(self)
 
     def _trigger_get(self, put_event):
-        """Trigger pending get events after a put event has been executed."""
+        """Trigger get events.
+
+        This method is called once a new get event has been created or a put
+        event has been processed.
+
+        The method iterates over all get events in the :attr:`get_queue` and
+        calls :meth:`_do_get` to check if the conditions for the event are met.
+        If :meth:`_do_get` returns ``False``, the iteration is stopped early.
+        """
+
         if put_event is not None:
             self.put_queue.remove(put_event)
 
         for get_event in self.get_queue:
-            if not get_event.triggered:
-                self._do_get(get_event)
-                if not get_event.triggered:
-                    break
+            if not get_event.triggered and not self._do_get(get_event):
+                break

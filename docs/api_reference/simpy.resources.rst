@@ -70,9 +70,6 @@ Stores --- ``simpy.resources.store``
 .. autoclass:: FilterStoreGet
    :members:
 
-.. autoclass:: FilterQueue
-   :members:
-
 
 Base classes --- ``simpy.resources.base``
 =========================================

@@ -86,8 +86,10 @@ class Container(base.BaseResource):
         if self._capacity - self._level >= event.amount:
             self._level += event.amount
             event.succeed()
+            return True
 
     def _do_get(self, event):
         if self._level >= event.amount:
             self._level -= event.amount
             event.succeed()
+            return True
