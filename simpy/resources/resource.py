@@ -212,14 +212,10 @@ class PreemptiveResource(PriorityResource):
 
     """
     def _do_put(self, event):
-        # print(event.preempt, event, self.users)
         if len(self.users) >= self.capacity and event.preempt:
             # Check if we can preempt another process
             preempt = sorted(self.users, key=lambda e: e.key)[-1]
-            # print(preempt, event)
-            # print(preempt.key, event.key)
             if preempt.key > event.key:
-                # print('onoes')
                 self.users.remove(preempt)
                 preempt.proc.interrupt(Preempted(by=event.proc,
                                                  usage_since=preempt.time))
