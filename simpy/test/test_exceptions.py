@@ -159,3 +159,34 @@ def test_process_exception_handling(env):
     assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'
     env.run(until=1)
     assert event.defused, 'Event has not been defused'
+
+
+def test_process_exception_chaining(env):
+    """Because multiple processes can be waiting for an event, exceptions of
+    failed events are copied before being thrown into a process. Otherwise, the
+    traceback of the exception gets modified by a process.
+
+    See https://bitbucket.org/simpy/simpy/issue/60 for more details."""
+    import traceback
+
+    def process_a(event):
+        try:
+            yield event
+        except RuntimeError as e:
+            stacktrace = traceback.format_exc()
+            assert 'process_b' not in stacktrace
+
+    def process_b(event):
+        try:
+            yield event
+        except RuntimeError as e:
+            stacktrace = traceback.format_exc()
+            assert 'process_a' not in stacktrace
+
+    event = env.event()
+    event.fail(RuntimeError('foo'))
+
+    env.process(process_a(event))
+    env.process(process_b(event))
+
+    env.run()
