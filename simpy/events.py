@@ -328,7 +328,16 @@ class Process(Event):
                     # The process has no choice but to handle the failed event
                     # (or fail itself).
                     event.defused = True
-                    event = self._generator.throw(event._value)
+
+                    # Create an exclusive copy of the exception for this
+                    # process to prevent traceback modifications by other
+                    # processes.
+                    exc = type(event._value)(*event._value.args)
+                    exc.__cause__ = event._value
+                    if PY2:
+                        if hasattr(event._value, '__traceback__'):
+                            exc.__traceback__ = event._value.__traceback__
+                    event = self._generator.throw(exc)
             except StopIteration as e:
                 # Process has terminated.
                 event = None
@@ -340,6 +349,8 @@ class Process(Event):
                 # Process has failed.
                 event = None
                 self.ok = False
+
+                # Create a new exception chained to the original exception.
                 self._value = type(e)(*e.args)
                 self._value.__cause__ = e
                 if PY2:
