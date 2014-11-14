@@ -258,6 +258,25 @@ def test_shared_or_condition(env):
     env.run()
 
 
+def test_condition_value(env):
+    """The value of a condition behaves like a readonly dictionary."""
+    timeouts = list([env.timeout(delay, value=delay) for delay in range(3)])
+
+    def p(env, timeouts):
+        results = yield env.all_of(timeouts)
+        assert list(results) == timeouts
+        assert list(results.keys()) == timeouts
+        assert list(results.values()) == [0, 1, 2]
+        assert list(results.items()) == list(zip(timeouts, [0, 1, 2]))
+        assert timeouts[0] in results
+        assert results[timeouts[0]] == 0
+        assert results == results
+        assert results == results.todict()
+
+    env.process(p(env, timeouts))
+    env.run()
+
+
 def test_result_order(env):
     """The order of a conditions result is based on the order in which the
     events have been specified."""

@@ -408,6 +408,9 @@ class ConditionValue(object):
     def __repr__(self):
         return '<ConditionValue %s>' % self.todict()
 
+    def __iter__(self):
+        return self.keys()
+
     def keys(self):
         return (event for event in self.events)
 
