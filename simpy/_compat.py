@@ -10,28 +10,56 @@ PY2 = sys.version_info[0] == 2
 
 if PY2:
     # Python 2.x does not report exception chains. To emulate the behaviour of
-    # Python 3 the functions format_chain and print_chain are added. The latter
-    # function is used to override the exception hook of Python 2.x.
-    from traceback import format_exception
+    # Python 3 traceback.format_exception and traceback.print_exception are
+    # overwritten with the custom functions. The original functions
+    # are stored in _format_exception and _print_exception.
+    import traceback
+    from collections import deque
 
-    def format_chain(exc_type, exc_value, exc_traceback):
-        if hasattr(exc_value, '__cause__') and exc_value.__cause__:
-            cause = exc_value.__cause__
-            if hasattr(exc_value, '__traceback__'):
-                traceback = exc_value.__traceback__
-            else:
-                traceback = None
-            lines = format_chain(type(cause), cause, traceback)
-            lines += ('\nThe above exception was the direct cause of the '
-                      'following exception:\n\n')
-        else:
-            lines = []
+    _print_exception = traceback.print_exception
+    _format_exception = traceback.format_exception
 
-        return lines + format_exception(exc_type, exc_value, exc_traceback)
+    def print_exception(etype, value, tb, limit=None, file=None):
+        # Build the exception chain.
+        chain = deque()
+        cause = value
+        while True:
+            cause = cause.__dict__.get('__cause__', None)
+            if cause is None:
+                break
+            chain.appendleft(cause)
 
-    def print_chain(exc_type, exc_value, exc_traceback):
-        sys.stderr.write(''.join(format_chain(exc_type, exc_value,
-                                              exc_traceback)))
-        sys.stderr.flush()
+        # Print the exception chain.
+        for cause in chain:
+            _print_exception(type(cause), cause,
+                    cause.__dict__.get('__traceback__', None), limit, file)
+            traceback._print(file, '\nThe above exception was the direct '
+                      'cause of the following exception:\n')
 
-    sys.excepthook = print_chain
+        _print_exception(etype, value, tb, limit, file)
+
+    traceback.print_exception = print_exception
+
+    def format_exception(etype, value, tb, limit=None):
+        # Build the exception chain.
+        chain = deque()
+        cause = value
+        while True:
+            cause = cause.__dict__.get('__cause__', None)
+            if cause is None:
+                break
+            chain.appendleft(cause)
+
+        # Format the exception chain.
+        lines = []
+        for cause in chain:
+            lines.extend(_format_exception(type(cause), cause,
+                    cause.__dict__.get('__traceback__', None), limit))
+            lines.append('\nThe above exception was the direct '
+                      'cause of the following exception:\n\n')
+
+        lines.extend(_format_exception(etype, value, tb, limit))
+
+        return lines
+
+    traceback.format_exception = format_exception

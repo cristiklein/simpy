@@ -2,9 +2,9 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
-import pytest
+import traceback
 
-from simpy import _compat
+import pytest
 
 
 def test_error_forwarding(env):
@@ -57,14 +57,8 @@ def test_crashing_child_traceback(env):
             yield env.process(panic(env))
             pytest.fail("Hey, where's the roflcopter?")
         except RuntimeError:
-            if not _compat.PY2:
-                import traceback
-                stacktrace = traceback.format_exc()
-            else:
-                import sys
-                stacktrace = ''.join(_compat.format_chain(*sys.exc_info()))
-
             # The current frame must be visible in the stacktrace.
+            stacktrace = traceback.format_exc()
             assert 'yield env.process(panic(env))' in stacktrace
             assert 'raise RuntimeError(\'Oh noes,' in stacktrace
 
@@ -72,7 +66,6 @@ def test_crashing_child_traceback(env):
     env.run()
 
 
-@pytest.mark.skipif('sys.version_info[0] < 3')
 def test_exception_chaining(env):
     """Unhandled exceptions pass through the entire event stack. This must be
     visible in the stacktrace of the exception.
