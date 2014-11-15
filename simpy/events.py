@@ -349,12 +349,9 @@ class Process(Event):
                 # Process has failed.
                 event = None
                 self.ok = False
-
-                # Create a new exception chained to the original exception.
-                self._value = type(e)(*e.args)
-                self._value.__cause__ = e
                 if PY2:
-                    self._value.__traceback__ = sys.exc_info()[2]
+                    e.__traceback__ = sys.exc_info()[2]
+                self._value = e
                 self.env.schedule(self)
                 break
 
