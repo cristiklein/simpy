@@ -204,9 +204,12 @@ class Environment(BaseEnvironment):
         event.callbacks = None
 
         if not event.ok and not hasattr(event, 'defused'):
-            # The event has failed, check if it is defused.
-            # Raise the value if not.
-            raise event._value
+            # The event has failed and has not been defused. Crash the
+            # environment.
+            # Create a copy of the failure exception with a new traceback.
+            exc = type(event._value)(*event._value.args)
+            exc.__cause__ = event._value
+            raise exc
 
 
 def _stop_simulate(event):
