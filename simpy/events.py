@@ -349,8 +349,10 @@ class Process(Event):
                 # Process has failed.
                 event = None
                 self.ok = False
-                if PY2:
-                    e.__traceback__ = sys.exc_info()[2]
+                tb = e.__traceback__ if not PY2 else sys.exc_info()[2]
+                # Strip the frame of this function from the traceback as it
+                # does not add any useful information.
+                e.__traceback__ = tb.tb_next
                 self._value = e
                 self.env.schedule(self)
                 break

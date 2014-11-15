@@ -71,6 +71,8 @@ def test_exception_chaining(env):
     visible in the stacktrace of the exception.
 
     """
+    import textwrap, re
+
     def child(env):
         yield env.timeout(1)
         raise RuntimeError('foo')
@@ -88,11 +90,41 @@ def test_exception_chaining(env):
         env.run()
         pytest.fail('There should have been an exception')
     except RuntimeError:
-        import traceback
         trace = traceback.format_exc()
-        assert 'raise RuntimeError(\'foo\')' in trace
-        assert 'yield child_proc' in trace
-        assert 'yield parent_proc' in trace
+
+        expected = re.escape(textwrap.dedent("""\
+        Traceback (most recent call last):
+          File "...simpy/test/test_exceptions.py", line ..., in child
+            raise RuntimeError('foo')
+        RuntimeError: foo
+
+        The above exception was the direct cause of the following exception:
+
+        Traceback (most recent call last):
+          File "...simpy/test/test_exceptions.py", line ..., in parent
+            yield child_proc
+        RuntimeError: foo
+
+        The above exception was the direct cause of the following exception:
+
+        Traceback (most recent call last):
+          File "...simpy/test/test_exceptions.py", line ..., in grandparent
+            yield parent_proc
+        RuntimeError: foo
+
+        The above exception was the direct cause of the following exception:
+
+        Traceback (most recent call last):
+          File "...simpy/test/test_exceptions.py", line ..., in test_exception_chaining
+            env.run()
+          File "...simpy/core.py", line ..., in run
+            self.step()
+          File "...simpy/core.py", line ..., in step
+            raise exc
+        RuntimeError: foo
+        """)).replace('\.\.\.', '.+')
+
+        assert re.match(expected, trace), 'Traceback mismatch'
 
 
 def test_invalid_event(env):
