@@ -111,6 +111,10 @@ class BaseEnvironment(object):
             until._value = None
             self.schedule(until, URGENT, at - self.now)
 
+        if until.callbacks is None:
+            # Until event has already been processed.
+            return until.value
+
         until.callbacks.append(_stop_simulate)
 
         try:

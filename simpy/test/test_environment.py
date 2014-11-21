@@ -51,3 +51,16 @@ def test_run_until_value(env):
     """Anything that can be converted to a float is a valid until value."""
     env.run(until='3.141592')
     assert env.now == 3.141592
+
+
+def test_run_with_processed_event(env):
+    """An already processed event may also be passed as until value."""
+    timeout = env.timeout(1, value='spam')
+    assert env.run(until=timeout) == 'spam'
+    assert env.now == 1
+
+    # timeout has been processed, calling run again will return its value
+    # again.
+
+    assert env.run(until=timeout) == 'spam'
+    assert env.now == 1
