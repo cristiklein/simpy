@@ -129,6 +129,20 @@ def test_all_of(env):
     env.run()
 
 
+def test_all_of_generator(env):
+    """Conditions also work with generators."""
+    def parent(env):
+        # Start 10 events.
+        events = (env.timeout(i, value=i) for i in range(10))
+        results = yield env.all_of(events)
+
+        assert list(results.values()) == [i for i in range(10)]
+        assert env.now == 9
+
+    env.process(parent(env))
+    env.run()
+
+
 def test_wait_for_all_with_errors(env):
     """On default AllOf should fail immediately if one of its events
     fails."""
