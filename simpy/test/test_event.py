@@ -55,8 +55,8 @@ def test_names(env):
     assert re.match(r'<Timeout\(1, value=2\) object at 0x.*>',
                     str(env.timeout(1, value=2)))
 
-    assert re.match(r'<Condition\(all_events, \[<Event\(\) object at 0x.*>, '
-                    r'<Event\(\) object at 0x.*>\]\) object at 0x.*>',
+    assert re.match(r'<Condition\(all_events, \(<Event\(\) object at 0x.*>, '
+                    r'<Event\(\) object at 0x.*>\)\) object at 0x.*>',
                     str(env.event() & env.event()))
 
     assert re.match(r'<Process\(pem\) object at 0x.*>',

@@ -447,18 +447,18 @@ class Condition(Event):
     def __init__(self, env, evaluate, events):
         super(Condition, self).__init__(env)
         self._evaluate = evaluate
-        self._events = events
+        self._events = events if type(events) is tuple else tuple(events)
         self._count = 0
 
         # Check if events belong to the same environment.
-        for event in events:
+        for event in self._events:
             if self.env != event.env:
                 raise ValueError('It is not allowed to mix events from '
                         'different environments')
 
         # Check if the condition is met for each processed event. Attach
         # _check() as a callback otherwise.
-        for event in events:
+        for event in self._events:
             if event.callbacks is None:
                 self._check(event)
             else:
