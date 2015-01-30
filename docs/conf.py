@@ -12,6 +12,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import datetime
 import os
 import sys
 
@@ -52,7 +53,7 @@ master_doc = 'contents'
 # General information about the project.
 authors = ['Team SimPy']
 project = 'SimPy'
-copyright = u'2002–2014, ' + ', '.join(authors)
+copyright = u'2002–%s, %s' % (datetime.datetime.now().year, ', '.join(authors))
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
