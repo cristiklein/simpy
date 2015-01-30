@@ -15,6 +15,22 @@ Python's generators as they proved to work very well.
 The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
+3.0.6 - 2015-01-30
+==================
+
+- [NEW] Guide to SimPy resources.
+- [CHANGE] Improve performance of condition events.
+- [CHANGE] Improve performance of filter store (thanks to Christoph Körner).
+- [CHANGE] Exception tracebacks are now more compact.
+- [FIX] ``AllOf`` conditions handle already processed events correctly (`issue
+  #52 <https://bitbucket.org/simpy/simpy/issue/52>`__).
+- [FIX] Add ``sync()`` to ``RealtimeEnvironment`` to reset its internal
+  wall-clock reference time (`issue #42 <https://bitbucket.org/simpy/simpy/
+  issue/42>`__).
+- [FIX] Only send copies of exceptions into processes to prevent traceback
+  modifications.
+- [FIX] Documentation improvements.
+
 3.0.5 – 2014-05-14
 ==================
 
