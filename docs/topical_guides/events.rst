@@ -279,7 +279,7 @@ operators ``&`` (and) and ``|`` (or):
     ...     # You can also concatenate & and |
     ...     e1, e2, e3 = [env.timeout(i) for i in range(3)]
     ...     yield (e1 | e2) & e3
-    ...     assert all(e.triggered for e in [e1, e2, e3])
+    ...     assert all(e.processed for e in [e1, e2, e3])
     ...
     >>> proc = env.process(test_condition(env))
     >>> env.run()
