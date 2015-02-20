@@ -164,7 +164,7 @@ number of users and resource's capacity:
      Queued events: []
    1 of 1 slots are allocated.
      Users: [<Request() object at 0x...>]
-     Queued events: [<Request() object at 0x...>]
+     Queued events: []
    1 of 1 slots are allocated.
      Users: [<Request() object at 0x...>]
      Queued events: [<Request() object at 0x...>]

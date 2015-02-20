@@ -213,12 +213,16 @@ def test_resource_with_priority_queue(env):
 def test_sorted_queue_maxlen(env):
     """Requests must fail if more than *maxlen* requests happen
     concurrently."""
-    resource = simpy.PriorityResource(env, capacity=10)
+    resource = simpy.PriorityResource(env, capacity=1)
     resource.put_queue.maxlen = 1
 
     def process(env, resource):
+        # The first request immediately triggered and does not enter the queue.
+        resource.request(priority=1)
+        # The second request is enqueued.
         resource.request(priority=1)
         try:
+            # The third request will now fail.
             resource.request(priority=1)
             pytest.fail('Expected a RuntimeError')
         except RuntimeError as e:
@@ -539,3 +543,48 @@ def test_filter_calls_worst_case(env):
             'put 2', 'check 0', 'check 1', 'check 2',
             'put 3', 'check 0', 'check 1', 'check 2', 'check 3', 'get 3',
     ]
+
+
+def test_immediate_put_request(env):
+    """Put requests that can be fulfilled immediately do not enter the put
+    queue."""
+    resource = simpy.Resource(env, capacity=1)
+    assert len(resource.users) == 0
+    assert len(resource.queue) == 0
+
+    # The resource is empty, the first request will succeed immediately without
+    # entering the queue.
+    request = resource.request()
+    assert request.triggered
+    assert len(resource.users) == 1
+    assert len(resource.queue) == 0
+
+    # A second request will get enqueued however.
+    request = resource.request()
+    assert not request.triggered
+    assert len(resource.users) == 1
+    assert len(resource.queue) == 1
+
+
+def test_immediate_get_request(env):
+    """Get requests that can be fulfilled immediately do not enter the get
+    queue."""
+    container = simpy.Container(env)
+    # Put something in the container, this request is triggered immediately
+    # without entering the queue.
+    request = container.put(1)
+    assert request.triggered
+    assert container.level == 1
+    assert len(container.put_queue) == 0
+
+    # The first get request will succeed immediately without entering the
+    # queue.
+    request = container.get(1)
+    assert request.triggered
+    assert container.level == 0
+    assert len(container.get_queue) == 0
+
+    # A second get request will get enqueued.
+    request = container.get(1)
+    assert not request.triggered
+    assert len(container.get_queue) == 1
