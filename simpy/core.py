@@ -90,15 +90,16 @@ class BaseEnvironment(object):
 
         - If it is an :class:`~simpy.events.Event`, the method will continue
           stepping until this event has been triggered and will return its
-          value.
+          value.  Raises a :exc:`RuntimeError` if there are no further events
+          to be processed and the *until* event was not triggered.
 
         - If it is a number, the method will continue stepping
           until the environment's time reaches *until*.
 
         """
-        if until is None:
-            until = Event(self)
-        elif not isinstance(until, Event):
+        if not (until is None or isinstance(until, Event)):
+            # Assume that *until* is a number if it is not None and
+            # not an event.  Create a Timeout(until) in this case.
             at = float(until)
 
             if at <= self.now:
@@ -111,11 +112,12 @@ class BaseEnvironment(object):
             until._value = None
             self.schedule(until, URGENT, at - self.now)
 
-        if until.callbacks is None:
-            # Until event has already been processed.
-            return until.value
+        if until is not None:
+            if until.callbacks is None:
+                # Until event has already been processed.
+                return until.value
 
-        until.callbacks.append(_stop_simulate)
+            until.callbacks.append(_stop_simulate)
 
         try:
             while True:
@@ -123,8 +125,12 @@ class BaseEnvironment(object):
         except EmptySchedule:
             pass
 
+        if until is None:
+            return
+
         if not until.triggered:
-            return None
+            raise RuntimeError('No scheduled events left but "until" event '
+                               'was not triggered: %s' % until)
 
         if not until.ok:
             raise until.value
