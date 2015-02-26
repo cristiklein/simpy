@@ -103,3 +103,10 @@ def test_rt_sync(log):
     time.sleep(0.06)  # Simulate massiv workload :-)
     env.sync()
     env.run(3)
+
+
+def test_run_with_untriggered_event(env):
+    env = RealtimeEnvironment(factor=0.05)
+    excinfo = pytest.raises(RuntimeError, env.run, until=env.event())
+    assert str(excinfo.value).startswith('No scheduled events left but "until"'
+                                         ' event was not triggered:')
