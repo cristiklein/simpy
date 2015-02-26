@@ -95,3 +95,16 @@ def test_triggered(env):
     result = env.run(env.process(pem(env, event)))
 
     assert result == 'i was already done'
+
+
+def test_callback_modification(env):
+    """The callbacks of an event will get set to None before actually invoking
+    the callbacks. This prevents concurrent modifications."""
+
+    def callback(event):
+        assert event.callbacks is None
+
+    event = env.event()
+    event.callbacks.append(callback)
+    event.succeed()
+    env.run(until=event)

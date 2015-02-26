@@ -202,10 +202,11 @@ class Environment(BaseEnvironment):
         except IndexError:
             raise EmptySchedule()
 
-        # Process callbacks of the event.
-        for callback in event.callbacks:
+        # Process callbacks of the event. Set the events callbacks to None
+        # immediately to prevent concurrent modifications.
+        callbacks, event.callbacks = event.callbacks, None
+        for callback in callbacks:
             callback(event)
-        event.callbacks = None
 
         if not event.ok and not hasattr(event, 'defused'):
             # The event has failed and has not been defused. Crash the
