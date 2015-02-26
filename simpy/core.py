@@ -46,6 +46,19 @@ class EmptySchedule(Exception):
     pass
 
 
+class StopSimulation(Exception):
+    """Indicates that the simulation should stop now."""
+
+    @classmethod
+    def raise_(cls, event):
+        """Used as callback in :meth:`BaseEnvironment.run()` to stop the
+        simulation when the *until* event occurred."""
+        if event.ok:
+            raise cls(event.value)
+        else:
+            raise event.value
+
+
 class BaseEnvironment(object):
     """Base class for event processing environments.
 
@@ -97,45 +110,38 @@ class BaseEnvironment(object):
           until the environment's time reaches *until*.
 
         """
-        if not (until is None or isinstance(until, Event)):
-            # Assume that *until* is a number if it is not None and
-            # not an event.  Create a Timeout(until) in this case.
-            at = float(until)
-
-            if at <= self.now:
-                raise ValueError('until(=%s) should be > the current '
-                                 'simulation time.' % at)
-
-            # Schedule the event with before all regular timeouts.
-            until = Event(self)
-            until.ok = True
-            until._value = None
-            self.schedule(until, URGENT, at - self.now)
-
         if until is not None:
-            if until.callbacks is None:
+            if not isinstance(until, Event):
+                # Assume that *until* is a number if it is not None and
+                # not an event.  Create a Timeout(until) in this case.
+                at = float(until)
+
+                if at <= self.now:
+                    raise ValueError('until(=%s) should be > the current '
+                                     'simulation time.' % at)
+
+                # Schedule the event with before all regular timeouts.
+                until = Event(self)
+                until.ok = True
+                until._value = None
+                self.schedule(until, URGENT, at - self.now)
+
+            elif until.callbacks is None:
                 # Until event has already been processed.
                 return until.value
 
-            until.callbacks.append(_stop_simulate)
+            until.callbacks.append(StopSimulation.raise_)
 
         try:
             while True:
                 self.step()
+        except StopSimulation as exc:
+            return exc.args[0]  # == until.value
         except EmptySchedule:
-            pass
-
-        if until is None:
-            return
-
-        if not until.triggered:
-            raise RuntimeError('No scheduled events left but "until" event '
-                               'was not triggered: %s' % until)
-
-        if not until.ok:
-            raise until.value
-
-        return until.value
+            if until is not None:
+                assert not until.triggered
+                raise RuntimeError('No scheduled events left but "until" '
+                                   'event was not triggered: %s' % until)
 
     def exit(self, value=None):
         """Stop the current process, optionally providing a ``value``.
@@ -221,9 +227,3 @@ class Environment(BaseEnvironment):
             exc = type(event._value)(*event._value.args)
             exc.__cause__ = event._value
             raise exc
-
-
-def _stop_simulate(event):
-    """Used as callback in :meth:`BaseEnvironment.simulate()` to stop the
-    simulation when the *until* event occurred."""
-    raise EmptySchedule()
