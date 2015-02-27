@@ -110,21 +110,23 @@ class BaseResource(object):
 
     Subclasses can customize the resource by:
 
-    - providing different :attr:`PutQueue` and :attr:`GetQueue` types,
-    - providing :class:`Put` respectively :class:`Get` events,
+    - providing custom :attr:`PutQueue` and :attr:`GetQueue` types,
+    - providing custom :class:`Put` respectively :class:`Get` events,
     - and implementing the request processing behaviour through the methods
       ``_do_get()`` and ``_do_put()``.
 
     """
     PutQueue = list
     """The type to be used for the :attr:`put_queue`. It is a plain
-    :class:`list` by default. The type must support iteration and provide
-    ``append()`` and ``remove()`` operations."""
+    :class:`list` by default. The type must support index access (e.g.
+    ``__getitem__()`` and ``__len__()``) as well as provide ``append()`` and
+    ``pop()`` operations."""
 
     GetQueue = list
     """The type to be used for the :attr:`get_queue`. It is a plain
-    :class:`list` by default. The type must support iteration and provide
-    ``append()`` and ``remove()`` operations."""
+    :class:`list` by default. The type must support index access (e.g.
+    ``__getitem__()`` and ``__len__()``) as well as provide ``append()`` and
+    ``pop()`` operations."""
 
     def __init__(self, env, capacity):
         self._env = env
@@ -172,11 +174,20 @@ class BaseResource(object):
         If :meth:`_do_put` returns ``False``, the iteration is stopped early.
         """
 
-        if get_event is not None:
-            self.get_queue.remove(get_event)
+        # Maintain queue invariant: All put requests must be untriggered.
+        # This code is not very pythonic because the queue interface should be
+        # simple (only append(), pop(), __getitem__() and __len__() are
+        # required).
+        idx = 0
+        while idx < len(self.put_queue):
+            put_event = self.put_queue[idx]
+            proceed = self._do_put(put_event)
+            if put_event.triggered:
+                assert self.put_queue.pop(idx) == put_event
+            else:
+                idx += 1
 
-        for put_event in self.put_queue:
-            if not put_event.triggered and not self._do_put(put_event):
+            if not proceed:
                 break
 
     def _do_get(self, event):
@@ -203,9 +214,18 @@ class BaseResource(object):
         If :meth:`_do_get` returns ``False``, the iteration is stopped early.
         """
 
-        if put_event is not None:
-            self.put_queue.remove(put_event)
+        # Maintain queue invariant: All get requests must be untriggered.
+        # This code is not very pythonic because the queue interface should be
+        # simple (only append(), pop(), __getitem__() and __len__() are
+        # required).
+        idx = 0
+        while idx < len(self.get_queue):
+            get_event = self.get_queue[idx]
+            proceed = self._do_get(get_event)
+            if get_event.triggered:
+                assert self.get_queue.pop(idx) == get_event
+            else:
+                idx += 1
 
-        for get_event in self.get_queue:
-            if not get_event.triggered and not self._do_get(get_event):
+            if not proceed:
                 break
