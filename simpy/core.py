@@ -50,7 +50,7 @@ class StopSimulation(Exception):
     """Indicates that the simulation should stop now."""
 
     @classmethod
-    def raise_(cls, event):
+    def callback(cls, event):
         """Used as callback in :meth:`BaseEnvironment.run()` to stop the
         simulation when the *until* event occurred."""
         if event.ok:
@@ -130,7 +130,7 @@ class BaseEnvironment(object):
                 # Until event has already been processed.
                 return until.value
 
-            until.callbacks.append(StopSimulation.raise_)
+            until.callbacks.append(StopSimulation.callback)
 
         try:
             while True:
