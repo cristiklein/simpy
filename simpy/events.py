@@ -450,11 +450,16 @@ class Condition(Event):
         self._events = events if type(events) is tuple else tuple(events)
         self._count = 0
 
+        if not self._events:
+            # Immediately succeed if no events are provided.
+            self.succeed(ConditionValue())
+            return
+
         # Check if events belong to the same environment.
         for event in self._events:
             if self.env != event.env:
                 raise ValueError('It is not allowed to mix events from '
-                        'different environments')
+                                 'different environments')
 
         # Check if the condition is met for each processed event. Attach
         # _check() as a callback otherwise.
