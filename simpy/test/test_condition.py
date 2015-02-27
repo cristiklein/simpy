@@ -307,14 +307,10 @@ def test_nested_result_order(env):
 def test_all_of_empty_list(env):
     """AllOf with an empty list should immediately be triggered."""
     evt = env.all_of([])
-    env.run(evt)
     assert evt.triggered
-    assert env.now == 0
 
 
 def test_any_of_empty_list(env):
     """AnyOf with an empty list should immediately be triggered."""
     evt = env.any_of([])
-    env.run(evt)
     assert evt.triggered
-    assert env.now == 0
