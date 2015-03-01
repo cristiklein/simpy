@@ -1,6 +1,19 @@
 Changelog for SimPy
 ===================
 
+3.0.7 - 2015-03-01
+------------------
+
+- [FIX] State of resources and requests were inconsistent before the request
+  has been processed (`issue #62 <https://bitbucket.org/simpy/simpy/issue/
+  62>`__).
+- [FIX] Empty conditions were never triggered (regression in 3.0.6, `issue #63
+  <https://bitbucket.org/simpy/simpy/issue/63>`__).
+- [FIX] ``Environment.run()`` will fail if the until event does not get
+  triggered (`issue #64 <https://bitbucket.org/simpy/simpy/issue/64>`__).
+- [FIX] Callback modification during event processing is now prohibited (thanks
+  to Andreas Beham).
+
 3.0.6 - 2015-01-30
 ------------------
 
