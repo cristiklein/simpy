@@ -30,11 +30,11 @@ def check_duration(real, expected):
 @pytest.mark.parametrize('factor', [0.1, 0.05, 0.15])
 def test_rt(log, factor):
     """Basic tests for run()."""
+    start = monotonic()
     env = RealtimeEnvironment(factor=factor)
     env.process(process(env, log, 0.01, 1))
     env.process(process(env, log, 0.02, 1))
 
-    start = monotonic()
     env.run(2)
     duration = monotonic() - start
 
@@ -44,8 +44,8 @@ def test_rt(log, factor):
 
 def test_rt_multiple_call(log):
     """Test multiple calls to run()."""
-    env = RealtimeEnvironment(factor=0.05)
     start = monotonic()
+    env = RealtimeEnvironment(factor=0.05)
 
     env.process(process(env, log, 0.01, 2))
     env.process(process(env, log, 0.01, 3))
@@ -77,10 +77,10 @@ def test_rt_slow_sim_default_behavior(log):
 
 def test_rt_slow_sim_no_error(log):
     """Test ignoring slow simulations."""
+    start = monotonic()
     env = RealtimeEnvironment(factor=0.05, strict=False)
     env.process(process(env, log, 0.1, 1))
 
-    start = monotonic()
     env.run(2)
     duration = monotonic() - start
 
