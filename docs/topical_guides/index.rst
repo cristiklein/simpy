@@ -16,8 +16,8 @@ you are looking for.
    process_interaction
    resources
    real-time-simulations
+   monitoring
    porting_from_simpy2
 
-.. - monitoring
 .. - analyzing results (numpy, matploblib, ...)
 .. - integration with guis
