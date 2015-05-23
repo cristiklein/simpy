@@ -1,0 +1,110 @@
+{%- extends "layout.html" %}
+{%- set title = 'Overview' %}
+
+{%- block body %}
+<div style="margin: 0 0 .5em 1em; float: right;">
+    <img src="_static/simpy-logo-small.png" style="width: 200px;">
+</div>
+
+<h1>Welcome to SimPy</h1>
+
+<p>Event discrete simulation for Python.</p>
+<p><a href="https://plus.google.com/101634625602509193865" rel="publisher">News</a> |
+   <a href="https://pypi.python.org/pypi/simpy">PyPI</a> | 
+   <a href="https://bitbucket.org/simpy/simpy/">Bitbucket</a> |
+   <a href="https://bitbucket.org/simpy/simpy/issues?status=new&status=open">Issues</a> |
+   <a href="https://lists.sourceforge.net/lists/listinfo/simpy-users">Mailing list</a></p>
+
+<div style="margin: 0 0 .5em 1em; float: right;">
+<div class="highlight-python"><div class="highlight"><pre style="padding-right: 2em;"><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">simpy</span>
+<span class="go">&gt;&gt;&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="k">def</span> <span class="nf">clock</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">tick</span><span class="p">):</span>
+<span class="gp">... </span>    <span class="k">while</span> <span class="bp">True</span><span class="p">:</span>
+<span class="gp">... </span>        <span class="k">print</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">env</span><span class="o">.</span><span class="n">now</span><span class="p">)</span>
+<span class="gp">... </span>        <span class="k">yield</span> <span class="n">env</span><span class="o">.</span><span class="n">timeout</span><span class="p">(</span><span class="n">tick</span><span class="p">)</span>
+<span class="gp">...</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span> <span class="o">=</span> <span class="n">simpy</span><span class="o">.</span><span class="n">Environment</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">clock</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s">&#39;fast&#39;</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">))</span>
+<span class="go">&lt;Process(clock) object at 0x...&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span><span class="o">.</span><span class="n">process</span><span class="p">(</span><span class="n">clock</span><span class="p">(</span><span class="n">env</span><span class="p">,</span> <span class="s">&#39;slow&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
+<span class="go">&lt;Process(clock) object at 0x...&gt;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">env</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">until</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<span class="go">fast 0</span>
+<span class="go">slow 0</span>
+<span class="go">fast 0.5</span>
+<span class="go">slow 1</span>
+<span class="go">fast 1.0</span>
+<span class="go">fast 1.5</span>
+</pre></div>
+</div>
+</div>
+
+<p>SimPy is a process-based discrete-event simulation framework based on
+standard Python. Its event dispatcher is based on Python’s <a
+href="http://docs.python.org/3/glossary.html#term-generator">generators</a> and
+can also be used for asynchronous networking or to implement multi-agent
+systems (with both, simulated and real communication).</p>
+
+<p>Processes in SimPy are defined by Python generator functions and can, for
+example, be used to model active components like customers, vehicles or agents.
+SimPy also provides various types of shared <em>resources</em> to model limited
+capacity congestion points (like servers, checkout counters and tunnels).</p>
+
+<p>Simulations can be performed “as fast as possible”, in real time (wall clock
+time) or by manually stepping through the events.</p>
+
+<p>Though it is theoretically possible to do continuous simulations with SimPy,
+it has no features that help you with that. On the other hand, SimPy is
+overkill for simulations with a fixed step size where your processes don’t
+interact with each other or with shared resources.</p>
+
+<p>The SimPy distribution contains tutorials, in-depth documentation, and a large
+number of examples.</p>
+
+<p>SimPy is released under the MIT License. Simulation model developers are
+encouraged to share their SimPy modeling techniques with the SimPy community.
+Please post a message to the <a
+href="http://lists.sourceforge.net/lists/listinfo/simpy-users">SimPy-Users
+mailing list</a>.</p>
+
+<p>There is an introductory talk that explains SimPy’s concepts and provides
+some examples: <a href="https://www.youtube.com/watch?v=Bk91DoAEcjY">watch
+the video</a> or <a
+href="http://stefan.sofa-rockers.org/downloads/simpy-ep14.pdf">get the
+slides</a>.</p>
+
+<h2 style="clear: both;">Documentation</h2>
+
+<table class="contentstable" align="center" style="margin-left: 30px">
+    <tr>
+        <td width="50%">
+            <p class="biglink"><a class="biglink" href="{{ pathto("simpy_intro/index") }}">SimPy in 10 Minutes</a><br />
+            <span class="linkdescr">learn the basics of SimPy in just a couple of minutes</span></p>
+        </td>
+        <td width="50%">
+            <p class="biglink"><a class="biglink" href="{{ pathto("topical_guides/index") }}">Topical Guides</a><br />
+            <span class="linkdescr">guides covering various features of SimPy in-depth</span></p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("examples/index") }}">Examples</a><br />
+            <span class="linkdescr">usage examples for SimPy</span></p>
+        </td>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("api_reference/index") }}">API Reference</a><br />
+            <span class="linkdescr">detailed description of SimPy’s API</span></p>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("contents") }}">Contents</a><br />
+            <span class="linkdescr">for a complete overview</span></p>
+        </td>
+        <td>
+            <p class="biglink"><a class="biglink" href="{{ pathto("about/index") }}">About</a><br />
+            <span class="linkdescr">non-technical stuff (history, change logs, …)</span></p>
+        </td>
+    </tr>
+</table>
+{%- endblock %}
