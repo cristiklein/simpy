@@ -239,15 +239,10 @@ In order to debug or visualize a simulation, you might want to trace when
 events are created, triggered and processed.  Maybe you also want to trace
 which process created an event and which processes waited for an event.
 
-If you want to to that, you would need to monkey-patch SimPy in a lot of
-different places:
-
-- Event creation: ``__init__()`` of all event types
-
-- Event triggering: ``Event.succeed()`` / ``Event.fail()``
-  / ``Event.trigger()``
-
-- Event processing: ``Environment.step()``
+The two most interesting functions for these use-cases are
+:meth:`Environment.step()`, where all events get processed, and
+:meth:`Environment.schedule()`, where all events get scheduled and inserted
+into SimPy's event queue.
 
 Here is an examples that shows how :meth:`Environment.step()` can be patched in
 order to trace all processed events:
@@ -305,3 +300,7 @@ The example above is inspired by a pull request from Steve Pothier.
 Using the same concepts, you can also patch :meth:`Environment.schedule()`.
 This would give you central access to the information when which event is
 schedule for what time.
+
+In addition to that, you could also patch some or all of SimPy's event classes,
+e.g., their `__init__()` method in order to trace when and how an event is
+initially being created.
