@@ -215,3 +215,47 @@ def test_process_exception_chaining(env):
     env.process(process_b(event))
 
     env.run()
+
+
+def test_sys_excepthook(env):
+    """Check that the default exception hook reports exception chains."""
+
+    def process_a(event):
+        yield event
+
+    def process_b(event):
+        yield event
+
+    event = env.event()
+    event.fail(RuntimeError('foo'))
+
+    env.process(process_b(env.process(process_a(event))))
+
+    try:
+        env.run()
+    except:
+        # Let the default exception hook print the traceback to the redirected
+        # standard error channel.
+        import sys
+        from simpy._compat import PY2
+
+        if PY2:
+            from io import BytesIO
+            stderr, sys.stderr = sys.stderr, BytesIO()
+        else:
+            from io import StringIO
+            stderr, sys.stderr = sys.stderr, StringIO()
+
+        sys.excepthook(*sys.exc_info())
+
+        if PY2:
+            traceback = sys.stderr.getvalue().decode()
+        else:
+            traceback = sys.stderr.getvalue()
+
+        sys.stderr = stderr
+
+        # Check if frames of process_a and process_b are visible in the
+        # tracebabck.
+        assert 'process_a' in traceback
+        assert 'process_b' in traceback

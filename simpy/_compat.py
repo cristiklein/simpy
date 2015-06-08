@@ -20,6 +20,9 @@ if PY2:
     _format_exception = traceback.format_exception
 
     def print_exception(etype, value, tb, limit=None, file=None):
+        if file is None:
+            file = sys.stderr
+
         # Build the exception chain.
         chain = deque()
         cause = value
@@ -63,3 +66,5 @@ if PY2:
         return lines
 
     traceback.format_exception = format_exception
+
+    sys.excepthook = print_exception
