@@ -30,12 +30,20 @@ class RealtimeEnvironment(Environment):
 
         self.env_start = initial_time
         self.real_start = time()
-        self.factor = factor
+        self._factor = factor
+        self._strict = strict
+
+    @property
+    def factor(self):
         """Scaling factor of the real-time."""
-        self.strict = strict
+        return self._factor
+
+    @property
+    def strict(self):
         """Running mode of the environment. :meth:`step()` will raise a
         :exc:`RuntimeError` if this is set to ``True`` and the processing of
         events takes too long."""
+        return self._strict
 
     def sync(self):
         """Synchronize the internal time with the current wall-clock time.
