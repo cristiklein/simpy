@@ -8,10 +8,10 @@ import sys
 PY2 = sys.version_info[0] == 2
 
 
-if PY2:
-    # Python 2.x does not report exception chains. To emulate the behaviour of
+if PY2:  # NOQA
+    # Python 2.x does not report exception chains.  To emulate the behaviour of
     # Python 3 traceback.format_exception and traceback.print_exception are
-    # overwritten with the custom functions. The original functions
+    # overwritten with the custom functions.  The original functions
     # are stored in _format_exception and _print_exception.
     import traceback
     from collections import deque
@@ -35,9 +35,10 @@ if PY2:
         # Print the exception chain.
         for cause in chain:
             _print_exception(type(cause), cause,
-                    cause.__dict__.get('__traceback__', None), limit, file)
+                             cause.__dict__.get('__traceback__', None),
+                             limit, file)
             traceback._print(file, '\nThe above exception was the direct '
-                      'cause of the following exception:\n')
+                                   'cause of the following exception:\n')
 
         _print_exception(etype, value, tb, limit, file)
 
@@ -56,10 +57,11 @@ if PY2:
         # Format the exception chain.
         lines = []
         for cause in chain:
-            lines.extend(_format_exception(type(cause), cause,
-                    cause.__dict__.get('__traceback__', None), limit))
+            lines.extend(_format_exception(
+                type(cause), cause, cause.__dict__.get('__traceback__', None),
+                limit))
             lines.append('\nThe above exception was the direct '
-                      'cause of the following exception:\n\n')
+                         'cause of the following exception:\n\n')
 
         lines.extend(_format_exception(etype, value, tb, limit))
 
