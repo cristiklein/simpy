@@ -16,7 +16,6 @@ This module also defines the :exc:`Interrupt` exception.
 
 """
 from inspect import isgenerator
-from collections import OrderedDict
 
 from simpy._compat import PY2
 

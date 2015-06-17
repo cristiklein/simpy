@@ -2,6 +2,8 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
+import re
+import textwrap
 import traceback
 
 import pytest
@@ -71,8 +73,6 @@ def test_exception_chaining(env):
     visible in the stacktrace of the exception.
 
     """
-    import textwrap, re
-
     def child(env):
         yield env.timeout(1)
         raise RuntimeError('foo')
@@ -122,7 +122,7 @@ def test_exception_chaining(env):
           File "...simpy/core.py", line ..., in step
             raise exc
         RuntimeError: foo
-        """)).replace('\.\.\.', '.+')
+        """)).replace('\.\.\.', '.+')  # NOQA
 
         assert re.match(expected, trace), 'Traceback mismatch'
 
@@ -197,14 +197,14 @@ def test_process_exception_chaining(env):
     def process_a(event):
         try:
             yield event
-        except RuntimeError as e:
+        except RuntimeError:
             stacktrace = traceback.format_exc()
             assert 'process_b' not in stacktrace
 
     def process_b(event):
         try:
             yield event
-        except RuntimeError as e:
+        except RuntimeError:
             stacktrace = traceback.format_exc()
             assert 'process_a' not in stacktrace
 

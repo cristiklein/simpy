@@ -492,8 +492,8 @@ def test_filter_store_get_after_mismatch(env):
 def test_filter_calls_best_case(env):
     """The filter function is called every item in the store until a match is
     found. In the best case the first item already matches."""
-
     log = []
+
     def log_filter(item):
         log.append('check %s' % item)
         return True
