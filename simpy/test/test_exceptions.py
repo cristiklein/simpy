@@ -94,35 +94,35 @@ def test_exception_chaining(env):
 
         expected = re.escape(textwrap.dedent("""\
         Traceback (most recent call last):
-          File "...simpy/test/test_exceptions.py", line ..., in child
+          File "{path}simpy/test/test_exceptions.py", line {line}, in child
             raise RuntimeError('foo')
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "...simpy/test/test_exceptions.py", line ..., in parent
+          File "{path}simpy/test/test_exceptions.py", line {line}, in parent
             yield child_proc
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "...simpy/test/test_exceptions.py", line ..., in grandparent
+          File "{path}simpy/test/test_exceptions.py", line {line}, in grandparent
             yield parent_proc
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "...simpy/test/test_exceptions.py", line ..., in test_exception_chaining
+          File "{path}simpy/test/test_exceptions.py", line {line}, in test_exception_chaining
             env.run()
-          File "...simpy/core.py", line ..., in run
+          File "{path}simpy/core.py", line {line}, in run
             self.step()
-          File "...simpy/core.py", line ..., in step
+          File "{path}simpy/core.py", line {line}, in step
             raise exc
         RuntimeError: foo
-        """)).replace('\.\.\.', '.+')  # NOQA
+        """)).replace(r'\{line\}', r'\d+').replace(r'\{path\}', r'.*')  # NOQA
 
         assert re.match(expected, trace), 'Traceback mismatch'
 
