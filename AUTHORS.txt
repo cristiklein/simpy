@@ -11,5 +11,10 @@ pieces that may get forgotten :-)
 
 We’d also like to thank:
 
-- Johannes Koomer for a fix for Store._put.
-- Steven Kennedy for a lot of documentation and example fixes
+- Johannes Koomer
+- Steven Kennedy
+- Matthew Grogan
+- Sean Reed
+- Christoph Körner
+- Andreas Beham
+- Larissa Reis
