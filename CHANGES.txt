@@ -1,7 +1,15 @@
 Changelog for SimPy
 ===================
 
-3.0.7 - 2015-03-01
+3.0.8 – 2015-06-23
+------------------
+
+- [NEW] Added a monitoring guide to the documentation.
+- [FIX] Improved packaging (thanks to Larissa Reis).
+- [FIX] Fixed and improved various test cases.
+
+
+3.0.7 – 2015-03-01
 ------------------
 
 - [FIX] State of resources and requests were inconsistent before the request
@@ -13,6 +21,7 @@ Changelog for SimPy
   triggered (`issue #64 <https://bitbucket.org/simpy/simpy/issue/64>`__).
 - [FIX] Callback modification during event processing is now prohibited (thanks
   to Andreas Beham).
+
 
 3.0.6 - 2015-01-30
 ------------------

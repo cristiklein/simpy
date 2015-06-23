@@ -15,6 +15,15 @@ Python's generators as they proved to work very well.
 The package has been hosted on Sourceforge.net since September 15th, 2002.
 In June 2012, the project moved to Bitbucket.org.
 
+
+3.0.8 – 2015-06-23
+==================
+
+- [NEW] Added a monitoring guide to the documentation.
+- [FIX] Improved packaging (thanks to Larissa Reis).
+- [FIX] Fixed and improved various test cases.
+
+
 3.0.7 - 2015-03-01
 ==================
 
@@ -27,6 +36,7 @@ In June 2012, the project moved to Bitbucket.org.
   triggered (`issue #64 <https://bitbucket.org/simpy/simpy/issue/64>`__).
 - [FIX] Callback modification during event processing is now prohibited (thanks
   to Andreas Beham).
+
 
 3.0.6 - 2015-01-30
 ==================
@@ -43,6 +53,7 @@ In June 2012, the project moved to Bitbucket.org.
 - [FIX] Only send copies of exceptions into processes to prevent traceback
   modifications.
 - [FIX] Documentation improvements.
+
 
 3.0.5 – 2014-05-14
 ==================
