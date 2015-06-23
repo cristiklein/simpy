@@ -2,6 +2,7 @@
 Tests for forwarding exceptions from child to parent processes.
 
 """
+import platform
 import re
 import textwrap
 import traceback
@@ -123,6 +124,9 @@ def test_exception_chaining(env):
             raise exc
         RuntimeError: foo
         """)).replace(r'\{line\}', r'\d+').replace(r'\{path\}', r'.*')  # NOQA
+
+        if platform.system() == 'Windows':
+            expected = expected.replace(r'\/', r'\\')
 
         assert re.match(expected, trace), 'Traceback mismatch'
 
