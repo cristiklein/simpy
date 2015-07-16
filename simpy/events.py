@@ -15,8 +15,6 @@ used, there are several specialized subclasses of it.
 This module also defines the :exc:`Interrupt` exception.
 
 """
-from inspect import isgenerator
-
 from simpy._compat import PY2
 
 if PY2:
@@ -268,7 +266,16 @@ class Process(Event):
 
     """
     def __init__(self, env, generator):
-        if not isgenerator(generator):
+        if not hasattr(generator, 'throw'):
+            # Implementation note: Python implementations differ in the
+            # generator types they provide. Cython adds its own generator type
+            # in addition to the CPython type, which renders a type check
+            # impractical. To workaround this issue, we check for attribute
+            # name instead of type and optimistically assume that all objects
+            # with a ``throw`` attribute are generators (the more intuitive
+            # name ``__next__`` cannot be used because it was renamed from
+            # ``next`` in Python 2).
+            # Remove this workaround if it causes issues in production!
             raise ValueError('%s is not a generator.' % generator)
 
         # NOTE: The following initialization code is inlined from
