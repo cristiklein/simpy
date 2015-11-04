@@ -24,13 +24,13 @@ number of examples.
 
 SimPy is released under the MIT License. Simulation model developers are
 encouraged to share their SimPy modeling techniques with the SimPy community.
-Please post a message to the `SimPy-Users mailing list`__.
+Please post a message to the `SimPy mailing list`__.
 
 There is an introductory talk that explains SimPy’s concepts and provides some
 examples: `watch the video`__ or `get the slides`__.
 
 __ http://docs.python.org/3/glossary.html#term-generator
-__ http://lists.sourceforge.net/lists/listinfo/simpy-users
+__ https://groups.google.com/forum/#!forum/python-simpy
 __ https://www.youtube.com/watch?v=Bk91DoAEcjY
 __ http://stefan.sofa-rockers.org/downloads/simpy-ep14.pdf
 
@@ -64,6 +64,7 @@ each step:
     fast 1.0
     fast 1.5
 
+
 Installation
 ------------
 
@@ -88,12 +89,6 @@ To run SimPy’s test suite on your installation, execute:
 
     $ python -c "import simpy; simpy.test()"
 
-Of course, you can keep working with SimPy 2:
-
-.. code-block:: bash
-
-    $ pip install "simpy>=2.3,<3"
-
 
 Getting started
 ---------------
@@ -111,7 +106,7 @@ Documentation and Help
 
 You can find `a tutorial`__, `examples`__, `topical guides`__ and an `API
 reference`__, as well as some information about `SimPy and its history`__ in
-our `online documentation`__. For more help, contact the `SimPy-Users mailing
+our `online documentation`__. For more help, contact the `SimPy mailing
 list`__. SimPy users are pretty helpful. You can, of course, also dig through
 the `source code`__.
 
@@ -123,7 +118,7 @@ __ https://simpy.readthedocs.org/en/latest/topical_guides/index.html
 __ https://simpy.readthedocs.org/en/latest/api_reference/index.html
 __ https://simpy.readthedocs.org/en/latest/about/index.html
 __ https://simpy.readthedocs.org/
-__ mailto:simpy-users@lists.sourceforge.net
+__ mailto:python-simpy@googlegroups.com
 __ https://bitbucket.org/simpy/simpy/src
 __ https://bitbucket.org/simpy/simpy/issues?status=new&status=open
 
