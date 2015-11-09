@@ -15,7 +15,7 @@ actions.
 
 In SimPy 1, you implemented a process by sub-classing ``Process``. The instance
 of such a subclass carried both, process and simulation internal information,
-whereat the latter wasn't of any use to the process itself. The sequence of
+whereas the latter wasn't of any use to the process itself. The sequence of
 actions of the process was specified in a method of the subclass, called the
 *process execution method* (or PEM in short). A PEM interacted with the
 simulation by yielding one of several keywords defined in the simulation
@@ -23,7 +23,7 @@ package.
 
 The simulation itself was executed via module level functions. The simulation
 state was stored in the global scope. This made it very easy to implement and
-execute a simulation (despite from heaving to inherit from *Process* and
+execute a simulation (despite from having to inherit from *Process* and
 instantianting the processes before starting their PEMs). However, having all
 simulation state global makes it hard to parallelize multiple simulations.
 
