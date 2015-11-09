@@ -23,7 +23,7 @@ package.
 
 The simulation itself was executed via module level functions. The simulation
 state was stored in the global scope. This made it very easy to implement and
-execute a simulation (despite from heaving to inherit from *Process* and
+execute a simulation (despite from having to inherit from *Process* and
 instantianting the processes before starting their PEMs). However, having all
 simulation state global makes it hard to parallelize multiple simulations.
 
