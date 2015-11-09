@@ -15,7 +15,7 @@ actions.
 
 In SimPy 1, you implemented a process by sub-classing ``Process``. The instance
 of such a subclass carried both, process and simulation internal information,
-whereat the latter wasn't of any use to the process itself. The sequence of
+whereas the latter wasn't of any use to the process itself. The sequence of
 actions of the process was specified in a method of the subclass, called the
 *process execution method* (or PEM in short). A PEM interacted with the
 simulation by yielding one of several keywords defined in the simulation
