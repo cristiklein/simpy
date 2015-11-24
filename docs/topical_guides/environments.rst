@@ -84,8 +84,8 @@ The most important method here is :meth:`Environment.run()`:
 To step through the simulation event by event, the environment offers
 :meth:`~Environment.peek()` and :meth:`~Environment.step()`.
 
-``peek()`` returns the time of the next scheduled event of *infinity*
-(``float('inf')``) of no more event is scheduled.
+``peek()`` returns the time of the next scheduled event or *infinity*
+(``float('inf')``) if no future events are scheduled.
 
 ``step()`` processes the next scheduled event. It raises an
 :class:`EmptySchedule` exception if no event is available.
