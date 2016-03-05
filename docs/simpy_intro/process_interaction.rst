@@ -91,7 +91,7 @@ waiting for 3 time steps, it interrupts that process.
 
 Interrupts are thrown into process functions as :exc:`~simpy.events.Interrupt`
 exceptions that can (should) be handled by the interrupted process. The process
-can than decide what to do next (e.g., continuing to wait for the original
+can then decide what to do next (e.g., continuing to wait for the original
 event or yielding a new event)::
 
     >>> class Car(object):
