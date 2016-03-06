@@ -27,7 +27,7 @@ a container with a, usually limited, *capacity*. Processes can either try to
 *put* something into the resource or try to *get* something out. If the
 resource is full or empty, they have to *queue* up and wait.
 
-This is roughly, how every resource looks like::
+This is roughly how every resource looks::
 
    BaseResource(capacity):
       put_queue
@@ -36,7 +36,7 @@ This is roughly, how every resource looks like::
       put(): event
       get(): event
 
-Every resources a maximum capacity and two queues, one for processes that want
+Every resource has a maximum capacity and two queues: one for processes that want
 to put something into it and one for processes that want to get something out.
 The ``put()`` and ``get()`` methods both return an event that is triggered when
 the corresponding action was successful.
@@ -79,8 +79,8 @@ resources to become a user (or to "own" them) and have to *release* them once
 they are done (e.g., vehicles arrive at the gas station, use a fuel-pump, if
 one is available, and leave when they are done).
 
-Requesting a resources is modeled as "putting a process' token into the
-resources" and releasing a resources correspondingly as "getting a process'
+Requesting a resource is modeled as "putting a process' token into the
+resource" and releasing a resource correspondingly as "getting a process'
 token out of the resource". Thus, calling ``request()``/``release()`` is
 equivalent to calling ``put()``/``get()``. Releasing a resource will always
 succeed immediately.
@@ -105,7 +105,7 @@ Instead of just counting its current users, it stores the request event as an
 "access token" for each user. This is, for example, useful for adding
 preemption (see below).
 
-Here is as basic example for using a resource:
+Here is a basic example for using a resource:
 
 .. code-block:: python
 
@@ -137,8 +137,8 @@ request events can be used as context manager:
    >>> user = env.process(resource_user(env, res))
    >>> env.run()
 
-Resources allow you retrieve the list of users and queued as well as the
-number of users and resource's capacity:
+Resources allow you to retrieve lists of the current users or queued users,
+the number of current users and the resource's capacity:
 
 .. code-block:: python
 
@@ -189,7 +189,7 @@ requests will gain access to the resource earlier than less important ones.
 Priority is expressed by integer numbers; smaller numbers mean a higher
 priority.
 
-Apart form that, it works like a normal *Resource*:
+Apart from that, it works like a normal *Resource*:
 
 .. code-block:: python
 
@@ -262,7 +262,7 @@ preempt another resource user. It will still be put in the queue according to
 its priority, though.
 
 The implementation of *PreemptiveResource* values priorities higher than
-preemption. That means preempt request are not allowed to cheat and jump over
+preemption. That means preempt requests are not allowed to cheat and jump over
 a higher prioritized request. The following example shows that preemptive low
 priority requests cannot queue-jump over high priority requests:
 
