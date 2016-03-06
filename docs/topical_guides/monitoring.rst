@@ -110,7 +110,7 @@ to monitor:
 In contrast to your processes, you don't have direct access to the code of the
 built-in resource classes.  But this doesn't prevent you from monitoring them.
 
-Monkey-patching some of a resource's methods allows you gather all the data
+Monkey-patching some of a resource's methods allows you to gather all the data
 you need.
 
 Here is an example that demonstrate how you can add callbacks to
@@ -136,29 +136,29 @@ a resource that get called just before or after a *get / request* or a *put
    ...             # This is the actual wrapper
    ...             # Call "pre" callback
    ...             if pre:
-   ...                 pre(res)
+   ...                 pre(resource)
    ...
    ...             # Perform actual operation
    ...             ret = func(*args, **kwargs)
    ...
    ...             # Call "post" callback
    ...             if post:
-   ...                 post(res)
+   ...                 post(resource)
    ...
    ...             return ret
    ...         return wrapper
    ...
    ...     # Replace the original operations with our wrapper
    ...     for name in ['put', 'get', 'request', 'release']:
-   ...         if hasattr(res, name):
-   ...             setattr(res, name, get_wrapper(getattr(res, name)))
+   ...         if hasattr(resource, name):
+   ...             setattr(resource, name, get_wrapper(getattr(resource, name)))
    >>>
    >>> def monitor(data, resource):
    ...     """This is our monitoring callback."""
    ...     item = (
-   ...         res._env.now,  # The current simulation time
-   ...         res.count,  # The number of users
-   ...         len(res.queue),  # The number of queued processes
+   ...         resource._env.now,  # The current simulation time
+   ...         resource.count,  # The number of users
+   ...         len(resource.queue),  # The number of queued processes
    ...     )
    ...     data.append(item)
    >>>
@@ -244,7 +244,7 @@ The two most interesting functions for these use-cases are
 :meth:`Environment.schedule()`, where all events get scheduled and inserted
 into SimPy's event queue.
 
-Here is an examples that shows how :meth:`Environment.step()` can be patched in
+Here is an example that shows how :meth:`Environment.step()` can be patched in
 order to trace all processed events:
 
 .. code-block:: python
@@ -299,7 +299,7 @@ The example above is inspired by a pull request from Steve Pothier.
 
 Using the same concepts, you can also patch :meth:`Environment.schedule()`.
 This would give you central access to the information when which event is
-schedule for what time.
+scheduled for what time.
 
 In addition to that, you could also patch some or all of SimPy's event classes,
 e.g., their `__init__()` method in order to trace when and how an event is
