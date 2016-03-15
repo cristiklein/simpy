@@ -182,10 +182,10 @@ class BaseResource(object):
         while idx < len(self.put_queue):
             put_event = self.put_queue[idx]
             proceed = self._do_put(put_event)
-            if put_event.triggered:
-                assert self.put_queue.pop(idx) == put_event
-            else:
+            if not put_event.triggered:
                 idx += 1
+            elif self.put_queue.pop(idx) != put_event:
+                raise RuntimeError('put_queue corrupted')
 
             if not proceed:
                 break
@@ -222,10 +222,10 @@ class BaseResource(object):
         while idx < len(self.get_queue):
             get_event = self.get_queue[idx]
             proceed = self._do_get(get_event)
-            if get_event.triggered:
-                assert self.get_queue.pop(idx) == get_event
-            else:
+            if not get_event.triggered:
                 idx += 1
+            elif self.get_queue.pop(idx) != get_event:
+                raise RuntimeError('get_queue corrupted')
 
             if not proceed:
                 break
