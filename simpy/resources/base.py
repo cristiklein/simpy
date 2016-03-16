@@ -185,7 +185,7 @@ class BaseResource(object):
             if not put_event.triggered:
                 idx += 1
             elif self.put_queue.pop(idx) != put_event:
-                raise RuntimeError('put_queue corrupted')
+                raise RuntimeError('Put queue invariant violated')
 
             if not proceed:
                 break
@@ -225,7 +225,7 @@ class BaseResource(object):
             if not get_event.triggered:
                 idx += 1
             elif self.get_queue.pop(idx) != get_event:
-                raise RuntimeError('get_queue corrupted')
+                raise RuntimeError('Get queue invariant violated')
 
             if not proceed:
                 break
