@@ -39,6 +39,10 @@ def test_resource(env, log):
     assert log == [('a', 1), ('b',  2)]
 
 
+def test_resource_capacity(env):
+    pytest.raises(ValueError, simpy.Resource, env, 0)
+
+
 def test_resource_context_manager(env, log):
     """The event that ``Resource.request()`` returns can be used as
     Context Manager."""
@@ -384,6 +388,12 @@ def test_initial_container_capacity(env):
     assert container.capacity == float('inf')
 
 
+def test_container_get_put_bounds(env):
+    container = simpy.Container(env)
+    pytest.raises(ValueError, container.get, -13)
+    pytest.raises(ValueError, container.put, -13)
+
+
 @pytest.mark.parametrize(('error', 'args'), [
     (None, [2, 1]),  # normal case
     (None, [1, 1]),  # init == capacity should be valid
@@ -439,9 +449,28 @@ def test_initial_store_capacity(env, Store):
 
 
 def test_store_capacity(env):
-    simpy.Store(env, 1)
     pytest.raises(ValueError, simpy.Store, env, 0)
     pytest.raises(ValueError, simpy.Store, env, -1)
+
+    capacity = 2
+    store = simpy.Store(env, capacity)
+    env.process((store.put(i) for i in range(capacity + 1)))
+    env.run()
+
+    # Ensure store is filled to capacity
+    assert len(store.items) == capacity
+
+
+def test_store_cancel(env):
+    store = simpy.Store(env, capacity=1)
+
+    def acquire_implicit_cancel():
+        with store.get():
+            yield env.timeout(1)
+            # implicit cancel() when exiting with-block
+
+    env.process(acquire_implicit_cancel())
+    env.run()
 
 
 def test_filter_store(env):
