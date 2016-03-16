@@ -1,0 +1,5 @@
+=========
+``simpy``
+=========
+
+.. automodule:: simpy
