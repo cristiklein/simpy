@@ -2,12 +2,15 @@ syntax: glob
 
 *.egg-info/
 *.pyc
+*.pyo
 *.swp
 *~
+__pycache__
 .DS_Store
 .coverage
 .ropeproject/
 .tox/
+.cache/
 MANIFEST
 build/
 dist/
