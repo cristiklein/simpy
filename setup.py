@@ -1,23 +1,21 @@
 # encoding: utf-8
 from setuptools import setup, find_packages
 
-import simpy
-
 
 setup(
     name='simpy',
-    version=simpy.__version__,
+    version='3.0.8',
     author='Ontje Lünsdorf, Stefan Scherfke',
     author_email='the_com at gmx.de; stefan at sofa-rockers.org',
     description='Event discrete, process based simulation for Python.',
     long_description='\n\n'.join(
         open(f, 'rb').read().decode('utf-8')
         for f in ['README.txt', 'CHANGES.txt', 'AUTHORS.txt']),
-    url='https://simpy.rtfd.org',
-    download_url='https://bitbucket.org/simpy/simpy/downloads',
+    url='https://simpy.readthedocs.org',
     license='MIT License',
     install_requires=[],
-    packages=find_packages(),
+    packages=find_packages(where='src'),
+    package_dir={'': 'src'},
     include_package_data=True,
     classifiers=[
         'Development Status :: 5 - Production/Stable',

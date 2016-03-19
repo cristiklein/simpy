@@ -95,28 +95,28 @@ def test_exception_chaining(env):
 
         expected = re.escape(textwrap.dedent("""\
         Traceback (most recent call last):
-          File "{path}simpy/test/test_exceptions.py", line {line}, in child
+          File "{path}tests/test_exceptions.py", line {line}, in child
             raise RuntimeError('foo')
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "{path}simpy/test/test_exceptions.py", line {line}, in parent
+          File "{path}tests/test_exceptions.py", line {line}, in parent
             yield child_proc
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "{path}simpy/test/test_exceptions.py", line {line}, in grandparent
+          File "{path}tests/test_exceptions.py", line {line}, in grandparent
             yield parent_proc
         RuntimeError: foo
 
         The above exception was the direct cause of the following exception:
 
         Traceback (most recent call last):
-          File "{path}simpy/test/test_exceptions.py", line {line}, in test_exception_chaining
+          File "{path}tests/test_exceptions.py", line {line}, in test_exception_chaining
             env.run()
           File "{path}simpy/core.py", line {line}, in run
             self.step()
