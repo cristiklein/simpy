@@ -21,12 +21,11 @@ extracted SimPy and type:
     $ python setup.py install
 
 You can now optionally run SimPy's tests to see if everything works fine. You
-need `pytest <http://pytest.org>`_ and `mock
-<http://www.voidspace.org.uk/python/mock/>`_ for this:
+need `pytest <http://pytest.org>`_ for this:
 
 .. code-block:: bash
 
-    $ python -c "import simpy; simpy.test()"
+    $ py.test --pyargs simpy
 
 
 Upgrading from SimPy 2
