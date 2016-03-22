@@ -1,0 +1,7 @@
+include *.cfg
+include *.ini
+include *.txt
+recursive-include docs *
+recursive-exclude docs *.pyc
+recursive-exclude docs/_build *
+recursive-exclude docs/__pycache__ *
