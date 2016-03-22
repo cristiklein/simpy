@@ -91,81 +91,73 @@ def test_wait_for_proc(env, benchmark):
 
 @pytest.mark.benchmark(group='simulation')
 def test_store_sim(benchmark):
-    num_events = benchmark(store_sim)
+    def producer(env, store, n):
+        for i in range(n):
+            yield env.timeout(1)
+            yield store.put(i)
+
+    def consumer(env, store):
+        while True:
+            yield store.get()
+            yield env.timeout(2)
+
+    def sim():
+        env = simpy.Environment()
+        store = simpy.Store(env, capacity=5)
+        for _ in range(2):
+            env.process(producer(env, store, 10))
+        for _ in range(3):
+            env.process(consumer(env, store))
+        env.run()
+        return next(env._eid)
+
+    num_events = benchmark(sim)
     assert num_events == 87
 
 
 @pytest.mark.benchmark(group='simulation')
 def test_resource_sim(benchmark):
-    num_events = benchmark(resource_sim)
+    def worker(env, resource):
+        while True:
+            with resource.request() as req:
+                yield req
+                yield env.timeout(1)
+
+    def sim():
+        env = simpy.Environment()
+        resource = simpy.Resource(env, capacity=2)
+        for _ in range(5):
+            env.process(worker(env, resource))
+        env.run(until=15)
+        return next(env._eid)
+
+    num_events = benchmark(sim)
     assert num_events == 94
 
 
 @pytest.mark.benchmark(group='simulation')
 def test_container_sim(benchmark):
-    num_events = benchmark(container_sim)
-    assert num_events == 104
-
-
-def store_sim():
-    env = simpy.Environment()
-    store = simpy.Store(env, capacity=5)
-    for _ in range(2):
-        env.process(store_sim_producer(env, store, 10))
-    for _ in range(3):
-        env.process(store_sim_consumer(env, store))
-    env.run()
-    return next(env._eid)
-
-
-def store_sim_producer(env, store, n):
-    for i in range(n):
-        yield env.timeout(1)
-        yield store.put(i)
-
-
-def store_sim_consumer(env, store):
-    while True:
-        yield store.get()
-        yield env.timeout(2)
-
-
-def resource_sim():
-    env = simpy.Environment()
-    resource = simpy.Resource(env, capacity=2)
-    for _ in range(5):
-        env.process(resource_worker(env, resource))
-    env.run(until=15)
-    return next(env._eid)
-
-
-def resource_worker(env, resource):
-    while True:
-        with resource.request() as req:
-            yield req
+    def producer(env, container, full_event):
+        while True:
+            yield container.put(1)
+            if container.level == container.capacity:
+                full_event.succeed()
             yield env.timeout(1)
 
+    def consumer(env, container):
+        while True:
+            yield container.get(1)
+            yield env.timeout(3)
 
-def container_sim():
-    env = simpy.Environment()
-    container = simpy.Container(env, capacity=10)
-    full_event = env.event()
-    env.process(container_producer(env, container, full_event))
-    for _ in range(2):
-        env.process(container_consumer(env, container))
-    env.run(until=full_event)
-    return next(env._eid)
+    def sim():
+        env = simpy.Environment()
+        container = simpy.Container(env, capacity=10)
+        full_event = env.event()
+        env.process(producer(env, container, full_event))
+        for _ in range(2):
+            env.process(consumer(env, container))
+        env.run(until=full_event)
+        return next(env._eid)
 
-
-def container_producer(env, container, full_event):
-    while True:
-        yield container.put(1)
-        if container.level == container.capacity:
-            full_event.succeed()
-        yield env.timeout(1)
-
-
-def container_consumer(env, container):
-    while True:
-        yield container.get(1)
-        yield env.timeout(3)
+    num_events = benchmark(sim)
+    assert num_events == 104
