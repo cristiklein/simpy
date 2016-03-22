@@ -17,7 +17,6 @@ from simpy.resources.resource import (
     Resource, PriorityResource, PreemptiveResource)
 from simpy.resources.container import Container
 from simpy.resources.store import Store, FilterStore
-from simpy.util import test
 
 
 def compile_toc(entries, section_marker='='):
@@ -42,9 +41,6 @@ toc = (
     ('Resources', (
         Resource, PriorityResource, PreemptiveResource, Container, Store,
         FilterStore,
-    )),
-    ('Miscellaneous', (
-        test,
     )),
 )
 
