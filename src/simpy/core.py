@@ -122,7 +122,7 @@ class BaseEnvironment(object):
 
                 # Schedule the event with before all regular timeouts.
                 until = Event(self)
-                until.ok = True
+                until._ok = True
                 until._value = None
                 self.schedule(until, URGENT, at - self.now)
 
@@ -220,7 +220,7 @@ class Environment(BaseEnvironment):
         for callback in callbacks:
             callback(event)
 
-        if not event.ok and not hasattr(event, 'defused'):
+        if not event._ok and not event.defused:
             # The event has failed and has not been defused. Crash the
             # environment.
             # Create a copy of the failure exception with a new traceback.
