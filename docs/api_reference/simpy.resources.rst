@@ -58,6 +58,12 @@ Stores --- ``simpy.resources.store``
 .. autoclass:: Store
    :members:
 
+.. autoclass:: PriorityItem(priority, item)
+   :members: priority, item
+
+.. autoclass:: PriorityStore
+   :members:
+
 .. autoclass:: FilterStore
    :members:
 

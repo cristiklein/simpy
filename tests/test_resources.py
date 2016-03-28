@@ -473,6 +473,48 @@ def test_store_cancel(env):
     env.run()
 
 
+def test_priority_store_item_priority(env):
+    pstore = simpy.PriorityStore(env, 3)
+    log = []
+
+    def getter(wait):
+        yield env.timeout(wait)
+        item = yield pstore.get()
+        log.append(item)
+
+    # Do not specify priority; the items themselves will be compared to
+    # determine priority.
+    env.process((pstore.put(s) for s in 'bcadefg'))
+    env.process(getter(1))
+    env.process(getter(2))
+    env.process(getter(3))
+    env.run()
+    assert log == ['a', 'b', 'c']
+
+
+def test_priority_store_stable_order(env):
+    pstore = simpy.PriorityStore(env, 3)
+    log = []
+
+    def getter(wait):
+        yield env.timeout(wait)
+        _, item = yield pstore.get()
+        log.append(item)
+
+    items = [object() for _ in range(3)]
+
+    # Unorderable items are inserted with same priority.
+    env.process((pstore.put(simpy.PriorityItem(0, item)) for item in items))
+    env.process(getter(1))
+    env.process(getter(2))
+    env.process(getter(3))
+    env.run()
+
+    # Since the priorities were the same for all items, ensure that items are
+    # retrieved in insertion order.
+    assert log == items
+
+
 def test_filter_store(env):
     def pem(env):
         store = simpy.FilterStore(env, capacity=2)
