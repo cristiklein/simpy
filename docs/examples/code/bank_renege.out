@@ -1,0 +1,15 @@
+Bank renege
+ 0.0000 Customer00: Here I am
+ 0.0000 Customer00: Waited  0.000
+ 3.8595 Customer00: Finished
+10.2006 Customer01: Here I am
+10.2006 Customer01: Waited  0.000
+12.7265 Customer02: Here I am
+13.9003 Customer02: RENEGED after  1.174
+23.7507 Customer01: Finished
+34.9993 Customer03: Here I am
+34.9993 Customer03: Waited  0.000
+37.9599 Customer03: Finished
+40.4798 Customer04: Here I am
+40.4798 Customer04: Waited  0.000
+43.1401 Customer04: Finished
