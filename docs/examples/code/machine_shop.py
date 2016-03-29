@@ -127,7 +127,7 @@ random.seed(RANDOM_SEED)  # This helps reproducing the results
 env = simpy.Environment()
 repairman = simpy.PreemptiveResource(env, capacity=1)
 machines = [Machine(env, 'Machine %d' % i, repairman)
-        for i in range(NUM_MACHINES)]
+            for i in range(NUM_MACHINES)]
 env.process(other_jobs(env, repairman))
 
 # Execute!
