@@ -107,7 +107,7 @@ event or yielding a new event)::
     ...             try:
     ...                 yield self.env.process(self.charge(charge_duration))
     ...             except simpy.Interrupt:
-    ...                 # When we received an interrupt, we stop charing and
+    ...                 # When we received an interrupt, we stop charging and
     ...                 # switch to the "driving" state
     ...                 print('Was interrupted. Hope, the battery is full enough ...')
     ...
