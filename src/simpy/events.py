@@ -112,7 +112,7 @@ class Event(object):
         processed by the :class:`~simpy.core.Environment`.
 
         """
-        return not self.ok and hasattr(self, '_defused')
+        return hasattr(self, '_defused')
 
     @defused.setter
     def defused(self, value):
