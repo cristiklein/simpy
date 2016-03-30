@@ -94,8 +94,10 @@ class Event(object):
 
         A "successful" event is one triggered with :meth:`succeed()`.
 
+        :raises AttributeError: if accessed before the event is triggered.
+
         """
-        return self._value is not PENDING and self._ok
+        return self._ok
 
     @property
     def defused(self):
