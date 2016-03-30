@@ -220,7 +220,7 @@ class Environment(BaseEnvironment):
         for callback in callbacks:
             callback(event)
 
-        if not event._ok and not event.defused:
+        if not event._ok and not hasattr(event, '_defused'):
             # The event has failed and has not been defused. Crash the
             # environment.
             # Create a copy of the failure exception with a new traceback.
