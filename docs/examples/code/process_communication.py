@@ -100,12 +100,12 @@ def message_consumer(name, env, in_pipe):
             # is being modeled this, may, or may not have some
             # significance
             print('LATE Getting Message: at time %d: %s received message: %s' %
-                    (env.now, name, msg[1]))
+                  (env.now, name, msg[1]))
 
         else:
             # message_consumer is synchronized with message_generator
             print('at time %d: %s received message: %s.' %
-                    (env.now, name, msg[1]))
+                  (env.now, name, msg[1]))
 
         # Process does some other work, which may result in missing messages
         yield env.timeout(random.randint(4, 8))
