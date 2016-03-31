@@ -409,7 +409,9 @@ Using Stores you can model the production and consumption of concrete objects
 Store can even contain multiple types of objects.
 
 Beside :class:`Store`, there is a :class:`FilterStore` that lets you use
-a custom function to filter the objects you get out of the store.
+a custom function to filter the objects you get out of the store and
+:class:`PriorityStore` where items come out of the store in priority
+order.
 
 Here is a simple example modelling a generic producer/consumer scenario:
 
@@ -483,3 +485,40 @@ a *Resource* are not what you need:
    0 released Machine(size=1, duration=2) at 2
    2 got Machine(size=1, duration=2) at 2
    2 released Machine(size=1, duration=2) at 4
+
+With a :class:`PriorityStore`, we can model items of differing
+priorities. In the following example, an inspector process finds and
+logs issues that a separate maintainer process repairs in priority
+order.
+
+.. code-block:: python
+
+  >>> env = simpy.Environment()
+  >>> issues = simpy.PriorityStore(env)
+  >>>
+  >>> def inspector(env, issues):
+  ...     for issue in [simpy.PriorityItem('P2', '#0000'),
+  ...                   simpy.PriorityItem('P0', '#0001'),
+  ...                   simpy.PriorityItem('P3', '#0002'),
+  ...                   simpy.PriorityItem('P1', '#0003')]:
+  ...         yield env.timeout(1)
+  ...         print(env.now, 'log', issue)
+  ...         yield issues.put(issue)
+  >>>
+  >>> def maintainer(env, issues):
+  ...     while True:
+  ...         yield env.timeout(3)
+  ...         issue = yield issues.get()
+  ...         print(env.now, 'repair', issue)
+  >>>
+  >>> _ = env.process(inspector(env, issues))
+  >>> _ = env.process(maintainer(env, issues))
+  >>> env.run()
+  1 log PriorityItem(priority='P2', item='#0000')
+  2 log PriorityItem(priority='P0', item='#0001')
+  3 log PriorityItem(priority='P3', item='#0002')
+  3 repair PriorityItem(priority='P0', item='#0001')
+  4 log PriorityItem(priority='P1', item='#0003')
+  6 repair PriorityItem(priority='P1', item='#0003')
+  9 repair PriorityItem(priority='P2', item='#0000')
+  12 repair PriorityItem(priority='P3', item='#0002')

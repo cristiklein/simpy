@@ -12,7 +12,6 @@ contents of the ``*.out`` file.
 """
 import subprocess
 import sys
-import os
 
 from _pytest.assertion.util import _diff_text
 from py._code.code import TerminalRepr
@@ -58,7 +57,8 @@ class ExampleItem(pytest.Item):
             expected = f.read()
 
         output = subprocess.check_output([sys.executable, str(self.pyfile)],
-                stderr=subprocess.STDOUT, universal_newlines=True)
+                                         stderr=subprocess.STDOUT,
+                                         universal_newlines=True)
 
         if output != expected:
             # Hijack the ValueError exception to identify mismatching output.
