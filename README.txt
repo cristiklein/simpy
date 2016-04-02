@@ -87,7 +87,7 @@ To run SimPy’s test suite on your installation, execute:
 
 .. code-block:: bash
 
-    $ python -c "import simpy; simpy.test()"
+    $ py.test --pyargs simpy
 
 
 Getting started

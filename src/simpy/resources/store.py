@@ -8,6 +8,9 @@ retrieved from the store in the order they were put in. The *get* requests of a
 matching a given criterion.
 
 """
+from heapq import heappush, heappop
+from collections import namedtuple
+
 from simpy.core import BoundClass
 from simpy.resources import base
 
@@ -79,6 +82,42 @@ class Store(base.BaseResource):
     def _do_get(self, event):
         if self.items:
             event.succeed(self.items.pop(0))
+
+
+class PriorityItem(namedtuple('PriorityItem', 'priority item')):
+    """Wrap an arbitrary *item* with an orderable *priority*.
+
+    Pairs a *priority* with an arbitrary *item*. Comparisons of *PriorityItem*
+    instances only consider the *priority* attribute, thus supporting use of
+    unorderable items in a :class:`PriorityStore` instance.
+
+    """
+
+    def __lt__(self, other):
+        return self.priority < other.priority
+
+
+class PriorityStore(Store):
+    """Resource with *capacity* slots for storing objects in priority order.
+
+    Unlike :class:`Store` which provides first-in first-out discipline,
+    :class:`PriorityStore` maintains items in sorted order such that
+    the smallest items value are retreived first from the store.
+
+    All items in a *PriorityStore* instance must be orderable; which is to say
+    that items must implement :meth:`~object.__lt__()`. To use unorderable
+    items with *PriorityStore*, use :class:`PriorityItem`.
+
+    """
+
+    def _do_put(self, event):
+        if len(self.items) < self._capacity:
+            heappush(self.items, event.item)
+            event.succeed()
+
+    def _do_get(self, event):
+        if self.items:
+            event.succeed(heappop(self.items))
 
 
 class FilterStore(Store):

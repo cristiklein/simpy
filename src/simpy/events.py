@@ -51,8 +51,8 @@ class Event(object):
     examining *ok* and do further processing with the *value* it has produced.
 
     Failed events are never silently ignored and will raise an exception upon
-    being processed. If a callback handles an exception, it must set *defused*
-    flag to ``True`` to prevent this.
+    being processed. If a callback handles an exception, it must set :attr:`defused`
+    to ``True`` to prevent this.
 
     This class also implements ``__and__()`` (``&``) and ``__or__()`` (``|``).
     If you concatenate two events using one of these operators,
@@ -89,12 +89,44 @@ class Event(object):
         return self.callbacks is None
 
     @property
+    def ok(self):
+        """Becomes ``True`` when the event has been triggered successfully.
+
+        A "successful" event is one triggered with :meth:`succeed()`.
+
+        :raises AttributeError: if accessed before the event is triggered.
+
+        """
+        return self._ok
+
+    @property
+    def defused(self):
+        """Becomes ``True`` when the failed event's exception is "defused".
+
+        When an event fails (i.e. with :meth:`fail()`), the failed event's
+        `value` is an exception that will be re-raised when the
+        :class:`~simpy.core.Environment` processes the event (i.e. in
+        :meth:`~simpy.core.Environment.step()`).
+
+        It is also possible for the failed event's exception to be defused by
+        setting :attr:`defused` to ``True`` from an event callback. Doing so
+        prevents the event's exception from being re-raised when the event is
+        processed by the :class:`~simpy.core.Environment`.
+
+        """
+        return hasattr(self, '_defused')
+
+    @defused.setter
+    def defused(self, value):
+        self._defused = True
+
+    @property
     def value(self):
         """The value of the event if it is available.
 
         The value is available when the event has been triggered.
 
-        Raise a :exc:`AttributeError` if the value is not yet available.
+        Raises :exc:`AttributeError` if the value is not yet available.
 
         """
         if self._value is PENDING:
@@ -109,7 +141,7 @@ class Event(object):
         chain reactions.
 
         """
-        self.ok = event.ok
+        self._ok = event._ok
         self._value = event._value
         self.env.schedule(self)
 
@@ -117,13 +149,13 @@ class Event(object):
         """Set the event's value, mark it as successful and schedule it for
         processing by the environment. Returns the event instance.
 
-        Raise a :exc:`RuntimeError` if this event has already been triggerd.
+        Raises :exc:`RuntimeError` if this event has already been triggerd.
 
         """
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
 
-        self.ok = True
+        self._ok = True
         self._value = value
         self.env.schedule(self)
         return self
@@ -132,16 +164,16 @@ class Event(object):
         """Set *exception* as the events value, mark it as failed and schedule
         it for processing by the environment. Returns the event instance.
 
-        Raise a :exc:`ValueError` if *exception* is not an :exc:`Exception`.
+        Raises :exc:`ValueError` if *exception* is not an :exc:`Exception`.
 
-        Raise a :exc:`RuntimeError` if this event has already been triggered.
+        Raises :exc:`RuntimeError` if this event has already been triggered.
 
         """
         if self._value is not PENDING:
             raise RuntimeError('%s has already been triggered' % self)
         if not isinstance(exception, BaseException):
             raise ValueError('%s is not an exception.' % exception)
-        self.ok = False
+        self._ok = False
         self._value = exception
         self.env.schedule(self)
         return self
@@ -174,7 +206,7 @@ class Timeout(Event):
         self.callbacks = []
         self._value = value
         self._delay = delay
-        self.ok = True
+        self._ok = True
         env.schedule(self, NORMAL, delay)
 
     def _desc(self):
@@ -200,7 +232,7 @@ class Initialize(Event):
         # The initialization events needs to be scheduled as urgent so that it
         # will be handled before interrupts. Otherwise a process whose
         # generator has not yet been started could be interrupted.
-        self.ok = True
+        self._ok = True
         env.schedule(self, URGENT)
 
 
@@ -217,8 +249,8 @@ class Interruption(Event):
         self.env = process.env
         self.callbacks = [self._interrupt]
         self._value = Interrupt(cause)
-        self.ok = False
-        self.defused = True
+        self._ok = False
+        self._defused = True
 
         if process._value is not PENDING:
             raise RuntimeError('%s has terminated and cannot be interrupted.' %
@@ -328,12 +360,12 @@ class Process(Event):
         while True:
             # Get next event from process
             try:
-                if event.ok:
+                if event._ok:
                     event = self._generator.send(event._value)
                 else:
                     # The process has no choice but to handle the failed event
                     # (or fail itself).
-                    event.defused = True
+                    event._defused = True
 
                     # Create an exclusive copy of the exception for this
                     # process to prevent traceback modifications by other
@@ -347,14 +379,14 @@ class Process(Event):
             except StopIteration as e:
                 # Process has terminated.
                 event = None
-                self.ok = True
+                self._ok = True
                 self._value = e.args[0] if len(e.args) else None
                 self.env.schedule(self)
                 break
             except BaseException as e:
                 # Process has failed.
                 event = None
-                self.ok = False
+                self._ok = False
                 tb = e.__traceback__ if not PY2 else sys.exc_info()[2]
                 # Strip the frame of this function from the traceback as it
                 # does not add any useful information.
@@ -496,7 +528,7 @@ class Condition(Event):
 
     def _build_value(self, event):
         """Build the value of this condition."""
-        if event.ok:
+        if event._ok:
             self._value = ConditionValue()
             self._populate_value(self._value)
 
@@ -508,9 +540,9 @@ class Condition(Event):
 
         self._count += 1
 
-        if not event.ok:
+        if not event._ok:
             # Abort if the event has failed.
-            event.defused = True
+            event._defused = True
             self.fail(event._value)
         elif self._evaluate(self._events, self._count):
             # The condition has been met. The _collect_values callback will
