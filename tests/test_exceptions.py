@@ -167,7 +167,7 @@ def test_callback_exception_handling(env):
     event = env.event()
     event.callbacks.append(callback)
     event.fail(RuntimeError())
-    assert not hasattr(event, 'defused'), 'Event has been defused immediately'
+    assert not event.defused, 'Event has been defused immediately'
     env.run(until=1)
     assert event.defused, 'Event has not been defused'
 
@@ -185,7 +185,7 @@ def test_process_exception_handling(env):
     env.process(pem(env, event))
     event.fail(RuntimeError())
 
-    assert not hasattr(event, 'defused'), 'Event has been defuseed immediately'
+    assert not event.defused, 'Event has been defused immediately'
     env.run(until=1)
     assert event.defused, 'Event has not been defused'
 
