@@ -37,12 +37,14 @@ class Preempted(object):
     information about the preemption.
 
     """
-    def __init__(self, by, usage_since):
+    def __init__(self, by, usage_since, resource):
         self.by = by
         """The preempting :class:`simpy.events.Process`."""
         self.usage_since = usage_since
         """The simulation time at which the preempted process started to use
         the resource."""
+        self.resource = resource
+        """The resource which was lost, i.e., caused the preemption."""
 
 
 class Request(base.Put):
@@ -218,6 +220,7 @@ class PreemptiveResource(PriorityResource):
             if preempt.key > event.key:
                 self.users.remove(preempt)
                 preempt.proc.interrupt(Preempted(by=event.proc,
-                                                 usage_since=preempt.time))
+                                                 usage_since=preempt.time,
+                                                 resource=self))
 
         return super(PreemptiveResource, self)._do_put(event)
