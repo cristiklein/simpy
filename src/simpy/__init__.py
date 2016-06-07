@@ -46,7 +46,8 @@ toc = (
 )
 
 # Use the toc to keep the documentation and the implementation in sync.
-__doc__ = __doc__.format(toc=compile_toc(toc))
+if __doc__:
+    __doc__ = __doc__.format(toc=compile_toc(toc))
 __all__ = [obj.__name__ for section, objs in toc for obj in objs]
 
 __path__ = extend_path(__path__, __name__)
