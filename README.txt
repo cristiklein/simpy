@@ -120,6 +120,7 @@ __ https://simpy.readthedocs.org/en/latest/about/index.html
 __ https://simpy.readthedocs.org/
 __ mailto:python-simpy@googlegroups.com
 __ https://bitbucket.org/simpy/simpy/src
+__ https://gitlab.com/team-simpy/simpy
 __ https://bitbucket.org/simpy/simpy/issues?status=new&status=open
 
 Enjoy simulation programming in SimPy!
