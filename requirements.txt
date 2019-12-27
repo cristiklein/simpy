@@ -16,7 +16,7 @@ pytest==2.9.1
 pytest-benchmark==3.0.0
 pytest-cov==2.2.1
 pytz==2016.2
-requests==2.9.1
+requests==2.20.0
 requests-toolbelt==0.6.0
 six==1.10.0
 snowballstemmer==1.2.1
