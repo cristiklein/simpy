@@ -1,3 +1,5 @@
+**DEPRECATION WARNING: Official SimPy is hosted on [GitLab](https://gitlab.com/team-simpy/simpy).**
+
 SimPy
 =====
 
